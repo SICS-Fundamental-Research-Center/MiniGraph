@@ -1,5 +1,5 @@
-#ifndef MINIGRAPH_THREAD_H
-#define MINIGRAPH_THREAD_H
+#ifndef THREAD_POOL_H
+#define THREAD_POOL_H
 
 #include <atomic>
 #include <functional>
@@ -9,8 +9,6 @@
 #include <queue>
 #include <stdexcept>
 #include <vector>
-
-namespace minigraph {
 
 using std::atomic;
 using std::bind;
@@ -97,8 +95,7 @@ class ThreadPool {
             _task_cv.wait(lock, [this] {
               return !_run || !_tasks.empty();
             });  // wait 直到有 task
-            if (!_run && _tasks.empty())
-              return;
+            if (!_run && _tasks.empty()) return;
             task = move(_tasks.front());  // 按先进先出从队列取一个 task
             _tasks.pop();
           }
@@ -112,5 +109,4 @@ class ThreadPool {
   }
 };
 
-}  // namespace miniGraph
 #endif
