@@ -10,7 +10,7 @@
 #include <stdexcept>
 #include <vector>
 
-namespace miniGraph {
+namespace minigraph {
 
 using std::atomic;
 using std::bind;
