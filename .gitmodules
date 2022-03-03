@@ -1,3 +1,6 @@
 [submodule "thirdparty/jemalloc"]
 	path = thirdparty/jemalloc
 	url = https://github.com/jemalloc/jemalloc
+[submodule "thirdparty/folly"]
+	path = thirdparty/folly
+	url = git@github.com:facebook/folly.git
