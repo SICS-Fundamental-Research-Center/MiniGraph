@@ -4,3 +4,6 @@
 [submodule "thirdparty/folly"]
 	path = thirdparty/folly
 	url = git@github.com:facebook/folly.git
+[submodule "thirdparty/afsm"]
+	path = thirdparty/afsm
+	url = git@github.com:zmij/afsm.git
