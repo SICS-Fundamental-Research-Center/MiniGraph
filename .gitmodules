@@ -7,3 +7,6 @@
 [submodule "thirdparty/afsm"]
 	path = thirdparty/afsm
 	url = git@github.com:zmij/afsm.git
+[submodule "thirdparty/sml"]
+	path = thirdparty/sml
+	url = git@github.com:boost-ext/sml.git
