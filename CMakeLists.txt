@@ -26,7 +26,8 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -Wall")
 find_package(folly REQUIRED)
 
 # Boost-ext sml
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/third_party/sml)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/third_party/sml/include)
+message(STATUS "Including Boost-ext:SML library in: ${CMAKE_CURRENT_SOURCE_DIR}/third_party/sml/include")
 
 macro(install_libminigraph_target target)
   # install
