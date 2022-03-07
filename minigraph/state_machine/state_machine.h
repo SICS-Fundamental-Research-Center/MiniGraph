@@ -33,8 +33,8 @@ struct GraphSm {
 struct SystemSm {
   auto operator()() const {
     using namespace sml;
-    return make_transition_table(*"run"_s + event<GoOn> = "run"_s,
-                                 "run"_s + event<Fixpoint> = X);
+    return make_transition_table(*"Run"_s + event<GoOn> = "Run"_s,
+                                 "Run"_s + event<Fixpoint> = X);
   }
 };
 
@@ -42,18 +42,15 @@ template <typename GID_T, typename GRAPH_T>
 class StateMachine {
  public:
   StateMachine(const std::unordered_map<GID_T, GRAPH_T>& id_ptr) {
-    graph_state_ = std::make_shared<
-        std::unordered_map<GID_T, std::shared_ptr<sml::sm<GraphSm>>>>();
-    system_state_ = std::make_shared<sml::sm<SystemSm>>();
+    graph_state_ = std::make_unique<
+        std::unordered_map<GID_T, std::unique_ptr<sml::sm<GraphSm>>>>();
+    system_state_ = std::make_unique<sml::sm<SystemSm>>();
     for (auto& iter : id_ptr) {
       graph_state_->insert(
-          std::make_pair(iter.first, std::make_shared<sml::sm<GraphSm>>()));
-    }
-    for (auto& iter : *graph_state_) {
-      iter.second->visit_current_states(
-          [](auto state) { std::cout << state.c_str() << std::endl; });
+          std::make_pair(iter.first, std::make_unique<sml::sm<GraphSm>>()));
     }
   };
+
   ~StateMachine(){};
 
   void show_graph_state(const GID_T& gid) {
@@ -65,7 +62,7 @@ class StateMachine {
     }
   };
 
-  bool is_graph_state(const GID_T& gid, const char& event) {
+  bool graph_is(const GID_T& gid, const char& event) {
     assert(event == 'I' || event == 'A' || event == 'R' || event == 'C' ||
            event == 'X');
     auto iter = graph_state_->find(gid);
@@ -89,6 +86,26 @@ class StateMachine {
       }
     }
     return false;
+  };
+
+  bool is_terminate() {
+    using namespace sml;
+    bool tag = false;
+    unsigned count = 0;
+    for (auto& iter : *graph_state_) {
+      iter.second->is("RT"_s) ? ++count : NULL;
+    }
+    if (count < graph_state_->size()) {
+      for (auto& iter : *graph_state_) {
+        iter.second->process_event(GoOn{});
+        assert(iter->second->is("Idle"_s));
+      }
+      return false;
+    } else {
+      system_state_->process_event(Fixpoint{});
+      assert(system_state_->is(X));
+      return true;
+    }
   };
 
   bool ProvessEvent(GID_T gid, const char& event) {
@@ -134,9 +151,9 @@ class StateMachine {
   }
 
  private:
-  std::shared_ptr<std::unordered_map<GID_T, std::shared_ptr<sml::sm<GraphSm>>>>
+  std::unique_ptr<std::unordered_map<GID_T, std::unique_ptr<sml::sm<GraphSm>>>>
       graph_state_ = nullptr;
-  std::shared_ptr<sml::sm<SystemSm>> system_state_ = nullptr;
+  std::unique_ptr<sml::sm<SystemSm>> system_state_ = nullptr;
 };
 
 }  // namespace minigraph
