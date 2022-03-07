@@ -1,13 +1,13 @@
 project(MiniGraph)
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.0)
 set(MINIGRAPH_COPYRIGHT_YEAR "2022")
 set(CMAKE_CXX_STANDARD 17)
 
-###### Set default cmake type to Release ######
+###### Set default cmake type to Debug ######
 if(NOT CMAKE_BUILD_TYPE)
   # cmake default flags with relwithdebinfo is -O2 -g
   # cmake default flags with release is -O3 -DNDEBUG
-  set(CMAKE_BUILD_TYPE "Release")
+  set(CMAKE_BUILD_TYPE "Debug")
 endif()
 message(STATUS "[MiniGraph] will build in type: ${CMAKE_BUILD_TYPE}")
 
@@ -21,8 +21,12 @@ set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -Wall")
 
-####### Find library ######
+####### Find library dependencies ######
+# Folly
 find_package(folly REQUIRED)
+
+# Boost-ext sml
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/third_party/sml)
 
 macro(install_libminigraph_target target)
   # install
@@ -35,17 +39,17 @@ macro(install_libminigraph_target target)
 endmacro()
 
 ###### Generate MiniGraph ######
-file(GLOB_RECURSE CORE_SRC_FILES 
-    "minigraph/*.cc" 
+file(GLOB_RECURSE CORE_SRC_FILES
+    "minigraph/*.cc"
     "minigraph/*.cpp"
 )
 add_library(${PROJECT_NAME}-lite ${CORE_SRC_FILES})
 install_libminigraph_target(${PROJECT_NAME}-lite)
-target_include_directories(${PROJECT_NAME}-lite PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/minigraph thirdparty/sml/include)
+target_include_directories(${PROJECT_NAME}-lite PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/minigraph third_party/sml/include)
 
 
 add_executable(analytical_system_components examples/system_components/state_machine/test_state_machine.cc examples/system_components/run_anal_system.cc ${CORE_SRC_FILES})
-target_include_directories(analytical_system_components PRIVATE examples/system_components thirdparty/sml/include ${CMAKE_CURRENT_SOURCE_DIR}/minigraph)
+target_include_directories(analytical_system_components PRIVATE examples/system_components third_party/sml/include ${CMAKE_CURRENT_SOURCE_DIR}/minigraph)
 
 set_target_properties(analytical_system_components PROPERTIES OUTPUT_NAME run_anal_system)
 target_link_libraries(analytical_system_components ${PROJECT_NAME}-lite)
@@ -58,7 +62,7 @@ file(GLOB_RECURSE FILES_NEED_FORMAT "minigraph/*.cc"
                                     "examples/*.h"
                                     "examples/*.cc")
 foreach (file_path ${FILES_NEED_FORMAT})
-  if (${file_path} MATCHES ".*thirdparty.*")
+  if (${file_path} MATCHES ".*third_party.*")
     list(REMOVE_ITEM FILES_NEED_FORMAT ${file_path})
   endif ()
 endforeach ()
@@ -94,9 +98,9 @@ endif()
 #message(STATUS "[MiniGraph] CP: " ${CMAKE_INSTALL_PREFIX}/lib)
 
 
-#include_directories(thirdparty)
+#include_directories(third_party)
 #include_directories(minigraph)
-#macro(FIND_INCLUDE_DIR result curdir)  
+#macro(FIND_INCLUDE_DIR result curdir)
 #    file(GLOB_RECURSE children "${curdir}/*.hpp" "${curdir}/*.h" )
 #    message(STATUS "children= ${children}")
 #    set(dirlist "")
@@ -121,7 +125,7 @@ endif()
 #                                    "examples/*.cpp"
 #                                    )
 #foreach (file_path ${FILES_NEED_FORMAT})
-#if (${file_path} MATCHES ".*thirdparty.*")
+#if (${file_path} MATCHES ".*third_party.*")
 #  list(REMOVE_ITEM FILES_NEED_FORMAT ${file_path})
 #endif ()
 #endforeach ()
