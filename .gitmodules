@@ -1,12 +1,4 @@
-[submodule "thirdparty/jemalloc"]
-	path = thirdparty/jemalloc
-	url = https://github.com/jemalloc/jemalloc
-[submodule "thirdparty/folly"]
-	path = thirdparty/folly
-	url = git@github.com:facebook/folly.git
-[submodule "thirdparty/afsm"]
-	path = thirdparty/afsm
-	url = git@github.com:zmij/afsm.git
-[submodule "thirdparty/sml"]
-	path = thirdparty/sml
-	url = git@github.com:boost-ext/sml.git
+[submodule "third_party/sml"]
+	path = third_party/sml
+	url = https://github.com/boost-ext/sml.git
+	branch = v1.1.4
