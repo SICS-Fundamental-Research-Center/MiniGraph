@@ -1,0 +1,2 @@
+/usr/bin/ar qc libMiniGraph-lite.a  CMakeFiles/MiniGraph-lite.dir/minigraph/state_machine/state_machine.cc.o
+/usr/bin/ranlib libMiniGraph-lite.a

@@ -1,0 +1,9 @@
+/home/zhuxiaoke/project/graph_computing/SICS/MiniGraph/build/CMakeFiles/install/strip.dir
+/home/zhuxiaoke/project/graph_computing/SICS/MiniGraph/build/CMakeFiles/install/local.dir
+/home/zhuxiaoke/project/graph_computing/SICS/MiniGraph/build/CMakeFiles/install.dir
+/home/zhuxiaoke/project/graph_computing/SICS/MiniGraph/build/CMakeFiles/analytical_system_components.dir
+/home/zhuxiaoke/project/graph_computing/SICS/MiniGraph/build/CMakeFiles/MiniGraph-lite.dir
+/home/zhuxiaoke/project/graph_computing/SICS/MiniGraph/build/CMakeFiles/clformat.dir
+/home/zhuxiaoke/project/graph_computing/SICS/MiniGraph/build/CMakeFiles/list_install_components.dir
+/home/zhuxiaoke/project/graph_computing/SICS/MiniGraph/build/CMakeFiles/edit_cache.dir
+/home/zhuxiaoke/project/graph_computing/SICS/MiniGraph/build/CMakeFiles/rebuild_cache.dir

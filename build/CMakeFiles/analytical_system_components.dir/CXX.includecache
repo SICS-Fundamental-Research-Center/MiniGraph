@@ -1,0 +1,36 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+../minigraph/state_machine/state_machine.h
+boost/sml.hpp
+-
+assert.h
+-
+iostream
+-
+map
+-
+memory
+-
+stdio.h
+-
+unordered_map
+-
+
+../thirdparty/sml/include/boost/sml.hpp
+
+/home/zhuxiaoke/project/graph_computing/SICS/MiniGraph/examples/system_components/state_machine/test_state_machine.cc
+state_machine/state_machine.h
+/home/zhuxiaoke/project/graph_computing/SICS/MiniGraph/examples/system_components/state_machine/state_machine/state_machine.h
+iostream
+-
+
+/home/zhuxiaoke/project/graph_computing/SICS/MiniGraph/minigraph/state_machine/state_machine.cc
+state_machine/state_machine.h
+/home/zhuxiaoke/project/graph_computing/SICS/MiniGraph/minigraph/state_machine/state_machine/state_machine.h
+
