@@ -49,8 +49,8 @@ install_libminigraph_target(${PROJECT_NAME}-lite)
 target_include_directories(${PROJECT_NAME}-lite PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/minigraph third_party/sml/include)
 
 
-add_executable(analytical_system_components examples/system_components/state_machine/test_state_machine.cc examples/system_components/run_anal_system.cc ${CORE_SRC_FILES})
-target_include_directories(analytical_system_components PRIVATE examples/system_components third_party/sml/include ${CMAKE_CURRENT_SOURCE_DIR}/minigraph)
+add_executable(analytical_system_components test/system_components/state_machine/test_state_machine.cpp ${CORE_SRC_FILES})
+target_include_directories(analytical_system_components PRIVATE test/system_components third_party/sml/include ${CMAKE_CURRENT_SOURCE_DIR}/minigraph)
 
 set_target_properties(analytical_system_components PROPERTIES OUTPUT_NAME run_anal_system)
 target_link_libraries(analytical_system_components ${PROJECT_NAME}-lite)
@@ -60,8 +60,14 @@ install_libminigraph_target(analytical_system_components)
 ###### Format code ######
 file(GLOB_RECURSE FILES_NEED_FORMAT "minigraph/*.cc"
                                     "minigraph/*.h"
+                                    "minigraph/*.cpp"
                                     "examples/*.h"
-                                    "examples/*.cc")
+                                    "examples/*.cc"
+                                    "examples/*.cpp"
+                                    "test/*.h"
+                                    "test/*.cc"
+                                    "test/*.cpp"
+                                    )
 foreach (file_path ${FILES_NEED_FORMAT})
   if (${file_path} MATCHES ".*third_party.*")
     list(REMOVE_ITEM FILES_NEED_FORMAT ${file_path})
