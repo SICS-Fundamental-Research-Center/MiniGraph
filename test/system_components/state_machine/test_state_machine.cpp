@@ -1,5 +1,7 @@
-#include "state_machine/state_machine.h"
 #include <iostream>
+
+#include "state_machine/state_machine.h"
+
 using std::cout;
 using std::endl;
 int main() {
