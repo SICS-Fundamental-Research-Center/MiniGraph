@@ -1,4 +1,5 @@
 #include "utility/logging.h"
+
 using folly::initLogging;
 using folly::LoggerDB;
 using folly::parseLogConfig;
