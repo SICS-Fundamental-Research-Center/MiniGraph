@@ -1,4 +1,5 @@
-Logging Configuration of Folly
+Logging Configuration of Folly 
+see https://github.com/facebook/folly/blob/main/folly/logging/docs/Config.md for more details.
 =====================
 
 Overview

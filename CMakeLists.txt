@@ -54,8 +54,8 @@ endmacro()
 
 ###### Generate MiniGraph ######
 #SET(FAB "STATEMACHINE" CACHE STRING "user-specified option")
-SET(USEAGE "STATEMACHINE" CACHE STRING "Some user-specified option")
-#cmake -DUSEAGE:STRING=LOGGING
+SET(USAGE "STATEMACHINE" CACHE STRING "Some user-specified option")
+#cmake -DUSAGE:STRING=LOGGING
 
 set(EXAMPLES_DIR ${PROJECT_SOURCE_DIR}/examples)
 set(TEST_DIR ${PROJECT_SOURCE_DIR}/test)
@@ -68,21 +68,26 @@ add_library(${PROJECT_NAME}-lite ${CORE_SRC_FILES})
 install_libminigraph_target(${PROJECT_NAME}-lite)
 target_include_directories(${PROJECT_NAME}-lite PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/minigraph third_party/sml/include)
 
-if(${USEAGE} MATCHES "STATEMACHINE")
-  message(STATUS "[MiniGraph] TEST: |${USEAGE}|")
+if(${USAGE} MATCHES "STATEMACHINE")
+  message(STATUS "[MiniGraph] TEST: |${USAGE}|")
   add_executable(analytical_system_components ${TEST_DIR}/system_components/state_machine/test_state_machine.cpp ${CORE_SRC_FILES})
   target_include_directories(analytical_system_components PRIVATE ${TEST_DIR}/system_components third_party/sml/include ${CMAKE_CURRENT_SOURCE_DIR}/minigraph)
   set_target_properties(analytical_system_components PROPERTIES OUTPUT_NAME run_anal_system)
   target_link_libraries(analytical_system_components ${PROJECT_NAME}-lite)
   install_libminigraph_target(analytical_system_components)
-elseif(${USEAGE} MATCHES  "LOGGING")
+elseif(${USAGE} MATCHES  "LOGGING")
   add_executable(analytical_utility ${TEST_DIR}/logging/test_logging.cpp ${CORE_SRC_FILES})
   target_include_directories(analytical_utility PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/minigraph)
   set_target_properties(analytical_utility PROPERTIES OUTPUT_NAME run_anal_system)
   target_link_libraries(analytical_utility ${PROJECT_NAME}-lite ${FOLLY_LIBRARIES})
   install_libminigraph_target(analytical_utility)
+elseif(${USAGE} MATCHES  "THREADPOOL")
+  add_executable(analytical_utility ${TEST_DIR}/system_components/thread_pool/test_thread_pool.cpp ${CORE_SRC_FILES})
+  target_include_directories(analytical_utility PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/minigraph)
+  set_target_properties(analytical_utility PROPERTIES OUTPUT_NAME run_anal_system)
+  target_link_libraries(analytical_utility ${PROJECT_NAME}-lite ${FOLLY_LIBRARIES})
+  install_libminigraph_target(analytical_utility)
 endif()
-
 
 ###### Format code ######
 file(GLOB_RECURSE FILES_NEED_FORMAT "minigraph/*.cc"
