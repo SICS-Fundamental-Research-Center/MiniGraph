@@ -2,10 +2,11 @@
 #include <chrono>
 #include <iostream>
 
-#include "utility/thread_pool.h"
 #include <folly/executors/CPUThreadPoolExecutor.h>
 #include <folly/executors/IOThreadPoolExecutor.h>
 #include <folly/futures/Future.h>
+
+#include "utility/thread_pool.h"
 
 using std::cout;
 using std::endl;
