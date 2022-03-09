@@ -2,6 +2,3 @@
 	path = third_party/sml
 	url = https://github.com/boost-ext/sml.git
 	branch = v1.1.4
-[submodule "third_party/folly"]
-	path = third_party/folly
-	url = git@github.com:facebook/folly.git
