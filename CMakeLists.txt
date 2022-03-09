@@ -24,6 +24,17 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -Wall")
 ####### Find library dependencies ######
 # Folly
 find_package(folly REQUIRED)
+if (NOT TARGET Folly::folly)
+  include("${FOLLY_CMAKE_DIR}/folly-targets.cmake")
+endif()
+set(FOLLY_LIBRARIES Folly::folly)
+if (NOT folly_FIND_QUIETLY)
+  message(STATUS "Found folly: ${PACKAGE_PREFIX_DIR}")
+endif()
+
+# gflag
+find_package(gflags REQUIRED)
+
 
 # Boost-ext sml
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/third_party/sml/include)
@@ -40,6 +51,13 @@ macro(install_libminigraph_target target)
 endmacro()
 
 ###### Generate MiniGraph ######
+#SET(FAB "STATEMACHINE" CACHE STRING "user-specified option")
+SET(USAGE "STATEMACHINE" CACHE STRING "Some user-specified option")
+#cmake -DUSAGE:STRING=LOGGING
+
+set(EXAMPLES_DIR ${PROJECT_SOURCE_DIR}/examples)
+set(TEST_DIR ${PROJECT_SOURCE_DIR}/test)
+
 file(GLOB_RECURSE CORE_SRC_FILES
     "minigraph/*.cc"
     "minigraph/*.cpp"
@@ -48,14 +66,26 @@ add_library(${PROJECT_NAME}-lite ${CORE_SRC_FILES})
 install_libminigraph_target(${PROJECT_NAME}-lite)
 target_include_directories(${PROJECT_NAME}-lite PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/minigraph third_party/sml/include)
 
-
-add_executable(analytical_system_components test/system_components/state_machine/test_state_machine.cpp ${CORE_SRC_FILES})
-target_include_directories(analytical_system_components PRIVATE test/system_components third_party/sml/include ${CMAKE_CURRENT_SOURCE_DIR}/minigraph)
-
-set_target_properties(analytical_system_components PROPERTIES OUTPUT_NAME run_anal_system)
-target_link_libraries(analytical_system_components ${PROJECT_NAME}-lite)
-install_libminigraph_target(analytical_system_components)
-
+if(${USAGE} MATCHES "STATEMACHINE")
+  message(STATUS "[MiniGraph] TEST: |${USAGE}|")
+  add_executable(analytical_system_components ${TEST_DIR}/system_components/state_machine/test_state_machine.cpp ${CORE_SRC_FILES})
+  target_include_directories(analytical_system_components PRIVATE ${TEST_DIR}/system_components third_party/sml/include ${CMAKE_CURRENT_SOURCE_DIR}/minigraph)
+  set_target_properties(analytical_system_components PROPERTIES OUTPUT_NAME run_anal_system)
+  target_link_libraries(analytical_system_components ${PROJECT_NAME}-lite)
+  install_libminigraph_target(analytical_system_components)
+elseif(${USAGE} MATCHES  "LOGGING")
+  add_executable(analytical_utility ${TEST_DIR}/logging/test_logging.cpp ${CORE_SRC_FILES})
+  target_include_directories(analytical_utility PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/minigraph)
+  set_target_properties(analytical_utility PROPERTIES OUTPUT_NAME run_anal_system)
+  target_link_libraries(analytical_utility ${PROJECT_NAME}-lite ${FOLLY_LIBRARIES})
+  install_libminigraph_target(analytical_utility)
+elseif(${USAGE} MATCHES  "THREADPOOL")
+  add_executable(analytical_utility ${TEST_DIR}/system_components/thread_pool/test_thread_pool.cpp ${CORE_SRC_FILES})
+  target_include_directories(analytical_utility PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/minigraph)
+  set_target_properties(analytical_utility PROPERTIES OUTPUT_NAME run_anal_system)
+  target_link_libraries(analytical_utility ${PROJECT_NAME}-lite ${FOLLY_LIBRARIES})
+  install_libminigraph_target(analytical_utility)
+endif()
 
 ###### Format code ######
 file(GLOB_RECURSE FILES_NEED_FORMAT "minigraph/*.cc"
@@ -89,161 +119,3 @@ if(BUILD_LIBGRAPELITE_DOCS)
                     VERBATIM)
 endif()
 
-
-#include_directories(SYSTEM ${MPI_CXX_INCLUDE_PATH})
-
-
-
-#message(STATUS "[MiniGraph]" ${CMAKE_CURRENT_SOURCE_DIR})
-#get_property(dirs DIRECTORY ${CMAKE_SOURCE_DIR} PROPERTY INCLUDE_DIRECTORIES)
-#message(">>> include_dirs=${dirs}") #打印一下目录情况
-#option(USE_JEMALLOC "Whether to use jemalloc." OFF)
-#
-#
-#
-#message(STATUS "[MiniGraph] CP: " ${CMAKE_INSTALL_RPATH})
-#message(STATUS "[MiniGraph] CP: " ${CMAKE_INSTALL_PREFIX}/lib)
-
-
-#include_directories(third_party)
-#include_directories(minigraph)
-#macro(FIND_INCLUDE_DIR result curdir)
-#    file(GLOB_RECURSE children "${curdir}/*.hpp" "${curdir}/*.h" )
-#    message(STATUS "children= ${children}")
-#    set(dirlist "")
-#    foreach(child ${children})
-#        string(REGEX REPLACE "(.*)/.*" "\\1" LIB_NAME ${child})
-#        if(IS_DIRECTORY ${LIB_NAME})
-#            LIST(APPEND dirlist ${LIB_NAME})
-#        endif()
-#    endforeach()
-#    set(${result} ${dirlist})
-#endmacro()
-#
-#
-#
-#file(GLOB_RECURSE FILES_NEED_FORMAT "minigraph/*.cc"
-#                                    "minigraph/*.h"
-#                                    "minigraph/*.hpp"
-#                                    "minigraph/*.cpp"
-#                                    "examples/*.h"
-#                                    "examples/*.hpp"
-#                                    "examples/*.cc"
-#                                    "examples/*.cpp"
-#                                    )
-#foreach (file_path ${FILES_NEED_FORMAT})
-#if (${file_path} MATCHES ".*third_party.*")
-#  list(REMOVE_ITEM FILES_NEED_FORMAT ${file_path})
-#endif ()
-#endforeach ()
-#
-#message(STATUS "[MiniGraph] ${FILES_NEED_FORMAT}")
-#
-#
-#
-####### Find Libraies ######
-#
-## find gflags-------------------------------------------------------------------
-#include("cmake/FindGFlags.cmake")
-#if (NOT GFLAGS_FOUND)
-#  message(STATUS "gflags not found, build without gflags")
-#else ()
-#  include_directories(SYSTEM ${GFLAGS_INCLUDE_DIRS})
-#endif ()
-#
-#
-#
-####### Generate libminigraph ######
-#
-#set(EXAMPLES_DIR ${PROJECT_SOURCE_DIR}/examples)
-#
-#message(STATUS "[MiniGraph] Project source DIR" "${PROJECT_SOURCE_DIR}")
-#
-#install(DIRECTORY ${EXAMPLES_DIR}/system_components/thread_pool
-#        DESTINATION include/minigraph/analytical_apps
-#        FILES_MATCHING
-#        PATTERN "*.h"
-#)
-
-#macro(install_libminigraph_target target)
-#  # install
-#  install(TARGETS ${target}
-#          EXPORT libminigraph-targets
-#          ARCHIVE DESTINATION lib
-#          LIBRARY DESTINATION lib
-#          RUNTIME DESTINATION bin
-#  )
-#endmacro()
-#
-#
-#file(GLOB_RECURSE CORE_SRC_FILES "minigraph/*.cc")
-##add_library(MiniGraph ${CORE_SRC_FILES})
-#install_libminigraph_target(MiniGraph)
-#
-#target_link_libraries(MiniGraph ${GLOG_LIBRARIES})
-#message(STATUS "[MiniGraph]" "Core_SRC_FILES: " "${CORE_SRC_FILES}")
-#
-#
-#
-#
-
-
-
-#
-#set(MINIGRAPH_NUM_TEST_THREADS "" CACHE STRING "Maximum number of threads to use when running tests (default: number of physical cores)")
-#
-#if(NOT MINIGRAPH_NUM_TEST_THREADS)
-#  cmake_host_system_information(RESULT MINIGRAPH_NUM_TEST_THREADS QUERY NUMBER_OF_PHYSICAL_CORES)
-#endif()
-#if(MINIGRAPH_NUM_TEST_THREADS LESS_EQUAL 0)
-#  set(MINIGRAPH_NUM_TEST_THREADS 1)
-#endif()
-#
-#
-#set(CMAKE_CXX_STANDARD 17)
-#set(CMAKE_CXX_STANDARD_REQUIRED ON)
-#set(CMAKE_CXX_EXTENSIONS OFF) #...without compiler extensions like gnu++11
-#set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-#
-## Always include debug info
-#add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:-g>")
-#
-## GCC
-#if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-#  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 7)
-#    message(FATAL_ERROR "gcc must be version 7 or higher. Found ${CMAKE_CXX_COMPILER_VERSION}.")
-#  endif()
-#
-#  add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:-Wall;-Wextra>")
-#
-#  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 11)
-#    add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:-Werror>")
-#  endif()
-#endif()
-#
-####### Source finding ######
-## Core libraries (lib)
-#add_subdirectory(libminigraph)
-##add_subdirectory(tools)
-#
-#set(MINIGRAPH_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/libutil)
-#
-####### Find libraries ######
-#
-## Find jemalloc-----------------------------------------------------------------
-#if (USE_JEMALLOC)
-#  include("cmake/FindJemalloc.cmake")
-#  if (NOT JEMALLOC_FOUND)
-#    message(STATUS "jemalloc not found, build without jemalloc")
-#  else ()
-#    add_definitions(-DUSE_JEMALLOC)
-#    include_directories(SYSTEM ${JEMALLOC_INCLUDE_DIRS})
-#  endif ()
-#endif ()
-#
-#
-#
-#
-
-#
-#
