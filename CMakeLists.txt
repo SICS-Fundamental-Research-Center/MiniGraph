@@ -24,8 +24,6 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -Wall")
 ####### Find library dependencies ######
 # Folly
 find_package(folly REQUIRED)
-#set_and_check(FOLLY_INCLUDE_DIR /usr/local/include/folly)
-set_and_check(FOLLY_CMAKE_DIR /usr/local/lib/cmake/folly)
 if (NOT TARGET Folly::folly)
   include("${FOLLY_CMAKE_DIR}/folly-targets.cmake")
 endif()
