@@ -1,13 +1,16 @@
 #ifndef MINIGRAPH_STATE_MACHINE_H_
 #define MINIGRAPH_STATE_MACHINE_H_
 
-#include <boost/sml.hpp>
 #include <assert.h>
+#include <stdio.h>
+
 #include <iostream>
 #include <map>
 #include <memory>
-#include <stdio.h>
 #include <unordered_map>
+
+#include <boost/sml.hpp>
+
 
 namespace minigraph {
 namespace sml = boost::sml;
