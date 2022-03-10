@@ -1,12 +1,10 @@
 
-#include <chrono>
-#include <iostream>
-
+#include "utility/thread_pool.h"
 #include <folly/executors/CPUThreadPoolExecutor.h>
 #include <folly/executors/IOThreadPoolExecutor.h>
 #include <folly/futures/Future.h>
-
-#include "utility/thread_pool.h"
+#include <chrono>
+#include <iostream>
 
 using std::cout;
 using std::endl;
@@ -41,8 +39,15 @@ int main() {
   io_executor.add([]() { cout << "IO" << endl; });
   cpu_executor.add([]() { cout << "CPU" << endl; });
   io_executor.add([]() { cout << "IO" << endl; });
-  minigraph::utility::CpuThreadPool cpu_thread_pool(3);
+  minigraph::utility::CPUThreadPool cpu_thread_pool(3, 2);
   minigraph::utility::IOThreadPool io_thread_pool(3, 1);
-  cpu_thread_pool.commit(func, 3);
-  cpu_thread_pool.commit(func, 2);
+  cpu_thread_pool.Commit(func, 3);
+  cpu_thread_pool.Commit(func, 2);
+
+  auto task = std::bind(func, 1);
+  auto task2 = std::bind(func, 2);
+  auto task3 = std::bind(func, 3);
+  cpu_thread_pool.CommitWithPriority(task,0);
+  cpu_thread_pool.CommitWithPriority(task2,0);
+  cpu_thread_pool.CommitWithPriority(task3,2);
 }
