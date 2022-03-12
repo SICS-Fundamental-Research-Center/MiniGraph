@@ -1,7 +1,7 @@
 project(MiniGraph)
 cmake_minimum_required(VERSION 3.0)
 set(MINIGRAPH_COPYRIGHT_YEAR "2022")
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 14)
 
 ###### Set default cmake type to Debug ######
 if(NOT CMAKE_BUILD_TYPE)
@@ -10,6 +10,7 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Debug")
 endif()
 message(STATUS "[MiniGraph] will build in type: ${CMAKE_BUILD_TYPE}")
+option(USE_JEMALLOC "Whether to use jemalloc." ON)
 
 
 
@@ -32,9 +33,23 @@ if (NOT folly_FIND_QUIETLY)
   message(STATUS "Found folly: ${PACKAGE_PREFIX_DIR}")
 endif()
 
+# find jemalloc
+if (USE_JEMALLOC)
+  include("cmake/FindJemalloc.cmake")
+  if (NOT JEMALLOC_FOUND)
+    message(STATUS "jemalloc not found, build without jemalloc")
+  else ()
+    add_definitions(-DUSE_JEMALLOC)
+    include_directories(SYSTEM ${JEMALLOC_INCLUDE_DIRS})
+  endif ()
+endif ()
+
+# find Threads
+set(CMAKE_THREAD_PREFER_PTHREAD ON)
+find_package(Threads REQUIRED)
+
 # gflag
 find_package(gflags REQUIRED)
-
 
 # Boost-ext sml
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/third_party/sml/include)
@@ -51,9 +66,7 @@ macro(install_libminigraph_target target)
 endmacro()
 
 ###### Generate MiniGraph ######
-#SET(FAB "STATEMACHINE" CACHE STRING "user-specified option")
 SET(USAGE "STATEMACHINE" CACHE STRING "Some user-specified option")
-#cmake -DUSAGE:STRING=LOGGING
 
 set(EXAMPLES_DIR ${PROJECT_SOURCE_DIR}/examples)
 set(TEST_DIR ${PROJECT_SOURCE_DIR}/test)
@@ -62,9 +75,11 @@ file(GLOB_RECURSE CORE_SRC_FILES
     "minigraph/*.cc"
     "minigraph/*.cpp"
 )
+
+message(STATUS "CORE_SRC: " ${CORE_SRC_FILES})
 add_library(${PROJECT_NAME}-lite ${CORE_SRC_FILES})
 install_libminigraph_target(${PROJECT_NAME}-lite)
-target_include_directories(${PROJECT_NAME}-lite PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/minigraph third_party/sml/include)
+target_include_directories(${PROJECT_NAME}-lite PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/minigraph third_party/sml/include ${CMAKE_THREAD_LIBS_INIT})
 
 if(${USAGE} MATCHES "STATEMACHINE")
   message(STATUS "[MiniGraph] TEST: |${USAGE}|")
@@ -80,7 +95,14 @@ elseif(${USAGE} MATCHES  "LOGGING")
   target_link_libraries(analytical_utility ${PROJECT_NAME}-lite ${FOLLY_LIBRARIES})
   install_libminigraph_target(analytical_utility)
 elseif(${USAGE} MATCHES  "THREADPOOL")
-  add_executable(analytical_utility ${TEST_DIR}/system_components/thread_pool/test_thread_pool.cpp ${CORE_SRC_FILES})
+  add_executable(analytical_utility ${TEST_DIR}/system_components/thread_pool/test_folly_thread_pool.cpp ${CORE_SRC_FILES})
+  target_include_directories(analytical_utility PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/minigraph)
+  set_target_properties(analytical_utility PROPERTIES OUTPUT_NAME run_anal_system)
+  target_link_libraries(analytical_utility ${PROJECT_NAME}-lite ${FOLLY_LIBRARIES})
+  install_libminigraph_target(analytical_utility)
+elseif(${USAGE} MATCHES  "FILE")
+  add_executable(analytical_utility ${TEST_DIR}/system_components/file_system/test_folly_file.cpp ${CORE_SRC_FILES})
+  message(STATUS "CORE_SRC: " ${CORE_SRC_FILES})
   target_include_directories(analytical_utility PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/minigraph)
   set_target_properties(analytical_utility PROPERTIES OUTPUT_NAME run_anal_system)
   target_link_libraries(analytical_utility ${PROJECT_NAME}-lite ${FOLLY_LIBRARIES})
