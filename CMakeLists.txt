@@ -55,6 +55,10 @@ find_package(gflags REQUIRED)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/third_party/sml/include)
 message(STATUS "Including Boost-ext:SML library in: ${CMAKE_CURRENT_SOURCE_DIR}/third_party/sml/include")
 
+# Boost-ext sml
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/third_party/rapidcsv/src)
+message(STATUS "Including rapidcsv:rapidcsv library in: ${CMAKE_CURRENT_SOURCE_DIR}/third_party/rapidcsv/src")
+
 macro(install_libminigraph_target target)
   # install
   install(TARGETS ${target}
@@ -77,13 +81,13 @@ file(GLOB_RECURSE CORE_SRC_FILES
 )
 
 message(STATUS "CORE_SRC: " ${CORE_SRC_FILES})
-add_library(${PROJECT_NAME}-lite ${CORE_SRC_FILES})
+add_library(${PROJECT_NAME}-lite ${CORE_SRC_FILES} minigraph/utility/io/csr_io_adapter.h minigraph/utility/paritioner/edge_cut_partitioner.cpp minigraph/utility/paritioner/edge_cut_partitioner.h minigraph/portability/sys_types.h)
 install_libminigraph_target(${PROJECT_NAME}-lite)
 target_include_directories(${PROJECT_NAME}-lite PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/minigraph third_party/sml/include ${CMAKE_THREAD_LIBS_INIT})
 
 if(${USAGE} MATCHES "STATEMACHINE")
   message(STATUS "[MiniGraph] TEST: |${USAGE}|")
-  add_executable(analytical_system_components ${TEST_DIR}/system_components/state_machine/test_state_machine.cpp ${CORE_SRC_FILES})
+  add_executable(analytical_system_components ${TEST_DIR}/system_components/state_machine/test_state_machine.cpp ${CORE_SRC_FILES} minigraph/utility/io/io_adapter_base.h)
   target_include_directories(analytical_system_components PRIVATE ${TEST_DIR}/system_components third_party/sml/include ${CMAKE_CURRENT_SOURCE_DIR}/minigraph)
   set_target_properties(analytical_system_components PROPERTIES OUTPUT_NAME run_anal_system)
   target_link_libraries(analytical_system_components ${PROJECT_NAME}-lite)
