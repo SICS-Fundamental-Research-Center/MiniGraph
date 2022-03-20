@@ -4,18 +4,21 @@
 #ifndef MINIGRAPH_UTILITY_IO_CSR_IO_ADAPTER_H
 #define MINIGRAPH_UTILITY_IO_CSR_IO_ADAPTER_H
 
+#include <fstream>
+#include <iostream>
+#include <string>
+
+#include <folly/AtomicHashArray.h>
+#include <folly/AtomicHashMap.h>
+
+#include <sys/stat.h>
+#include <unistd.h>
+
 #include "graphs/immutable_csr.h"
 #include "io_adapter_base.h"
 #include "portability/sys_types.h"
 #include "rapidcsv.h"
 #include "utility/logging.h"
-#include <folly/AtomicHashArray.h>
-#include <folly/AtomicHashMap.h>
-#include <sys/stat.h>
-#include <fstream>
-#include <iostream>
-#include <string>
-#include <unistd.h>
 
 using std::cout;
 using std::endl;
