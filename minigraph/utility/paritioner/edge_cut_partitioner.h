@@ -5,12 +5,13 @@
 #ifndef MINIGRAPH_UTILITY_EDGE_CUT_PARTITIONER_H
 #define MINIGRAPH_UTILITY_EDGE_CUT_PARTITIONER_H
 
-#include "portability/sys_types.h"
-#include "utility/io/csr_io_adapter.h"
-#include "utility/io/io_adapter_base.h"
 #include <folly/AtomicHashMap.h>
 #include <folly/FBVector.h>
 #include <vector>
+
+#include "portability/sys_types.h"
+#include "utility/io/csr_io_adapter.h"
+#include "utility/io/io_adapter_base.h"
 
 namespace minigraph {
 namespace utility {
