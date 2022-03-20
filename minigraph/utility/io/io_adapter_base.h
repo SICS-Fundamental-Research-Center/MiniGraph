@@ -5,11 +5,13 @@
 #ifndef MINIGRAPH_UTILITY_IO_IO_ADAPTER_BASE_H
 #define MINIGRAPH_UTILITY_IO_IO_ADAPTER_BASE_H
 
-#include "graphs/immutable_csr.h"
-#include <folly/AtomicHashArray.h>
-#include <folly/AtomicHashMap.h>
 #include <iostream>
 #include <string>
+
+#include <folly/AtomicHashArray.h>
+#include <folly/AtomicHashMap.h>
+
+#include "graphs/immutable_csr.h"
 
 namespace minigraph {
 namespace utility {
