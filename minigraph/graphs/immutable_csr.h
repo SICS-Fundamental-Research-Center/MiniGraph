@@ -1,8 +1,10 @@
 #ifndef MINIGRAPH_GRAPHS_IMMUTABLECSR_H
 #define MINIGRAPH_GRAPHS_IMMUTABLECSR_H
 
-#include "graphs/graph.h"
-#include "utility/logging.h"
+#include <fstream>
+#include <iostream>
+#include <map>
+
 #include <folly/AtomicHashArray.h>
 #include <folly/AtomicHashMap.h>
 #include <folly/Benchmark.h>
@@ -15,9 +17,9 @@
 #include <folly/portability/GTest.h>
 #include <folly/portability/SysTime.h>
 #include <jemalloc/jemalloc.h>
-#include <fstream>
-#include <iostream>
-#include <map>
+
+#include "graphs/graph.h"
+#include "utility/logging.h"
 
 using std::cout;
 using std::endl;
