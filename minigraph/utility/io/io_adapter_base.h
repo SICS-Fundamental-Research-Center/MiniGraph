@@ -5,13 +5,11 @@
 #ifndef MINIGRAPH_UTILITY_IO_IO_ADAPTER_BASE_H
 #define MINIGRAPH_UTILITY_IO_IO_ADAPTER_BASE_H
 
-#include <iostream>
-#include <string>
-
+#include "graphs/immutable_csr.h"
 #include <folly/AtomicHashArray.h>
 #include <folly/AtomicHashMap.h>
-
-#include "graphs/immutable_csr.h"
+#include <iostream>
+#include <string>
 
 namespace minigraph {
 namespace utility {
@@ -24,6 +22,8 @@ class IOAdapterBase {
   ~IOAdapterBase(){};
 
   virtual bool IsExist(const std::string& pt) const = 0;
+  virtual void MakeDirectory(const std::string& pt) = 0;
+  virtual void Touch(const std::string& pt) = 0;
 };
 
 }  // namespace io
