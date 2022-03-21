@@ -27,6 +27,7 @@ using mode_t = unsigned;
 #define UNLOAD 'U'
 #define NOTHINGCHANGE 'N'
 #define CHANGED 'C'
+#define AGGREGATE 'A'
 #define FIXPOINT 'F'
 #define GOON 'G'
 
@@ -36,4 +37,3 @@ using mode_t = unsigned;
 #define RT 'R'
 #define RC 'C'
 #define TERMINATE 'X'
-#define X 'X'

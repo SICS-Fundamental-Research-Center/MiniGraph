@@ -66,8 +66,8 @@ class StateMachine {
  public:
   StateMachine(const std::vector<GID_T>& vec_gid) {
     for (auto& iter : vec_gid) {
-      graph_state_.insert(std::make_pair(
-          *iter, std::make_unique<sml::sm<GraphStateMachine>>()));
+      graph_state_.insert(
+          std::make_pair(iter, std::make_unique<sml::sm<GraphStateMachine>>()));
     }
   };
 
@@ -83,21 +83,21 @@ class StateMachine {
   };
 
   bool GraphIs(const GID_T& gid, const char& event) const {
-    assert(event == 'I' || event == 'A' || event == 'R' || event == 'C' ||
-           event == 'X');
+    assert(event == IDLE || event == ACTIVE || event == RT || event == RC ||
+           event == TERMINATE);
     auto iter = graph_state_.find(gid);
     using namespace sml;
     if (iter != graph_state_.end()) {
       switch (event) {
-        case 'I':
+        case IDLE:
           return iter->second.is("Idle"_s);
-        case 'A':
+        case ACTIVE:
           return iter->second.is("Active"_s);
-        case 'R':
+        case RT:
           return iter->second.is("RT"_s);
-        case 'C':
+        case RC:
           return iter->second.is("RC"_s);
-        case 'X':
+        case TERMINATE:
           return iter->second.is(X);
         default:
           break;
@@ -128,36 +128,37 @@ class StateMachine {
   bool ProcessEvent(GID_T gid, const char event) {
     using namespace sml;
     std::cout << event << std::endl;
-    assert(event == 'L' || event == 'U' || event == 'N' || event == 'C' ||
-           event == 'A' || event == 'F' || event == 'G');
+    assert(event == LOAD || event == UNLOAD || event == NOTHINGCHANGE ||
+           event == CHANGED || event == AGGREGATE || event == FIXPOINT ||
+           event == GOON);
     auto iter = graph_state_.find(gid);
     if (iter != graph_state_.end()) {
       switch (event) {
-        case 'L':
+        case LOAD:
           iter->second->process_event(Load{});
           assert(iter->second->is("Active"_s));
           break;
-        case 'U':
+        case UNLOAD:
           iter->second->process_event(Unload{});
           assert(iter->second->is("Idle"_s));
           break;
-        case 'N':
+        case NOTHINGCHANGE:
           iter->second->process_event(NothingChanged{});
           assert(iter->second->is("RT"_s));
           break;
-        case 'C':
+        case CHANGED:
           iter->second->process_event(Changed{});
           assert(iter->second->is("RC"_s));
           break;
-        case 'A':
+        case AGGREGATE:
           iter->second->process_event(Aggregate{});
           assert(iter->second->is("Idle"_s));
           break;
-        case 'F':
+        case FIXPOINT:
           iter->second->process_event(Fixpoint{});
           assert(iter->second->is(X));
           break;
-        case 'G':
+        case GOON:
           iter->second->process_event(GoOn{});
           assert(iter->second->is("Idle"_s));
           break;
