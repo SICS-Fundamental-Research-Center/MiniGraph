@@ -82,7 +82,7 @@ file(GLOB_RECURSE CORE_SRC_FILES
 
 message(STATUS "CORE_SRC: " ${CORE_SRC_FILES})
 message(STATUS "[MiniGraph] TEST: |${USAGE}|")
-add_library(${PROJECT_NAME}-lite ${CORE_SRC_FILES} minigraph/utility/io/csr_io_adapter.h minigraph/utility/paritioner/edge_cut_partitioner.h minigraph/portability/sys_types.h minigraph/components/load_component.h minigraph/components/computing_component.h minigraph/components/discharge_component.h test/system_components/test_folly_pc.cpp minigraph/system.cpp minigraph/system.h)
+add_library(${PROJECT_NAME}-lite ${CORE_SRC_FILES} minigraph/utility/io/csr_io_adapter.h minigraph/utility/paritioner/edge_cut_partitioner.h minigraph/portability/sys_types.h minigraph/components/load_component.h minigraph/components/computing_component.h minigraph/components/discharge_component.h test/system_components/test_folly_pc.cpp minigraph/minigraph_sys.h)
 install_libminigraph_target(${PROJECT_NAME}-lite)
 target_include_directories(${PROJECT_NAME}-lite PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/minigraph third_party/sml/include ${CMAKE_THREAD_LIBS_INIT})
 

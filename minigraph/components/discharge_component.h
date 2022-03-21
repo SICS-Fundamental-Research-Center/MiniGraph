@@ -7,6 +7,7 @@
 
 #include "utility/io/csr_io_adapter.h"
 #include "utility/thread_pool.h"
+#include <portability/sys_data_structure.h>
 #include <string>
 
 namespace minigraph {
@@ -21,7 +22,7 @@ class DischargeComponent {
  private:
   std::shared_ptr<utility::IOThreadPool> io_thread_pool_;
   std::shared_ptr<utility::CPUThreadPool> cpu_thread_pool_;
-  std::shared_ptr<graphs::Message<VID_T, VDATA_T, EDATA_T>>
+  // std::shared_ptr<graphs::Message<VID_T, VDATA_T, EDATA_T>>;
 };
 
 }  // namespace components

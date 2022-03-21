@@ -4,21 +4,17 @@
 #ifndef MINIGRAPH_UTILITY_IO_CSR_IO_ADAPTER_H
 #define MINIGRAPH_UTILITY_IO_CSR_IO_ADAPTER_H
 
-#include <fstream>
-#include <iostream>
-#include <string>
-
-#include <folly/AtomicHashArray.h>
-#include <folly/AtomicHashMap.h>
-
-#include <sys/stat.h>
-#include <unistd.h>
-
 #include "graphs/immutable_csr.h"
 #include "io_adapter_base.h"
 #include "portability/sys_types.h"
 #include "rapidcsv.h"
 #include "utility/logging.h"
+#include <folly/AtomicHashArray.h>
+#include <folly/AtomicHashMap.h>
+#include <sys/stat.h>
+#include <fstream>
+#include <iostream>
+#include <string>
 
 using std::cout;
 using std::endl;
@@ -59,6 +55,31 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     struct stat buffer;
     return (stat(pt.c_str(), &buffer) == 0);
   }
+
+  void MakeDirectory(const std::string& pt) override {
+    std::string dir = pt;
+    int len = dir.size();
+    if (dir[len - 1] != '/') {
+      dir[len] = '/';
+      len++;
+    }
+    std::string temp;
+    for (int i = 1; i < len; i++) {
+      if (dir[i] == '/') {
+        temp = dir.substr(0, i);
+        if (access(temp.c_str(), 0) != 0) {
+          if (mkdir(temp.c_str(), 0777) != 0) {
+            VLOG(1) << "failed operaiton.";
+          }
+        }
+      }
+    }
+  }
+
+  void Touch(const std::string& pt) override {
+    std::ofstream file(pt, std::ios::binary);
+    file.close();
+  };
 
  private:
   bool ReadCSV2ImmutableCSR(
@@ -227,15 +248,18 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       XLOG(ERR, "Graph has not been serialized.");
       return false;
     }
-    std::ofstream vertex_file_obj(vertex_pt, std::ios::binary);
-    std::ofstream meta_in_file_obj(meta_in_pt, std::ios::binary);
-    std::ofstream meta_out_file_obj(meta_out_pt, std::ios::binary);
-    std::ofstream localid2globalid_file_obj(localid2globalid_pt,
-                                            std::ios::binary);
-    vertex_file_obj.close();
-    meta_in_file_obj.close();
-    meta_out_file_obj.close();
-    localid2globalid_file_obj.close();
+    if (!IsExist(vertex_pt)) {
+      Touch(vertex_pt);
+    }
+    if (!IsExist(meta_in_pt)) {
+      Touch(meta_in_pt);
+    }
+    if (!IsExist(meta_out_pt)) {
+      Touch(meta_out_pt);
+    }
+    if (!IsExist(localid2globalid_pt)) {
+      Touch(localid2globalid_pt);
+    }
 
     folly::File vertex_file(vertex_pt, O_WRONLY);
     folly::File meta_in_file(meta_in_pt, O_WRONLY);
