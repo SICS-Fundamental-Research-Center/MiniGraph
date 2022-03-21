@@ -53,8 +53,8 @@ int main(int argc, char* argv[]) {
       edge_cut(argv[1], argv[2], argv[3], argv[4], argv[5]);
   edge_cut.RunPartition(3);
 
-  auto csr_io_adapter_ =
-      new minigraph::utility::io::CSRIOAdapter<gid_t, vid_t, vdata_t, edata_t>;
+  auto csr_io_adapter_ = std::make_shared<
+      minigraph::utility::io::CSRIOAdapter<gid_t, vid_t, vdata_t, edata_t>>();
 
   auto immutable_csr =
       new minigraph::graphs::ImmutableCSR<gid_t, vid_t, vdata_t, edata_t>;
