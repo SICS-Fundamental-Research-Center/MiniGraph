@@ -1,6 +1,7 @@
 #ifndef MINIGRAPH_STATE_MACHINE_H_
 #define MINIGRAPH_STATE_MACHINE_H_
 
+#include "portability/sys_types.h"
 #include <boost/sml.hpp>
 #include <folly/AtomicHashMap.h>
 #include <assert.h>
