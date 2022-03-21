@@ -55,7 +55,7 @@ find_package(gflags REQUIRED)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/third_party/sml/include)
 message(STATUS "Including Boost-ext:SML library in: ${CMAKE_CURRENT_SOURCE_DIR}/third_party/sml/include")
 
-# Boost-ext sml
+# RapidCsv
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/third_party/rapidcsv/src)
 message(STATUS "Including rapidcsv:rapidcsv library in: ${CMAKE_CURRENT_SOURCE_DIR}/third_party/rapidcsv/src")
 
@@ -81,16 +81,16 @@ file(GLOB_RECURSE CORE_SRC_FILES
 )
 
 message(STATUS "CORE_SRC: " ${CORE_SRC_FILES})
-add_library(${PROJECT_NAME}-lite ${CORE_SRC_FILES} minigraph/utility/io/csr_io_adapter.h minigraph/utility/paritioner/edge_cut_partitioner.cpp minigraph/utility/paritioner/edge_cut_partitioner.h minigraph/portability/sys_types.h)
+message(STATUS "[MiniGraph] TEST: |${USAGE}|")
+add_library(${PROJECT_NAME}-lite ${CORE_SRC_FILES} minigraph/utility/io/csr_io_adapter.h minigraph/utility/paritioner/edge_cut_partitioner.h minigraph/portability/sys_types.h minigraph/components/load_component.h minigraph/components/computing_component.h minigraph/components/discharge_component.h test/system_components/test_folly_pc.cpp minigraph/system.cpp minigraph/system.h)
 install_libminigraph_target(${PROJECT_NAME}-lite)
 target_include_directories(${PROJECT_NAME}-lite PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/minigraph third_party/sml/include ${CMAKE_THREAD_LIBS_INIT})
 
 if(${USAGE} MATCHES "STATEMACHINE")
-  message(STATUS "[MiniGraph] TEST: |${USAGE}|")
-  add_executable(analytical_system_components ${TEST_DIR}/system_components/state_machine/test_state_machine.cpp ${CORE_SRC_FILES} minigraph/utility/io/io_adapter_base.h)
+  add_executable(analytical_system_components ${TEST_DIR}/system_components/state_machine/test_state_machine.cpp ${CORE_SRC_FILES})
   target_include_directories(analytical_system_components PRIVATE ${TEST_DIR}/system_components third_party/sml/include ${CMAKE_CURRENT_SOURCE_DIR}/minigraph)
   set_target_properties(analytical_system_components PROPERTIES OUTPUT_NAME run_anal_system)
-  target_link_libraries(analytical_system_components ${PROJECT_NAME}-lite)
+  target_link_libraries(analytical_system_components ${PROJECT_NAME}-lite ${FOLLY_LIBRARIES})
   install_libminigraph_target(analytical_system_components)
 elseif(${USAGE} MATCHES  "LOGGING")
   add_executable(analytical_utility ${TEST_DIR}/logging/test_logging.cpp ${CORE_SRC_FILES})
@@ -110,6 +110,13 @@ elseif(${USAGE} MATCHES  "FILE")
   target_include_directories(analytical_utility PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/minigraph)
   set_target_properties(analytical_utility PROPERTIES OUTPUT_NAME run_anal_system)
   target_link_libraries(analytical_utility ${PROJECT_NAME}-lite ${FOLLY_LIBRARIES})
+  install_libminigraph_target(analytical_utility)
+elseif(${USAGE} MATCHES  "PC")
+  add_executable(analytical_utility ${TEST_DIR}/system_components/test_folly_pc.cpp ${CORE_SRC_FILES})
+  message(STATUS "CORE_SRC: " ${CORE_SRC_FILES})
+  target_include_directories(analytical_utility PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/minigraph)
+  set_target_properties(analytical_utility PROPERTIES OUTPUT_NAME run_anal_system)
+  target_link_libraries(analytical_utility ${PROJECT_NAME}-lite ${FOLLY_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
   install_libminigraph_target(analytical_utility)
 endif()
 
