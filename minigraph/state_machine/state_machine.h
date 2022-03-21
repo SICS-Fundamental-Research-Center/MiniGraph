@@ -2,12 +2,14 @@
 #define MINIGRAPH_STATE_MACHINE_H_
 
 #include <boost/sml.hpp>
+#include <folly/AtomicHashMap.h>
 #include <assert.h>
 #include <iostream>
 #include <map>
 #include <memory>
 #include <stdio.h>
 #include <unordered_map>
+#include <vector>
 
 namespace minigraph {
 namespace sml = boost::sml;
@@ -59,13 +61,13 @@ struct SystemStateMachine {
 //
 // system_state_ changed from Run to X only if all state of graphs reach RT, i.e
 // Fixpoint.
-template <typename GID_T, typename GRAPH_T>
+template <typename GID_T>
 class StateMachine {
  public:
-  StateMachine(const std::unordered_map<GID_T, GRAPH_T>& id_to_ptr) {
-    for (auto& iter : id_to_ptr) {
+  StateMachine(const std::vector<GID_T>& vec_gid) {
+    for (auto& iter : vec_gid) {
       graph_state_.insert(std::make_pair(
-          iter.first, std::make_unique<sml::sm<GraphStateMachine>>()));
+          *iter, std::make_unique<sml::sm<GraphStateMachine>>()));
     }
   };
 

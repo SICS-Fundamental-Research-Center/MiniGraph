@@ -81,7 +81,7 @@ file(GLOB_RECURSE CORE_SRC_FILES
 )
 
 message(STATUS "CORE_SRC: " ${CORE_SRC_FILES})
-add_library(${PROJECT_NAME}-lite ${CORE_SRC_FILES} minigraph/utility/io/csr_io_adapter.h minigraph/utility/paritioner/edge_cut_partitioner.cpp minigraph/utility/paritioner/edge_cut_partitioner.h minigraph/portability/sys_types.h)
+add_library(${PROJECT_NAME}-lite ${CORE_SRC_FILES} minigraph/utility/io/csr_io_adapter.h minigraph/utility/paritioner/edge_cut_partitioner.h minigraph/portability/sys_types.h minigraph/components/load_component.h minigraph/components/computing_component.h minigraph/components/discharge_component.h test/system_components/test_folly_pc.cpp minigraph/system.cpp minigraph/system.h)
 install_libminigraph_target(${PROJECT_NAME}-lite)
 target_include_directories(${PROJECT_NAME}-lite PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/minigraph third_party/sml/include ${CMAKE_THREAD_LIBS_INIT})
 
@@ -110,6 +110,13 @@ elseif(${USAGE} MATCHES  "FILE")
   target_include_directories(analytical_utility PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/minigraph)
   set_target_properties(analytical_utility PROPERTIES OUTPUT_NAME run_anal_system)
   target_link_libraries(analytical_utility ${PROJECT_NAME}-lite ${FOLLY_LIBRARIES})
+  install_libminigraph_target(analytical_utility)
+elseif(${USAGE} MATCHES  "PC")
+  add_executable(analytical_utility ${TEST_DIR}/system_components/test_folly_pc.cpp ${CORE_SRC_FILES})
+  message(STATUS "CORE_SRC: " ${CORE_SRC_FILES})
+  target_include_directories(analytical_utility PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/minigraph)
+  set_target_properties(analytical_utility PROPERTIES OUTPUT_NAME run_anal_system)
+  target_link_libraries(analytical_utility ${PROJECT_NAME}-lite ${FOLLY_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
   install_libminigraph_target(analytical_utility)
 endif()
 
