@@ -1,4 +1,5 @@
 #include "utility/logging.h"
+#include <iostream>
 
 using folly::initLogging;
 using folly::LoggerDB;
@@ -15,7 +16,7 @@ int main(int argc, char** argv) {
       std::make_unique<folly::FileHandlerFactory>(), true);
   XLOG(DBG) << "log messages less than INFO will be ignored before initLogging";
 
-  folly::Init init(&argc, &argv);
+  //folly::Init init(&argc, &argv);
 
   XLOG(INFO, "now the normal log settings have been applied");
 
