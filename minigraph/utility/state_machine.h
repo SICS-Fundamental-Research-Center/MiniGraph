@@ -1,5 +1,6 @@
-#ifndef MINIGRAPH_STATE_MACHINE_H_
-#define MINIGRAPH_STATE_MACHINE_H_
+#pragma once
+#ifndef MINIGRAPH_UTILITY_STATE_MACHINE_H_
+#define MINIGRAPH_UTILITY_STATE_MACHINE_H_
 
 #include "portability/sys_types.h"
 #include <boost/sml.hpp>
@@ -13,7 +14,10 @@
 #include <vector>
 
 namespace minigraph {
+namespace utility {
+
 namespace sml = boost::sml;
+using namespace sml;
 
 // Define Events
 struct Load {};
@@ -23,28 +27,35 @@ struct Changed {};
 struct Aggregate {};
 struct Fixpoint {};
 struct GoOn {};
+
 // Define State Machine for each single graph.
 struct GraphStateMachine {
   auto operator()() const {
     using namespace sml;
-    // Create a transition table.
-    // Example:
-    //  Idle(state) + Load(event) = Active(state)
-    return make_transition_table(*"Idle"_s + event<Load> = "Active"_s,
-                                 "Idle"_s + event<Unload> = "Idle"_s,
-                                 "Active"_s + event<NothingChanged> = "RT"_s,
-                                 "Active"_s + event<Changed> = "RC"_s,
-                                 "RC"_s + event<Aggregate> = "Idle"_s,
-                                 "RT"_s + event<GoOn> = "Idle"_s,
-                                 "RT"_s + event<Fixpoint> = X);
+    front::event<Load> event_load;
+    front::event<Unload> event_unload;
+    front::event<NothingChanged> event_nothing_changed;
+    front::event<Changed> event_changed;
+    front::event<Aggregate> event_aggregate;
+    front::event<Fixpoint> event_fix_point;
+    front::event<GoOn> event_go_on;
+    return make_transition_table(
+        *"Idle"_s + event_load = "Active"_s, "Idle"_s + event_unload = "Idle"_s,
+        "Active"_s + event_nothing_changed = "RT"_s,
+        "Active"_s + event_changed = "RC"_s,
+        "RC"_s + event_aggregate = "Idle"_s, "RT"_s + event_go_on = "Idle"_s,
+        "RT"_s + event_fix_point = X);
   }
 };
+
 // State Machine definition for each graph.
 struct SystemStateMachine {
   auto operator()() const {
     using namespace sml;
-    return make_transition_table(*"Run"_s + event<GoOn> = "Run"_s,
-                                 "Run"_s + event<Fixpoint> = X);
+    front::event<GoOn> event_go_on;
+    front::event<Fixpoint> event_fix_point;
+    return make_transition_table(*"Run"_s + event_go_on = "Run"_s,
+                                 "Run"_s + event_fix_point = X);
   }
 };
 
@@ -177,6 +188,7 @@ class StateMachine {
   sml::sm<SystemStateMachine> system_state_;
 };
 
+}  // namespace utility
 }  // namespace minigraph
 
 #endif  // MINIGRAPH_STATE_MACHINE_H_

@@ -9,6 +9,13 @@ namespace minigraph {
 
 template <typename GID_T, typename VID_T, typename VDATA_T, typename EDATA_T>
 class MiniGraphSys {
+ public:
+  MiniGraphSys(){
+      std::cout<<"AAA"<<std::endl;
+  };
+  ~MiniGraphSys() = default;
+  bool ListFiles();
+
  private:
   std::unique_ptr<components::LoadComponent<GID_T, VID_T, VDATA_T, EDATA_T>>
       load_component_;
@@ -21,4 +28,6 @@ class MiniGraphSys {
 };
 
 }  // namespace minigraph
+
 #endif  // MINIGRAPH_MINIGRAPH_SYS_H
+

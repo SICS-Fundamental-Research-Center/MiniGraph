@@ -118,6 +118,13 @@ elseif(${USAGE} MATCHES  "PC")
   set_target_properties(analytical_utility PROPERTIES OUTPUT_NAME run_anal_system)
   target_link_libraries(analytical_utility ${PROJECT_NAME}-lite ${FOLLY_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
   install_libminigraph_target(analytical_utility)
+elseif(${USAGE} MATCHES  "SYSTEM")
+  add_executable(analytical_utility ${TEST_DIR}/test_system.cpp ${CORE_SRC_FILES})
+  message(STATUS "CORE_SRC: " ${CORE_SRC_FILES})
+  target_include_directories(analytical_utility PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/minigraph)
+  set_target_properties(analytical_utility PROPERTIES OUTPUT_NAME run_anal_system)
+  target_link_libraries(analytical_utility ${PROJECT_NAME}-lite ${FOLLY_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
+  install_libminigraph_target(analytical_utility)
 endif()
 
 ###### Format code ######

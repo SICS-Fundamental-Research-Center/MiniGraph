@@ -19,6 +19,7 @@ using std::cout;
 using std::endl;
 
 int main(int argc, char* argv[]) {
+  XLOG(INFO, "MAIN()");
   if (argc < 5) {
     XLOG(ERR, "INPUT ERROR");
   }
@@ -41,12 +42,10 @@ int main(int argc, char* argv[]) {
   cout << map_local_id_to_global_id_->empty() << endl;  // Segmentation fault
 
   map_local_id_to_global_id_->insert(1, 2);
-  cout << "argc:" << argc << ":" << argv[1] << endl;
+
   minigraph::utility::io::CSRIOAdapter<unsigned, unsigned, unsigned, unsigned>*
       io_adapter = new minigraph::utility::io::CSRIOAdapter<unsigned, unsigned,
                                                             unsigned, unsigned>;
-  unsigned* buff = (unsigned*)malloc(sizeof(unsigned) * 10);
-  // io_adapter->Read(argv[1]);
 
   minigraph::utility::partitioner::EdgeCutPartitioner<unsigned, unsigned,
                                                       unsigned, unsigned>
