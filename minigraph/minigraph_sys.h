@@ -3,6 +3,7 @@
 #include "components/computing_component.h"
 #include "components/discharge_component.h"
 #include "components/load_component.h"
+#include "utility/state_machine.h"
 #include <folly/AtomicHashMap.h>
 #include <dirent.h>
 #include <filesystem>
@@ -25,21 +26,59 @@ class MiniGraphSys {
                const size_t& num_workers_lc = 2,
                const size_t& num_workers_cc = 3,
                const size_t& num_workers_dc = 2) {
+    // find all files.
     work_space_ = work_space;
+    pt_by_gid_ = std::make_shared<folly::AtomicHashMap<
+        GID_T, CSRPt, std::hash<int64_t>, std::equal_to<int64_t>,
+        std::allocator<char>, folly::AtomicHashArrayQuadraticProbeFcn>>(64);
     InitPtByGid(work_space);
+
+    // init global superstep
     global_superstep_ = std::make_shared<std::atomic<size_t>>(0);
 
-    // superstep_by_gid_ = std::make_shared<folly::AtomicHashMap<
-    //     GID_T, std::atomic<size_t>, std::hash<int64_t>,
-    //     std::equal_to<int64_t>, std::allocator<char>,
-    //     folly::AtomicHashArrayQuadraticProbeFcn>(64)>();
+    // init superstep of fragments as all 0;
+    std::vector<GID_T> vec_gid;
+    superstep_by_gid_ = std::make_shared<folly::AtomicHashMap<
+        GID_T, std::shared_ptr<std::atomic<size_t>>, std::hash<int64_t>,
+        std::equal_to<int64_t>, std::allocator<char>,
+        folly::AtomicHashArrayQuadraticProbeFcn>>(64);
+    for (auto& iter : *pt_by_gid_) {
+      auto step = std::atomic<size_t>(0);
+      superstep_by_gid_->insert(iter.first,
+                                std::make_shared<std::atomic<size_t>>());
+      vec_gid.push_back(iter.first);
+    }
 
-    //    for (auto& iter : *pt_by_gid_) {
-    //      superstep_by_gid_->insert(iter.first, std::atomic<size_t>(0));
-    //    }
-    // pt_by_gid_ = std::make_shared<folly::AtomicHashMap<
-    //     GID_T, CSRPt, std::hash<int64_t>, std::equal_to<int64_t>,
-    //     std::allocator<char>, folly::AtomicHashArrayQuadraticProbeFcn>>(64);
+    // init thread pool
+    // cpu_thread_pool has only one priority queue.
+    cpu_thread_pool_ =
+        std::make_shared<utility::CPUThreadPool>(num_threads_cpu, 1);
+    io_thread_pool_ =
+        std::make_shared<utility::IOThreadPool>(1, max_threads_io);
+
+    // init state_machine
+    state_machine_ = std::make_shared<utility::StateMachine<GID_T>>(vec_gid);
+
+    // init task queue
+    task_queue_ = std::make_shared<folly::ProducerConsumerQueue<std::pair<
+        GID_T,
+        std::shared_ptr<graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>>>>>(
+        vec_gid.size());
+
+    // init partial result queue
+    partial_result_queue_ =
+        std::make_shared<folly::ProducerConsumerQueue<std::pair<
+            GID_T,
+            std::shared_ptr<graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>>>>>(
+            vec_gid.size());
+    // init global message
+    global_msg_ = std::make_shared<graphs::Message<VID_T, VDATA_T, EDATA_T>>();
+
+    // init components
+    // load_component_ = std::make_unique<
+    //    components::LoadComponent<GID_T, VID_T, VDATA_T, EDATA_T>>(
+    //    cpu_thread_pool_, io_thread_pool_, superstep_by_gid_,
+    //    global_superstep_, state_machine_);
   };
 
   ~MiniGraphSys() = default;
@@ -52,31 +91,33 @@ class MiniGraphSys {
     std::string localid2globalid_root = work_space + "/localid2globalid/";
     std::string msg_root = work_space + "/msg/";
     std::vector<std::string> files;
-    for (const auto& entry : fs::directory_iterator(meta_out_root)) {
-      //  std::string path = entry.path();
-      //  size_t pos = path.find("/out/");
-      //  size_t pos2 = path.find(".meta");
-      //  int type_length = std::string("/out/").length();
-      //  GID_T gid = (GID_T)std::stoi(
-      //      path.substr(pos + type_length, pos2 - pos - type_length));
-      //  auto iter = pt_by_gid_->find(gid);
-      //  if (iter == pt_by_gid_->end()) {
-      //    CSRPt csr_pt;
-      //    csr_pt.meta_out_pt = path;
-      //    pt_by_gid_->insert(gid, csr_pt);
-      //  } else {
-      //    iter->second.meta_out_pt = path;
-      //  }
+    for (const auto& entry :
+         std::filesystem::directory_iterator(meta_out_root)) {
+      std::string path = entry.path();
+      size_t pos = path.find("/out/");
+      size_t pos2 = path.find(".meta");
+      int type_length = std::string("/out/").length();
+      std::string gid_str =
+          path.substr(pos + type_length, pos2 - pos - type_length);
+      GID_T gid = (GID_T)std::stoi(gid_str);
+      auto iter = pt_by_gid_->find(gid);
+      if (iter == pt_by_gid_->end()) {
+        CSRPt csr_pt;
+        csr_pt.meta_out_pt = path;
+        pt_by_gid_->insert(gid, csr_pt);
+      } else {
+        iter->second.meta_out_pt = path;
+      }
     }
-    /*
     for (const auto& entry :
          std::filesystem::directory_iterator(meta_in_root)) {
       std::string path = entry.path();
       size_t pos = path.find("/in/");
       size_t pos2 = path.find(".meta");
       int type_length = std::string("/in/").length();
-      GID_T gid = (GID_T)std::stoi(
-          path.substr(pos + type_length, pos2 - pos - type_length));
+      std::string gid_str =
+          path.substr(pos + type_length, pos2 - pos - type_length);
+      GID_T gid = (GID_T)std::stoi(gid_str);
       auto iter = pt_by_gid_->find(gid);
       if (iter == pt_by_gid_->end()) {
         CSRPt csr_pt;
@@ -86,14 +127,14 @@ class MiniGraphSys {
         iter->second.meta_in_pt = path;
       }
     }
-    for (const auto& entry :
-         std::filesystem::directory_iterator(meta_in_root)) {
+    for (const auto& entry : std::filesystem::directory_iterator(msg_root)) {
       std::string path = entry.path();
-      size_t pos = path.find("/in/");
-      size_t pos2 = path.find(".meta");
-      int type_length = std::string("/in/").length();
-      GID_T gid = (GID_T)std::stoi(
-          path.substr(pos + type_length, pos2 - pos - type_length));
+      size_t pos = path.find("/msg/");
+      size_t pos2 = path.find(".msg");
+      int type_length = std::string("/msg/").length();
+      std::string gid_str =
+          path.substr(pos + type_length, pos2 - pos - type_length);
+      GID_T gid = (GID_T)std::stoi(gid_str);
       auto iter = pt_by_gid_->find(gid);
       if (iter == pt_by_gid_->end()) {
         CSRPt csr_pt;
@@ -106,10 +147,11 @@ class MiniGraphSys {
     for (const auto& entry : std::filesystem::directory_iterator(vdata_root)) {
       std::string path = entry.path();
       size_t pos = path.find("/vdata/");
-      size_t pos2 = path.find(".meta");
+      size_t pos2 = path.find(".vdata");
       int type_length = std::string("/vdata/").length();
-      GID_T gid = (GID_T)std::stoi(
-          path.substr(pos + type_length, pos2 - pos - type_length));
+      std::string gid_str =
+          path.substr(pos + type_length, pos2 - pos - type_length);
+      GID_T gid = (GID_T)std::stoi(gid_str);
       auto iter = pt_by_gid_->find(gid);
       if (iter == pt_by_gid_->end()) {
         CSRPt csr_pt;
@@ -123,10 +165,11 @@ class MiniGraphSys {
          std::filesystem::directory_iterator(localid2globalid_root)) {
       std::string path = entry.path();
       size_t pos = path.find("/localid2globalid/");
-      size_t pos2 = path.find(".meta");
+      size_t pos2 = path.find(".map");
       int type_length = std::string("/localid2globalid/").length();
-      GID_T gid = (GID_T)std::stoi(
-          path.substr(pos + type_length, pos2 - pos - type_length));
+      std::string gid_str =
+          path.substr(pos + type_length, pos2 - pos - type_length);
+      GID_T gid = (GID_T)std::stoi(gid_str);
       auto iter = pt_by_gid_->find(gid);
       if (iter == pt_by_gid_->end()) {
         CSRPt csr_pt;
@@ -136,12 +179,6 @@ class MiniGraphSys {
         iter->second.localid2globalid_pt = path;
       }
     }
-    for (auto& iter : *pt_by_gid_) {
-      cout << iter.first << ", " << iter.second.meta_out_pt << endl;
-      XLOG(INFO, iter.first, iter.second.meta_out_pt, iter.second.meta_in_pt,
-           iter.second.vdata_pt, iter.second.localid2globalid_pt);
-    }
-    */
     return true;
   }
 
@@ -149,14 +186,34 @@ class MiniGraphSys {
   std::string work_space_;
   std::shared_ptr<std::atomic<size_t>> global_superstep_;
 
+  std::shared_ptr<utility::IOThreadPool> io_thread_pool_;
+  std::shared_ptr<utility::CPUThreadPool> cpu_thread_pool_;
+
   std::shared_ptr<folly::AtomicHashMap<
       GID_T, CSRPt, std::hash<int64_t>, std::equal_to<int64_t>,
       std::allocator<char>, folly::AtomicHashArrayQuadraticProbeFcn>>
       pt_by_gid_;
   std::shared_ptr<folly::AtomicHashMap<
-      GID_T, std::atomic<size_t>, std::hash<int64_t>, std::equal_to<int64_t>,
-      std::allocator<char>, folly::AtomicHashArrayQuadraticProbeFcn>>
+      GID_T, std::shared_ptr<std::atomic<size_t>>, std::hash<int64_t>,
+      std::equal_to<int64_t>, std::allocator<char>,
+      folly::AtomicHashArrayQuadraticProbeFcn>>
       superstep_by_gid_;
+
+  // state machine.
+  std::shared_ptr<utility::StateMachine<GID_T>> state_machine_;
+
+  // task queue
+  std::shared_ptr<folly::ProducerConsumerQueue<std::pair<
+      GID_T, std::shared_ptr<graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>>>>>
+      task_queue_;
+
+  // partial result queue
+  std::shared_ptr<folly::ProducerConsumerQueue<std::pair<
+      GID_T, std::shared_ptr<graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>>>>>
+      partial_result_queue_;
+
+  // global message in shared memory
+  std::shared_ptr<graphs::Message<VID_T, VDATA_T, EDATA_T>> global_msg_;
 
   std::unique_ptr<components::LoadComponent<GID_T, VID_T, VDATA_T, EDATA_T>>
       load_component_;

@@ -82,6 +82,7 @@ class StateMachine {
           std::make_pair(iter, std::make_unique<sml::sm<GraphStateMachine>>()));
     }
   };
+  StateMachine() {}
 
   ~StateMachine(){};
 

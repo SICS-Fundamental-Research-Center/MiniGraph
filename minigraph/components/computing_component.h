@@ -13,7 +13,7 @@ namespace components {
 template <typename GID_T, typename VID_T, typename VDATA_T, typename EDATA_T>
 class ComputingComponent : public ComponentBase<GID_T> {
  public:
-  //ComputingComponent();
+  // ComputingComponent();
   //~ComputingComponent();
 
   bool Dequeue();
@@ -21,7 +21,7 @@ class ComputingComponent : public ComponentBase<GID_T> {
 
  private:
   // global message in shared memory
-  std::shared_ptr<graphs::Message<VID_T, VDATA_T, EDATA_T>> global_msg;
+  std::shared_ptr<graphs::Message<VID_T, VDATA_T, EDATA_T>> global_msg_;
 
   std::shared_ptr<folly::ProducerConsumerQueue<std::pair<
       GID_T, std::shared_ptr<graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>>>>>
