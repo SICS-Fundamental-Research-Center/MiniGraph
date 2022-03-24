@@ -6,6 +6,7 @@
 
 #include "graphs/immutable_csr.h"
 #include "io_adapter_base.h"
+#include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
 #include "rapidcsv.h"
 #include "utility/logging.h"
@@ -33,12 +34,14 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
 
   template <class... Args>
   bool Read(graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>* graph,
-            const mode_t& mode = 1, Args&&... args) {
+            const GraphFormat& graph_format, Args&&... args) {
     std::string pt[] = {(args)...};
-    if (mode == 1) {
-      return this->ReadCSV2ImmutableCSR(graph, pt[0]);
-    } else {
-      return this->ReadBIN2ImmutableCSR(graph, pt[0], pt[1], pt[2], "a", pt[3]);
+    switch (graph_format) {
+      case edge_graph_csv:
+        return this->ReadCSV2ImmutableCSR(graph, pt[0]);
+      case csr_bin:
+        return this->ReadBIN2ImmutableCSR(graph, pt[0], pt[1], pt[2], pt[3],
+                                          pt[4]);
     }
   }
 
@@ -170,9 +173,21 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       const std::string& vertex_pt, const std::string& meta_in_pt,
       const std::string& meta_out_pt, const std::string& vdata_pt,
       const std::string& localid2globalid_pt) {
-    if (!IsExist(vertex_pt) || !IsExist(meta_in_pt) || !IsExist(meta_out_pt) ||
-        !IsExist(localid2globalid_pt)) {
-      XLOG(ERR, "Read file fault: a path does not exist");
+    if (!IsExist(vertex_pt)) {
+      XLOG(ERR, "Read file fault: vertex_pt, ", vertex_pt, ", not exist");
+      return false;
+    }
+    if (!IsExist(meta_in_pt)) {
+      XLOG(ERR, "Read file fault: vertex_pt, ", meta_in_pt, ", not exist");
+      return false;
+    }
+    if (!IsExist(meta_out_pt)) {
+      XLOG(ERR, "Read file fault: vertex_pt, ", meta_out_pt, ", not exist");
+      return false;
+    }
+    if (!IsExist(localid2globalid_pt)) {
+      XLOG(ERR, "Read file fault: vertex_pt, ", localid2globalid_pt,
+           ", not exist");
       return false;
     }
     if (graph == nullptr) {
@@ -234,8 +249,6 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
 
     free(buf);
     immutable_csr->is_serialized_ = true;
-    immutable_csr->Deserialized();
-    immutable_csr->ShowGraph();
     return true;
   }
 

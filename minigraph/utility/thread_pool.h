@@ -1,16 +1,15 @@
 #ifndef MINIGRAPH_UTILITY_THREAD_POOL_H_
 #define MINIGRAPH_UTILITY_THREAD_POOL_H_
 
+#include <folly/Function.h>
+#include <folly/executors/CPUThreadPoolExecutor.h>
+#include <folly/executors/IOThreadPoolExecutor.h>
 #include <atomic>
 #include <cstddef>
 #include <functional>
 #include <future>
 #include <memory>
 #include <stdexcept>
-
-#include <folly/Function.h>
-#include <folly/executors/CPUThreadPoolExecutor.h>
-#include <folly/executors/IOThreadPoolExecutor.h>
 
 namespace minigraph {
 namespace utility {
@@ -30,11 +29,11 @@ class ThreadPool {
 };
 
 // The default queue throws when full (folly::QueueBehaviorIfFull::THROW),
-// so commit() can fail. Contains a series of priority queues which get 
-// constantly picked up by a series of workers. Each worker thread executes 
-// threadRun() after created. ThreadRun() is essentially an infinite loop 
-// which pulls one task from task queue and executes it. 
-// If the task is already expired when it is fetched, then the expire callback 
+// so commit() can fail. Contains a series of priority queues which get
+// constantly picked up by a series of workers. Each worker thread executes
+// threadRun() after created. ThreadRun() is essentially an infinite loop
+// which pulls one task from task queue and executes it.
+// If the task is already expired when it is fetched, then the expire callback
 // is executed instead of the task itself.
 class CPUThreadPool : virtual public ThreadPool {
  public:
@@ -47,6 +46,7 @@ class CPUThreadPool : virtual public ThreadPool {
     auto task = std::bind(std::forward<F>(f), std::forward<Args>(args)...);
     cpu_executor_->add(task);
   }
+  void Commit(Task task) { cpu_executor_->add(task); };
   void CommitWithPriority(Task task, uint8_t priority);
 
   void stop() const {};
@@ -56,10 +56,11 @@ class CPUThreadPool : virtual public ThreadPool {
   uint8_t num_priorities_ = 1;
 };
 
-// Each IO thread of Folly runs its own EventBase. Instead of pulling task from task queue 
-// like the CPUThreadPoolExecutor, the IOThreadPoolExecutor registers an event to the 
-// EventBase of next IO thread. Each IO thread then calls loopForEver() for its EventBase, 
-// which essentially calls epoll() to perform async io.
+// Each IO thread of Folly runs its own EventBase. Instead of pulling task from
+// task queue like the CPUThreadPoolExecutor, the IOThreadPoolExecutor registers
+// an event to the EventBase of next IO thread. Each IO thread then calls
+// loopForEver() for its EventBase, which essentially calls epoll() to perform
+// async io.
 class IOThreadPool : virtual public ThreadPool {
  public:
   IOThreadPool(std::size_t max_threads, std::size_t min_threads);
@@ -67,11 +68,11 @@ class IOThreadPool : virtual public ThreadPool {
   size_t get_max_threads() const;
   size_t get_min_threads() const;
   template <class F, class... Args>
-  void commit(F&& f, Args&&... args) {
+  void Commit(F&& f, Args&&... args) {
     auto task = std::bind(std::forward<F>(f), std::forward<Args>(args)...);
     io_executor_->add(task);
   }
-  void commit(Task task); 
+  void Commit(Task task) { io_executor_->add(task); };
   void stop() const {};
   folly::EventBase* GetEventBase();
 

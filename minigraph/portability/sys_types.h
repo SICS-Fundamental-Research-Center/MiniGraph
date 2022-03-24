@@ -4,7 +4,6 @@
 #pragma once
 
 #include <sys/types.h>
-
 #ifdef _WIN32
 #include <basetsd.h>  // @manual
 #endif
@@ -13,7 +12,6 @@ using gid_t = unsigned;
 using vid_t = unsigned;
 using vdata_t = unsigned;
 using edata_t = unsigned;
-using mode_t = unsigned;
 
 #ifndef HAVE_MODE_T
 #define HAVE_MODE_T 1
