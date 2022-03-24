@@ -47,8 +47,8 @@ int main(int argc, char* argv[]) {
       io_adapter = new minigraph::utility::io::CSRIOAdapter<unsigned, unsigned,
                                                             unsigned, unsigned>;
 
-  minigraph::utility::partitioner::EdgeCutPartitioner<unsigned, unsigned,
-                                                      unsigned, unsigned>
+  /*                                                    unsigned, unsigned>
+  minigraph::utility::partitioner::EdgeCutPartitioner < unsigned, unsigned,
       edge_cut(argv[1], argv[2], argv[3], argv[4], argv[5]);
   edge_cut.RunPartition(3);
 
@@ -58,4 +58,5 @@ int main(int argc, char* argv[]) {
   auto immutable_csr =
       new minigraph::graphs::ImmutableCSR<gid_t, vid_t, vdata_t, edata_t>;
   csr_io_adapter_->Read(immutable_csr, 0, argv[2], argv[3], argv[4], argv[5]);
+   */
 }
