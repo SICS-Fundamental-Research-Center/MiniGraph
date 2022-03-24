@@ -10,7 +10,7 @@ CPUThreadPool::CPUThreadPool(size_t num_thread, uint8_t num_priorities)
 }
 
 void CPUThreadPool::CommitWithPriority(Task task, uint8_t priority) {
-  //assert(priority < num_priorities_);
+  // assert(priority < num_priorities_);
   cpu_executor_->addWithPriority(task, priority);
 }
 
@@ -29,8 +29,6 @@ IOThreadPool::IOThreadPool(size_t max_threads, size_t min_threads)
   io_executor_ =
       std::make_unique<folly::IOThreadPoolExecutor>(max_threads_, min_threads_);
 }
-
-void IOThreadPool::commit(Task task) { io_executor_->add(task); }
 
 folly::EventBase* IOThreadPool::GetEventBase() {
   return io_executor_->getEventBase();

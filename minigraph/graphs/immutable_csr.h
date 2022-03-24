@@ -4,6 +4,7 @@
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <memory>
 
 #include <folly/AtomicHashArray.h>
 #include <folly/AtomicHashMap.h>

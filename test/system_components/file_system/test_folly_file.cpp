@@ -19,6 +19,7 @@ using std::cout;
 using std::endl;
 
 int main(int argc, char* argv[]) {
+  XLOG(INFO, "MAIN()");
   if (argc < 5) {
     XLOG(ERR, "INPUT ERROR");
   }
@@ -41,22 +42,21 @@ int main(int argc, char* argv[]) {
   cout << map_local_id_to_global_id_->empty() << endl;  // Segmentation fault
 
   map_local_id_to_global_id_->insert(1, 2);
-  cout << "argc:" << argc << ":" << argv[1] << endl;
+
   minigraph::utility::io::CSRIOAdapter<unsigned, unsigned, unsigned, unsigned>*
       io_adapter = new minigraph::utility::io::CSRIOAdapter<unsigned, unsigned,
                                                             unsigned, unsigned>;
-  unsigned* buff = (unsigned*)malloc(sizeof(unsigned) * 10);
-  // io_adapter->Read(argv[1]);
 
-  minigraph::utility::partitioner::EdgeCutPartitioner<unsigned, unsigned,
-                                                      unsigned, unsigned>
+  /*                                                    unsigned, unsigned>
+  minigraph::utility::partitioner::EdgeCutPartitioner < unsigned, unsigned,
       edge_cut(argv[1], argv[2], argv[3], argv[4], argv[5]);
   edge_cut.RunPartition(3);
 
-  auto csr_io_adapter_ =
-      new minigraph::utility::io::CSRIOAdapter<gid_t, vid_t, vdata_t, edata_t>;
+  auto csr_io_adapter_ = std::make_shared<
+      minigraph::utility::io::CSRIOAdapter<gid_t, vid_t, vdata_t, edata_t>>();
 
   auto immutable_csr =
       new minigraph::graphs::ImmutableCSR<gid_t, vid_t, vdata_t, edata_t>;
   csr_io_adapter_->Read(immutable_csr, 0, argv[2], argv[3], argv[4], argv[5]);
+   */
 }

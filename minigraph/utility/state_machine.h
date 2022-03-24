@@ -1,16 +1,23 @@
-#ifndef MINIGRAPH_STATE_MACHINE_H_
-#define MINIGRAPH_STATE_MACHINE_H_
+#pragma once
+#ifndef MINIGRAPH_UTILITY_STATE_MACHINE_H_
+#define MINIGRAPH_UTILITY_STATE_MACHINE_H_
 
+#include "portability/sys_types.h"
 #include <boost/sml.hpp>
+#include <folly/AtomicHashMap.h>
 #include <assert.h>
 #include <iostream>
 #include <map>
 #include <memory>
 #include <stdio.h>
 #include <unordered_map>
+#include <vector>
 
 namespace minigraph {
+namespace utility {
+
 namespace sml = boost::sml;
+using namespace sml;
 
 // Define Events
 struct Load {};
@@ -20,28 +27,35 @@ struct Changed {};
 struct Aggregate {};
 struct Fixpoint {};
 struct GoOn {};
+
 // Define State Machine for each single graph.
 struct GraphStateMachine {
   auto operator()() const {
     using namespace sml;
-    // Create a transition table.
-    // Example:
-    //  Idle(state) + Load(event) = Active(state)
-    return make_transition_table(*"Idle"_s + event<Load> = "Active"_s,
-                                 "Idle"_s + event<Unload> = "Idle"_s,
-                                 "Active"_s + event<NothingChanged> = "RT"_s,
-                                 "Active"_s + event<Changed> = "RC"_s,
-                                 "RC"_s + event<Aggregate> = "Idle"_s,
-                                 "RT"_s + event<GoOn> = "Idle"_s,
-                                 "RT"_s + event<Fixpoint> = X);
+    front::event<Load> event_load;
+    front::event<Unload> event_unload;
+    front::event<NothingChanged> event_nothing_changed;
+    front::event<Changed> event_changed;
+    front::event<Aggregate> event_aggregate;
+    front::event<Fixpoint> event_fix_point;
+    front::event<GoOn> event_go_on;
+    return make_transition_table(
+        *"Idle"_s + event_load = "Active"_s, "Idle"_s + event_unload = "Idle"_s,
+        "Active"_s + event_nothing_changed = "RT"_s,
+        "Active"_s + event_changed = "RC"_s,
+        "RC"_s + event_aggregate = "Idle"_s, "RT"_s + event_go_on = "Idle"_s,
+        "RT"_s + event_fix_point = X);
   }
 };
+
 // State Machine definition for each graph.
 struct SystemStateMachine {
   auto operator()() const {
     using namespace sml;
-    return make_transition_table(*"Run"_s + event<GoOn> = "Run"_s,
-                                 "Run"_s + event<Fixpoint> = X);
+    front::event<GoOn> event_go_on;
+    front::event<Fixpoint> event_fix_point;
+    return make_transition_table(*"Run"_s + event_go_on = "Run"_s,
+                                 "Run"_s + event_fix_point = X);
   }
 };
 
@@ -59,15 +73,16 @@ struct SystemStateMachine {
 //
 // system_state_ changed from Run to X only if all state of graphs reach RT, i.e
 // Fixpoint.
-template <typename GID_T, typename GRAPH_T>
+template <typename GID_T>
 class StateMachine {
  public:
-  StateMachine(const std::unordered_map<GID_T, GRAPH_T>& id_to_ptr) {
-    for (auto& iter : id_to_ptr) {
-      graph_state_.insert(std::make_pair(
-          iter.first, std::make_unique<sml::sm<GraphStateMachine>>()));
+  StateMachine(const std::vector<GID_T>& vec_gid) {
+    for (auto& iter : vec_gid) {
+      graph_state_.insert(
+          std::make_pair(iter, std::make_unique<sml::sm<GraphStateMachine>>()));
     }
   };
+  StateMachine() {}
 
   ~StateMachine(){};
 
@@ -81,21 +96,21 @@ class StateMachine {
   };
 
   bool GraphIs(const GID_T& gid, const char& event) const {
-    assert(event == 'I' || event == 'A' || event == 'R' || event == 'C' ||
-           event == 'X');
+    assert(event == IDLE || event == ACTIVE || event == RT || event == RC ||
+           event == TERMINATE);
     auto iter = graph_state_.find(gid);
     using namespace sml;
     if (iter != graph_state_.end()) {
       switch (event) {
-        case 'I':
+        case IDLE:
           return iter->second.is("Idle"_s);
-        case 'A':
+        case ACTIVE:
           return iter->second.is("Active"_s);
-        case 'R':
+        case RT:
           return iter->second.is("RT"_s);
-        case 'C':
+        case RC:
           return iter->second.is("RC"_s);
-        case 'X':
+        case TERMINATE:
           return iter->second.is(X);
         default:
           break;
@@ -126,36 +141,37 @@ class StateMachine {
   bool ProcessEvent(GID_T gid, const char event) {
     using namespace sml;
     std::cout << event << std::endl;
-    assert(event == 'L' || event == 'U' || event == 'N' || event == 'C' ||
-           event == 'A' || event == 'F' || event == 'G');
+    assert(event == LOAD || event == UNLOAD || event == NOTHINGCHANGE ||
+           event == CHANGED || event == AGGREGATE || event == FIXPOINT ||
+           event == GOON);
     auto iter = graph_state_.find(gid);
     if (iter != graph_state_.end()) {
       switch (event) {
-        case 'L':
+        case LOAD:
           iter->second->process_event(Load{});
           assert(iter->second->is("Active"_s));
           break;
-        case 'U':
+        case UNLOAD:
           iter->second->process_event(Unload{});
           assert(iter->second->is("Idle"_s));
           break;
-        case 'N':
+        case NOTHINGCHANGE:
           iter->second->process_event(NothingChanged{});
           assert(iter->second->is("RT"_s));
           break;
-        case 'C':
+        case CHANGED:
           iter->second->process_event(Changed{});
           assert(iter->second->is("RC"_s));
           break;
-        case 'A':
+        case AGGREGATE:
           iter->second->process_event(Aggregate{});
           assert(iter->second->is("Idle"_s));
           break;
-        case 'F':
+        case FIXPOINT:
           iter->second->process_event(Fixpoint{});
           assert(iter->second->is(X));
           break;
-        case 'G':
+        case GOON:
           iter->second->process_event(GoOn{});
           assert(iter->second->is("Idle"_s));
           break;
@@ -173,6 +189,7 @@ class StateMachine {
   sml::sm<SystemStateMachine> system_state_;
 };
 
+}  // namespace utility
 }  // namespace minigraph
 
 #endif  // MINIGRAPH_STATE_MACHINE_H_
