@@ -27,9 +27,6 @@ class MiniGraphSys {
                const size_t& num_threads_cpu = 3,
                const size_t& max_threads_io = 3,
                const bool is_partition = false) {
-    XLOG(INFO, work_space);
-    XLOG(INFO, "lc: ", num_workers_lc, "cc: ", num_workers_cc,
-         "dc: ", num_workers_dc);
     // configure sys.
     num_workers_lc_ = num_workers_lc;
     num_workers_cc_ = num_workers_cc;
@@ -70,8 +67,8 @@ class MiniGraphSys {
     }
 
     // init read_trigger
-    read_trigger_ =
-        std::make_unique<folly::ProducerConsumerQueue<GID_T>>(vec_gid.size());
+    read_trigger_ = std::make_unique<folly::ProducerConsumerQueue<GID_T>>(
+        vec_gid.size() + 1);
     for (auto& iter : vec_gid) {
       read_trigger_->write(iter);
     }
@@ -93,6 +90,7 @@ class MiniGraphSys {
     partial_result_queue_ = new folly::ProducerConsumerQueue<std::pair<
         GID_T, std::shared_ptr<graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>>>>(
         vec_gid.size());
+
     // init global message
     // global_msg_ = std::make_shared<graphs::Message<VID_T, VDATA_T, EDATA_T >>
     // ;
@@ -121,8 +119,8 @@ class MiniGraphSys {
           load_component_.get());
       this->cpu_thread_pool_->Commit(task);
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-    XLOG(INFO, "RUNSYS");
+    std::this_thread::sleep_for(std::chrono::milliseconds(3000));
+    XLOG(INFO, "RunSyS(): finish");
   }
 
  private:
@@ -258,7 +256,7 @@ class MiniGraphSys {
   // partitioner
   std::unique_ptr<minigraph::utility::partitioner::EdgeCutPartitioner<
       GID_T, VDATA_T, VDATA_T, EDATA_T>>
-      edge_cut_partitioner_;
+      edge_cut_partitioner_ = nullptr;
 
   // thread pool.
   utility::IOThreadPool* io_thread_pool_ = nullptr;
@@ -297,5 +295,6 @@ class MiniGraphSys {
       components::DischargeComponent<GID_T, VID_T, VDATA_T, EDATA_T>>
       discharge_component_ = nullptr;
 };
+
 }  // namespace minigraph
 #endif  // MINIGRAPH_MINIGRAPH_SYS_H

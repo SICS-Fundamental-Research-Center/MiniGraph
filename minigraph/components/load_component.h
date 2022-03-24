@@ -44,16 +44,14 @@ class LoadComponent : public ComponentBase<GID_T> {
     XLOG(INFO, "Init LoadComponent: Finish.");
   }
   void Run() override {
+    XLOG(INFO, this->switch_.load());
     while (this->switch_.load(std::memory_order_relaxed)) {
       GID_T gid;
       while (!read_trigger_->read(gid)) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
       }
       // process gid
       CSRPt& csr_pt = pt_by_gid_->find(gid)->second;
-      XLOG(INFO, "gid: ", gid, " csr_pt: ", csr_pt.vdata_pt, " ",
-           csr_pt.meta_in_pt, " ", csr_pt.meta_out_pt, " ", csr_pt.vdata_pt,
-           " ", csr_pt.localid2globalid_pt);
       auto immutable_csr =
           new graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>;
 
@@ -61,6 +59,9 @@ class LoadComponent : public ComponentBase<GID_T> {
           (graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>*)immutable_csr,
           csr_bin, csr_pt.vertex_pt, csr_pt.meta_in_pt, csr_pt.meta_in_pt,
           csr_pt.vdata_pt, csr_pt.localid2globalid_pt);
+      immutable_csr->Deserialized();
+      immutable_csr->ShowGraph();
+      task_queue_->template write(std::make_pair(gid, ));
     }
   }
   void Stop() override {}
