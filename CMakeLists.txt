@@ -4,8 +4,8 @@ project(minigraph)
 set(MINIGRAPH_COPYRIGHT_YEAR "2022")
 
 ###### Cmake options ######
-set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -Wall")
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall")
 
 # Set default cmake type to Debug
 if(NOT CMAKE_BUILD_TYPE)
