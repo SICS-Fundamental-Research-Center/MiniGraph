@@ -1,4 +1,5 @@
 # Directories
+bin
 cmake-build-debug
 .idea
 
