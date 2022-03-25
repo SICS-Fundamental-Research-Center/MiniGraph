@@ -12,7 +12,7 @@ option(USE_JEMALLOC "Whether to use jemalloc, default: ON." ON)
 # Libraries
 #######################
 include_directories(
-    "/usr/local/include"
+    SYSTEM "/usr/local/include"
     "."
 )
 
