@@ -18,6 +18,7 @@ foreach (testfile ${testfiles})
     target_link_libraries(${filename}
         gtest
         gtest_main
+        ${FOLLY_LIBRARIES}
         minigraph
         )
     add_test(NAME "${TESTNAME}" COMMAND "${filename}")
