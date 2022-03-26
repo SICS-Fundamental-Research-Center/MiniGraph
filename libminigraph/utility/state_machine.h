@@ -190,6 +190,6 @@ class StateMachine {
 };
 
 }  // namespace utility
-}  // namespace minigraph
+}  // namespace libminigraph
 
 #endif  // MINIGRAPH_STATE_MACHINE_H_

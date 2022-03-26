@@ -342,6 +342,6 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
 
 }  // namespace io
 }  // namespace utility
-}  // namespace minigraph
+}  // namespace libminigraph
 
 #endif  // MINIGRAPH_UTILITY_IO_CSR_IO_ADAPTER_H

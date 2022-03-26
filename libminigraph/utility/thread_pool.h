@@ -83,6 +83,6 @@ class IOThreadPool : virtual public ThreadPool {
 };
 
 }  // namespace utility
-}  // namespace minigraph
+}  // namespace libminigraph
 
 #endif  // MINIGRAPH_UTILITY_THREAD_POOL_H_

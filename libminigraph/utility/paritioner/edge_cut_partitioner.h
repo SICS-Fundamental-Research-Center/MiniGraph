@@ -158,6 +158,6 @@ class EdgeCutPartitioner {
 
 }  // namespace partitioner
 }  // namespace utility
-}  // namespace minigraph
+}  // namespace libminigraph
 
 #endif  // MINIGRAPH_UTILITY_EDGE_CUT_PARTITIONER_H

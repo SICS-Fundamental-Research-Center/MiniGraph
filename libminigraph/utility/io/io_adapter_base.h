@@ -28,6 +28,6 @@ class IOAdapterBase {
 
 }  // namespace io
 }  // namespace utility
-}  // namespace minigraph
+}  // namespace libminigraph
 
 #endif  // MINIGRAPH_UTILITY_IO_IO_ADAPTER_BASE_H
