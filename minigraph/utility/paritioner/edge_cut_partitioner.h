@@ -78,7 +78,7 @@ class EdgeCutPartitioner {
         new graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>;
     if (!csr_io_adapter_->Read(
             (graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>*)immutable_csr,
-            edge_graph_csv, graph_pt)) {
+            edge_graph_csv, 0, graph_pt)) {
       return false;
     }
     fragments_ =
@@ -158,6 +158,6 @@ class EdgeCutPartitioner {
 
 }  // namespace partitioner
 }  // namespace utility
-}  // namespace libminigraph
+}  // namespace minigraph
 
 #endif  // MINIGRAPH_UTILITY_EDGE_CUT_PARTITIONER_H

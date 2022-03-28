@@ -35,4 +35,4 @@ folly::EventBase* IOThreadPool::GetEventBase() {
 }
 
 }  // namespace utility
-}  // namespace libminigraph
+}  // namespace minigraph

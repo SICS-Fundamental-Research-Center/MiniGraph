@@ -17,10 +17,7 @@ class ComponentBase {
   ComponentBase<GID_T>(
       utility::CPUThreadPool* cpu_thread_pool,
       utility::IOThreadPool* io_thread_pool,
-      folly::AtomicHashMap<
-          GID_T, std::shared_ptr<std::atomic<size_t>>, std::hash<int64_t>,
-          std::equal_to<int64_t>, std::allocator<char>,
-          folly::AtomicHashArrayQuadraticProbeFcn>* superstep_by_gid,
+      folly::AtomicHashMap<GID_T, std::atomic<size_t>*>* superstep_by_gid,
       std::atomic<size_t>* global_superstep,
       utility::StateMachine<GID_T>* state_machine) {
     cpu_thread_pool_ = cpu_thread_pool;
@@ -35,12 +32,12 @@ class ComponentBase {
   virtual void Stop() = 0;
 
   size_t get_superstep_via_gid(GID_T gid) {
-    auto iter = superstep_by_gid_->load()->find(gid);
-    if (iter == superstep_by_gid_->load()->end()) {
+    auto iter = superstep_by_gid_->find(gid);
+    if (iter == superstep_by_gid_->end()) {
       XLOG(INFO, "get_super_via_gid Error: ", "gid not found.");
       return -1;
     } else {
-      return iter.second;
+      return iter->second->load();
     }
   };
 
@@ -55,10 +52,8 @@ class ComponentBase {
   utility::CPUThreadPool* cpu_thread_pool_ = nullptr;
 
   // superstep
-  folly::AtomicHashMap<
-      GID_T, std::shared_ptr<std::atomic<size_t>>, std::hash<int64_t>,
-      std::equal_to<int64_t>, std::allocator<char>,
-      folly::AtomicHashArrayQuadraticProbeFcn>* superstep_by_gid_ = nullptr;
+  folly::AtomicHashMap<GID_T, std::atomic<size_t>*>* superstep_by_gid_ =
+      nullptr;
   std::atomic<size_t>* global_superstep_ = nullptr;
 
   // state machine.

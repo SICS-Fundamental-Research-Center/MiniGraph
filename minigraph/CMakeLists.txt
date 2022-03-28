@@ -83,7 +83,7 @@ endif()
 # Generate libminigraph
 #######################
 add_library (libminigraph
-        ${MINIGRAPH_SOURCES} utility/io/data_mngr.h)
+        ${MINIGRAPH_SOURCES} utility/io/data_mngr.h 2d_pie/edge_map_reduce.h 2d_pie/auto_app_base.h)
 
 target_link_libraries(libminigraph
         ${FOLLY_LIBRARIES} )

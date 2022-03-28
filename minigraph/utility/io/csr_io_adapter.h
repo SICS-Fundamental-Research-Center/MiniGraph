@@ -34,14 +34,14 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
 
   template <class... Args>
   bool Read(graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>* graph,
-            const GraphFormat& graph_format, Args&&... args) {
+            const GraphFormat& graph_format, GID_T gid, Args&&... args) {
     std::string pt[] = {(args)...};
     switch (graph_format) {
       case edge_graph_csv:
         return this->ReadCSV2ImmutableCSR(graph, pt[0]);
       case csr_bin:
-        return this->ReadBIN2ImmutableCSR(graph, pt[0], pt[1], pt[2], pt[3],
-                                          pt[4]);
+        return this->ReadBIN2ImmutableCSR(graph, gid, pt[0], pt[1], pt[2],
+                                          pt[3], pt[4]);
     }
   }
 
@@ -169,7 +169,7 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
   }
 
   bool ReadBIN2ImmutableCSR(
-      graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>* graph,
+      graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>* graph, const GID_T& gid,
       const std::string& vertex_pt, const std::string& meta_in_pt,
       const std::string& meta_out_pt, const std::string& vdata_pt,
       const std::string& localid2globalid_pt) {
@@ -249,6 +249,7 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
 
     free(buf);
     immutable_csr->is_serialized_ = true;
+    immutable_csr->gid_ = gid;
     return true;
   }
 
@@ -342,6 +343,6 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
 
 }  // namespace io
 }  // namespace utility
-}  // namespace libminigraph
+}  // namespace minigraph
 
 #endif  // MINIGRAPH_UTILITY_IO_CSR_IO_ADAPTER_H

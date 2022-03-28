@@ -1,6 +1,7 @@
 #ifndef MINIGRAPH_DATA_MNGR_H
 #define MINIGRAPH_DATA_MNGR_H
 
+#include "utility/io/csr_io_adapter.h"
 #include <folly/AtomicHashMap.h>
 #include <memory>
 
@@ -26,14 +27,16 @@ class DataMgnr {
   GRAPH_T* LoadGraph(GID_T gid, CSRPt csr_pt) {
     auto immutable_csr =
         new graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>;
-    csr_io_adapter_->Read((GRAPH_T*)immutable_csr, csr_bin, csr_pt.vertex_pt,
-                          csr_pt.meta_in_pt, csr_pt.meta_in_pt, csr_pt.vdata_pt,
+    csr_io_adapter_->Read((GRAPH_T*)immutable_csr, csr_bin, gid,
+                          csr_pt.vertex_pt, csr_pt.meta_in_pt,
+                          csr_pt.meta_in_pt, csr_pt.vdata_pt,
                           csr_pt.localid2globalid_pt);
     pgraph_by_gid_->insert(gid, (GRAPH_T*)immutable_csr);
     return (GRAPH_T*)immutable_csr;
   }
 
   GRAPH_T* GetGraph(GID_T gid) {
+    CSR_T* csr_graph = (CSR_T*)pgraph_by_gid_->find(gid)->second;
     if (pgraph_by_gid_->count(gid)) {
       return pgraph_by_gid_->find(gid)->second;
     } else {
