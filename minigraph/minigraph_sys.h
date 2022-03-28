@@ -1,8 +1,12 @@
 #ifndef MINIGRAPH_MINIGRAPH_SYS_H
 #define MINIGRAPH_MINIGRAPH_SYS_H
+#include "2d_pie/auto_app_base.h"
+#include "2d_pie/edge_map_reduce.h"
+#include "2d_pie/vertex_map_reduce.h"
 #include "components/computing_component.h"
 #include "components/discharge_component.h"
 #include "components/load_component.h"
+#include "utility/io/data_mngr.h"
 #include "utility/paritioner/edge_cut_partitioner.h"
 #include "utility/state_machine.h"
 #include <folly/AtomicHashMap.h>
@@ -16,17 +20,19 @@
 #include <vector>
 
 namespace fs = std::filesystem;
-using namespace std;
 namespace minigraph {
 
-template <typename GID_T, typename VID_T, typename VDATA_T, typename EDATA_T>
+template <typename GID_T, typename VID_T, typename VDATA_T, typename EDATA_T,
+          typename GRAPH_T, typename AUTOAPP_T>
 class MiniGraphSys {
+  using GRAPH_BASE_T = graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>;
+  // using CSR_T = graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>;
+
  public:
   MiniGraphSys(const std::string& work_space, const size_t& num_workers_lc,
                const size_t& num_workers_cc, const size_t& num_workers_dc,
-               const size_t& num_threads_cpu = 3,
-               const size_t& max_threads_io = 3,
-               const bool is_partition = false) {
+               const size_t& num_threads_cpu, const size_t& max_threads_io,
+               const bool is_partition, AppWrapper<AUTOAPP_T>* app_wrapper) {
     // configure sys.
     num_workers_lc_ = num_workers_lc;
     num_workers_cc_ = num_workers_cc;
@@ -55,75 +61,143 @@ class MiniGraphSys {
     // init superstep of fragments as all 0;
     std::vector<GID_T> vec_gid;
     superstep_by_gid_ =
-        new folly::AtomicHashMap<GID_T, std::shared_ptr<std::atomic<size_t>>,
-                                 std::hash<int64_t>, std::equal_to<int64_t>,
-                                 std::allocator<char>,
-                                 folly::AtomicHashArrayQuadraticProbeFcn>(64);
+        new folly::AtomicHashMap<GID_T, std::atomic<size_t>*>(64);
     for (auto& iter : *pt_by_gid_) {
-      auto step = std::atomic<size_t>(0);
-      superstep_by_gid_->insert(iter.first,
-                                std::make_shared<std::atomic<size_t>>());
+      superstep_by_gid_->insert(iter.first, new std::atomic<size_t>(0));
       vec_gid.push_back(iter.first);
     }
 
     // init read_trigger
     read_trigger_ = std::make_unique<folly::ProducerConsumerQueue<GID_T>>(
-        vec_gid.size() + 1);
+        vec_gid.size() + 10);
     for (auto& iter : vec_gid) {
       read_trigger_->write(iter);
     }
 
     // init thread pool
     // cpu_thread_pool has only one priority queue.
-    cpu_thread_pool_ = new utility::CPUThreadPool(num_threads_cpu, 1);
-    io_thread_pool_ = new utility::IOThreadPool(1, max_threads_io);
+    cpu_thread_pool_ =
+        std::make_unique<utility::CPUThreadPool>(num_threads_cpu, 1);
+    io_thread_pool_ =
+        std::make_unique<utility::IOThreadPool>(1, max_threads_io);
 
     // init state_machine
     state_machine_ = new utility::StateMachine<GID_T>(vec_gid);
 
     // init task queue
-    task_queue_ = new folly::ProducerConsumerQueue<std::pair<
-        GID_T, std::shared_ptr<graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>>>>(
-        vec_gid.size());
+    task_queue_ = std::make_unique<folly::ProducerConsumerQueue<GID_T>>(
+        vec_gid.size() + 1);
 
     // init partial result queue
-    partial_result_queue_ = new folly::ProducerConsumerQueue<std::pair<
-        GID_T, std::shared_ptr<graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>>>>(
-        vec_gid.size());
+    partial_result_queue_ =
+        std::make_unique<folly::ProducerConsumerQueue<GID_T>>(vec_gid.size() +
+                                                              1);
 
-    // init global message
-    // global_msg_ = std::make_shared<graphs::Message<VID_T, VDATA_T, EDATA_T >>
-    // ;
+    // init Data Manager.
+    data_mngr_ = std::make_unique<
+        utility::io::DataMgnr<GID_T, VID_T, VDATA_T, EDATA_T>>();
+
+    // init auto_app.
+    app_wrapper_ = std::make_unique<AppWrapper<AUTOAPP_T>>();
+    app_wrapper_.reset(app_wrapper);
+    app_wrapper_->BindThreadPool(cpu_thread_pool_.get());
 
     // init components
     load_component_ = std::make_unique<
-        components::LoadComponent<GID_T, VID_T, VDATA_T, EDATA_T>>(
-        cpu_thread_pool_, io_thread_pool_, superstep_by_gid_, global_superstep_,
-        state_machine_, task_queue_, pt_by_gid_, read_trigger_.get());
-    computing_component_ = std::make_unique<
-        components::ComputingComponent<GID_T, VID_T, VDATA_T, EDATA_T>>(
-        cpu_thread_pool_, io_thread_pool_, superstep_by_gid_, global_superstep_,
-        state_machine_, task_queue_, partial_result_queue_);
-    discharge_component_ = std::make_unique<
-        components::DischargeComponent<GID_T, VID_T, VDATA_T, EDATA_T>>(
-        cpu_thread_pool_, io_thread_pool_, superstep_by_gid_, global_superstep_,
-        state_machine_, partial_result_queue_, pt_by_gid_);
+        components::LoadComponent<GID_T, VID_T, VDATA_T, EDATA_T, GRAPH_T>>(
+        cpu_thread_pool_.get(), io_thread_pool_.get(), superstep_by_gid_,
+        global_superstep_, state_machine_, task_queue_.get(), pt_by_gid_,
+        read_trigger_.get(), data_mngr_.get(), num_workers_lc);
+    computing_component_ = std::make_unique<components::ComputingComponent<
+        GID_T, VID_T, VDATA_T, EDATA_T, GRAPH_T, AUTOAPP_T>>(
+        cpu_thread_pool_.get(), io_thread_pool_.get(), superstep_by_gid_,
+        global_superstep_, state_machine_, task_queue_.get(),
+        partial_result_queue_.get(), data_mngr_.get(), num_workers_cc,
+        app_wrapper_.get());
+    // discharge_component_ = std::make_unique<
+    //     components::DischargeComponent<GID_T, VID_T, VDATA_T, EDATA_T>>(
+    //     cpu_thread_pool_, io_thread_pool_, superstep_by_gid_,
+    //     global_superstep_, state_machine_, partial_result_queue_,
+    //     pt_by_gid_);
   };
 
   ~MiniGraphSys() = default;
 
+  void Stop() {
+    load_component_->Stop();
+    computing_component_->Stop();
+  }
+
   void RunSys() {
-    for (size_t i = 0; i < num_workers_lc_; i++) {
-      auto task = std::bind(
-          &components::LoadComponent<GID_T, VID_T, VDATA_T, EDATA_T>::Run,
-          load_component_.get());
-      this->cpu_thread_pool_->Commit(task);
-    }
-    std::this_thread::sleep_for(std::chrono::milliseconds(3000));
+    auto task_lc = std::bind(&components::LoadComponent<GID_T, VID_T, VDATA_T,
+                                                        EDATA_T, GRAPH_T>::Run,
+                             load_component_.get());
+    this->cpu_thread_pool_->Commit(task_lc);
+    auto task_cc = std::bind(
+        &components::ComputingComponent<GID_T, VID_T, VDATA_T, EDATA_T, GRAPH_T,
+                                        AUTOAPP_T>::Run,
+        computing_component_.get());
+    this->cpu_thread_pool_->Commit(task_cc);
+    std::this_thread::sleep_for(std::chrono::milliseconds(10000));
+    this->Stop();
     XLOG(INFO, "RunSyS(): finish");
   }
 
  private:
+  // configure.
+  size_t num_workers_lc_ = 0;
+  size_t num_workers_cc_ = 0;
+  size_t num_workers_dc_ = 0;
+  std::unique_ptr<folly::ProducerConsumerQueue<GID_T>> read_trigger_ = nullptr;
+
+  // files list
+  folly::AtomicHashMap<GID_T, CSRPt, std::hash<int64_t>, std::equal_to<int64_t>,
+                       std::allocator<char>,
+                       folly::AtomicHashArrayQuadraticProbeFcn>* pt_by_gid_ =
+      nullptr;
+
+  // partitioner
+  std::unique_ptr<minigraph::utility::partitioner::EdgeCutPartitioner<
+      GID_T, VDATA_T, VDATA_T, EDATA_T>>
+      edge_cut_partitioner_ = nullptr;
+
+  // thread pool.
+  std::unique_ptr<utility::IOThreadPool> io_thread_pool_ = nullptr;
+  std::unique_ptr<utility::CPUThreadPool> cpu_thread_pool_ = nullptr;
+
+  // superstep.
+  folly::AtomicHashMap<GID_T, std::atomic<size_t>*>* superstep_by_gid_ =
+      nullptr;
+  std::atomic<size_t>* global_superstep_ = nullptr;
+
+  // state machine.
+  utility::StateMachine<GID_T>* state_machine_ = nullptr;
+
+  // task queue.
+  std::unique_ptr<folly::ProducerConsumerQueue<GID_T>> task_queue_ = nullptr;
+
+  // partial result queue.
+  std::unique_ptr<folly::ProducerConsumerQueue<GID_T>> partial_result_queue_ =
+      nullptr;
+
+  // components.
+  std::unique_ptr<
+      components::LoadComponent<GID_T, VID_T, VDATA_T, EDATA_T, GRAPH_T>>
+      load_component_ = nullptr;
+  std::unique_ptr<components::ComputingComponent<GID_T, VID_T, VDATA_T, EDATA_T,
+                                                 GRAPH_T, AUTOAPP_T>>
+      computing_component_ = nullptr;
+  std::unique_ptr<
+      components::DischargeComponent<GID_T, VID_T, VDATA_T, EDATA_T>>
+      discharge_component_ = nullptr;
+
+  // data manager
+  std::unique_ptr<utility::io::DataMgnr<GID_T, VID_T, VDATA_T, EDATA_T>>
+      data_mngr_ = nullptr;
+
+  // 2D-PIE>
+  std::unique_ptr<AppWrapper<AUTOAPP_T>> app_wrapper_ = nullptr;
+
   bool InitPtByGid(const std::string& work_space) {
     std::string vertex_root = work_space + "/vertex/";
     std::string meta_out_root = work_space + "/meta/out/";
@@ -239,61 +313,6 @@ class MiniGraphSys {
     }
     return true;
   }
-
- protected:
-  // configure.
-  size_t num_workers_lc_ = 0;
-  size_t num_workers_cc_ = 0;
-  size_t num_workers_dc_ = 0;
-  std::unique_ptr<folly::ProducerConsumerQueue<GID_T>> read_trigger_;
-
-  // files list
-  folly::AtomicHashMap<GID_T, CSRPt, std::hash<int64_t>, std::equal_to<int64_t>,
-                       std::allocator<char>,
-                       folly::AtomicHashArrayQuadraticProbeFcn>* pt_by_gid_ =
-      nullptr;
-
-  // partitioner
-  std::unique_ptr<minigraph::utility::partitioner::EdgeCutPartitioner<
-      GID_T, VDATA_T, VDATA_T, EDATA_T>>
-      edge_cut_partitioner_ = nullptr;
-
-  // thread pool.
-  utility::IOThreadPool* io_thread_pool_ = nullptr;
-  utility::CPUThreadPool* cpu_thread_pool_ = nullptr;
-
-  // superstep.
-  folly::AtomicHashMap<
-      GID_T, std::shared_ptr<std::atomic<size_t>>, std::hash<int64_t>,
-      std::equal_to<int64_t>, std::allocator<char>,
-      folly::AtomicHashArrayQuadraticProbeFcn>* superstep_by_gid_ = nullptr;
-  std::atomic<size_t>* global_superstep_ = nullptr;
-
-  // state machine.
-  utility::StateMachine<GID_T>* state_machine_ = nullptr;
-
-  // task queue.
-  folly::ProducerConsumerQueue<std::pair<
-      GID_T, std::shared_ptr<graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>>>>*
-      task_queue_ = nullptr;
-
-  // partial result queue.
-  folly::ProducerConsumerQueue<std::pair<
-      GID_T, std::shared_ptr<graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>>>>*
-      partial_result_queue_ = nullptr;
-
-  // global message in shared memory.
-  graphs::Message<VID_T, VDATA_T, EDATA_T>* global_msg_ = nullptr;
-
-  // components.
-  std::unique_ptr<components::LoadComponent<GID_T, VID_T, VDATA_T, EDATA_T>>
-      load_component_ = nullptr;
-  std::unique_ptr<
-      components::ComputingComponent<GID_T, VID_T, VDATA_T, EDATA_T>>
-      computing_component_ = nullptr;
-  std::unique_ptr<
-      components::DischargeComponent<GID_T, VID_T, VDATA_T, EDATA_T>>
-      discharge_component_ = nullptr;
 };
 
 }  // namespace minigraph

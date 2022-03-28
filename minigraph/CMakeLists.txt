@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
+project(libminigraph)
 
 # Directories
 set (EXECUTABLE_OUTPUT_PATH ${PROJECT_ROOT_DIR}/bin)
@@ -7,13 +8,11 @@ set (LIBRARY_OUTPUT_PATH ${PROJECT_ROOT_DIR}/bin)
 ###### Custom options ######
 option(USE_JEMALLOC "Whether to use jemalloc, default: ON." ON)
 
-
 #######################
 # Libraries
 #######################
 include_directories(
-    SYSTEM "/usr/local/include"
-    "."
+    ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 # Folly
@@ -41,16 +40,14 @@ endif ()
 set(CMAKE_THREAD_PREFER_PTHREAD ON)
 find_package(Threads REQUIRED)
 
-# gflag
+# find gflag
 find_package(gflags REQUIRED)
 
 # Boost-ext sml
 include_directories(${THIRD_PARTY_ROOT}/sml/include)
-message(STATUS "Including Boost-ext:SML library in: ${THIRD_PARTY_ROOT}/sml/include")
 
 # rapidcsv
 include_directories(${THIRD_PARTY_ROOT}/rapidcsv/src)
-message(STATUS "Including rapidcsv:rapidcsv library in: ${THIRD_PARTY_ROOT}/rapidcsv/src")
 
 
 #######################
@@ -73,15 +70,6 @@ file(GLOB MINIGRAPH_SOURCES
     "utility/*.cpp"
     )
 
-file(GLOB MINIGRAPH_HEADERS
-    "*.h"
-    "graphs/*.h"
-    "portability/*.h"
-    "state_machine/*.h"
-    "utility/*.h"
-    )
-
-add_library (minigraph ${MINIGRAPH_SOURCES})
 
 #######################
 # Tests
@@ -89,3 +77,13 @@ add_library (minigraph ${MINIGRAPH_SOURCES})
 if (test)
   add_subdirectory("tests")
 endif()
+
+
+#######################
+# Generate libminigraph
+#######################
+add_library (libminigraph
+        ${MINIGRAPH_SOURCES} utility/io/data_mngr.h 2d_pie/edge_map_reduce.h 2d_pie/auto_app_base.h)
+
+target_link_libraries(libminigraph
+        ${FOLLY_LIBRARIES} )

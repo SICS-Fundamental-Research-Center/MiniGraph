@@ -1,11 +1,8 @@
 #ifndef MINIGRAPH_GRAPHS_IMMUTABLECSR_H
 #define MINIGRAPH_GRAPHS_IMMUTABLECSR_H
 
-#include <fstream>
-#include <iostream>
-#include <map>
-#include <memory>
-
+#include "graphs/graph.h"
+#include "utility/logging.h"
 #include <folly/AtomicHashArray.h>
 #include <folly/AtomicHashMap.h>
 #include <folly/Benchmark.h>
@@ -18,9 +15,10 @@
 #include <folly/portability/GTest.h>
 #include <folly/portability/SysTime.h>
 #include <jemalloc/jemalloc.h>
-
-#include "graphs/graph.h"
-#include "utility/logging.h"
+#include <fstream>
+#include <iostream>
+#include <map>
+#include <memory>
 
 using std::cout;
 using std::endl;
@@ -132,7 +130,7 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     }
   };
 
-  void ShowGraph() {
+  void ShowGraph(const size_t& count = 2) {
     if (vertexes_info_ == nullptr) {
       XLOG(ERR, "ShowGraph fault: ", "vertexes_info_ is nullptr");
       return;
@@ -146,7 +144,12 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
          << ", num_verteses: " << num_vertexes_
          << ", sum_in_degree:" << sum_in_edges_ << ", sum_out_degree"
          << sum_out_edges_ << " #####" << endl;
+
+    int i = 0;
     for (auto& iter_vertex : *vertexes_info_) {
+      if (++i > count) {
+        break;
+      }
       cout << "   vid: " << iter_vertex.second->vid
            << " outdegree: " << iter_vertex.second->outdegree
            << " indegree:" << iter_vertex.second->indegree << endl;

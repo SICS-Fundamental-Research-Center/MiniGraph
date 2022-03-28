@@ -4,6 +4,7 @@
 #include "components/component_base.h"
 #include "portability/sys_data_structure.h"
 #include "utility/io/csr_io_adapter.h"
+#include "utility/io/data_mngr.h"
 #include "utility/state_machine.h"
 #include "utility/thread_pool.h"
 #include <folly/ProducerConsumerQueue.h>
@@ -13,68 +14,66 @@
 #define MAX_THREAD 10;
 namespace minigraph::components {
 
-template <typename GID_T, typename VID_T, typename VDATA_T, typename EDATA_T>
+template <typename GID_T, typename VID_T, typename VDATA_T, typename EDATA_T,
+          typename GRAPH_T>
 class LoadComponent : public ComponentBase<GID_T> {
+  using GRAPH_BASE_T = graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>;
+  // using CSR_T = graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>;
+
  public:
   LoadComponent(
       utility::CPUThreadPool* cpu_thread_pool,
       utility::IOThreadPool* io_thread_pool,
-      folly::AtomicHashMap<
-          GID_T, std::shared_ptr<std::atomic<size_t>>, std::hash<int64_t>,
-          std::equal_to<int64_t>, std::allocator<char>,
-          folly::AtomicHashArrayQuadraticProbeFcn>* superstep_by_gid,
+      folly::AtomicHashMap<GID_T, std::atomic<size_t>*>* superstep_by_gid,
       std::atomic<size_t>* global_superstep,
       utility::StateMachine<GID_T>* state_machine,
-      folly::ProducerConsumerQueue<std::pair<
-          GID_T,
-          std::shared_ptr<graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>>>>*
-          task_queue,
+      folly::ProducerConsumerQueue<GID_T>* task_queue,
       folly::AtomicHashMap<GID_T, CSRPt, std::hash<int64_t>,
                            std::equal_to<int64_t>, std::allocator<char>,
                            folly::AtomicHashArrayQuadraticProbeFcn>* pt_by_gid,
-      folly::ProducerConsumerQueue<GID_T>* read_trigger)
+      folly::ProducerConsumerQueue<GID_T>* read_trigger,
+      utility::io::DataMgnr<GID_T, VID_T, VDATA_T, EDATA_T>* data_mngr,
+      const size_t& num_wroker_lc)
       : ComponentBase<GID_T>(cpu_thread_pool, io_thread_pool, superstep_by_gid,
                              global_superstep, state_machine) {
-    task_queue_ = task_queue;
     pt_by_gid_ = pt_by_gid;
-    csr_io_adapter_ =
-        new minigraph::utility::io::CSRIOAdapter<gid_t, vid_t, vdata_t,
-                                                 edata_t>();
     read_trigger_ = read_trigger;
+    data_mngr_ = data_mngr;
+    task_queue_ = task_queue;
+    num_idle_workers_ = std::make_unique<std::atomic<size_t>>(num_wroker_lc);
     XLOG(INFO, "Init LoadComponent: Finish.");
   }
   void Run() override {
-    XLOG(INFO, this->switch_.load());
-    while (this->switch_.load(std::memory_order_relaxed)) {
+    while (this->switch_.load(std::memory_order_relaxed) == true) {
       GID_T gid;
-      while (!read_trigger_->read(gid)) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      while (read_trigger_->read(gid) == false) {
+        if (this->switch_.load(std::memory_order_relaxed) == false) {
+          return;
+        }
       }
       // process gid
       CSRPt& csr_pt = pt_by_gid_->find(gid)->second;
-      auto immutable_csr =
-          new graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>;
 
-      csr_io_adapter_->Read(
-          (graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>*)immutable_csr,
-          csr_bin, csr_pt.vertex_pt, csr_pt.meta_in_pt, csr_pt.meta_in_pt,
-          csr_pt.vdata_pt, csr_pt.localid2globalid_pt);
-      immutable_csr->Deserialized();
-      immutable_csr->ShowGraph();
-      task_queue_->template write(std::make_pair(gid, ));
+      while (num_idle_workers_->load() == 0) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      }
+      auto task = std::bind(
+          &components::LoadComponent<GID_T, VID_T, VDATA_T, EDATA_T,
+                                     GRAPH_T>::Enqueue,
+          this, gid, csr_pt, data_mngr_, task_queue_, num_idle_workers_.get());
+      (*num_idle_workers_)--;
+      this->cpu_thread_pool_->Commit(task);
     }
+    XLOG(INFO, "LOAD COMPONENT RUN()");
   }
-  void Stop() override {}
-  bool Enqueue();
+  void Stop() override { this->switch_.store(false); }
 
  private:
-  // task queue
-  folly::ProducerConsumerQueue<std::pair<
-      GID_T, std::shared_ptr<graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>>>>*
-      task_queue_;
+  // configuration
+  std::unique_ptr<std::atomic<size_t>> num_idle_workers_ = nullptr;
 
-  // io adapter
-  utility::io::CSRIOAdapter<GID_T, VID_T, VDATA_T, EDATA_T>* csr_io_adapter_;
+  // task queue
+  folly::ProducerConsumerQueue<GID_T>* task_queue_;
 
   folly::AtomicHashMap<GID_T, CSRPt, std::hash<int64_t>, std::equal_to<int64_t>,
                        std::allocator<char>,
@@ -82,6 +81,29 @@ class LoadComponent : public ComponentBase<GID_T> {
 
   // read trigger to determine which fragment could be buffered.
   folly::ProducerConsumerQueue<GID_T>* read_trigger_ = nullptr;
+
+  // data manager
+  utility::io::DataMgnr<GID_T, VID_T, VDATA_T, EDATA_T>* data_mngr_ = nullptr;
+
+  std::atomic<bool> switch_ = true;
+
+  void Enqueue(GID_T gid, CSRPt& csr_pt,
+               utility::io::DataMgnr<GID_T, VID_T, VDATA_T, EDATA_T>* data_mngr,
+               folly::ProducerConsumerQueue<GID_T>* task_queue,
+               std::atomic<size_t>* num_idle_workers) {
+    data_mngr->LoadGraph(gid, csr_pt);
+    GRAPH_T* graph = (GRAPH_T*)data_mngr->GetGraph(gid);
+    while (!task_queue->write(gid)) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      continue;
+    }
+    graph->Deserialized();
+    graph->ShowGraph();
+    // if (data_mngr_->LoadGraph(gid, csr_pt) != nullptr) {
+    //   task_queue->write(gid);
+    //   (*num_idle_workers)++;
+    // }
+  }
 };
 
 }  // namespace minigraph::components
