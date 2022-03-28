@@ -1,6 +1,7 @@
 project (MiniGraph_tests)
 
-include_directories(${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})
+include_directories(SYSTEM ${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})
+include_directories(SYSTEM ${gmock_SOURCE_DIR}/include ${gmock_SOURCE_DIR})
 
 set (EXECUTABLE_OUTPUT_PATH ${PROJECT_ROOT_DIR}/bin)
 

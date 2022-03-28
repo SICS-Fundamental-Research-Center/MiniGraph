@@ -25,8 +25,9 @@ set(EXECUTABLE_OUTPUT_PATH ${PROJECT_ROOT_DIR}/bin)
 ###### Add third party to the project, if necessary ######
 if(test)
   enable_testing()
-  set (BUILD_GMOCK OFF CACHE BOOL " ")
-  set (BUILD_GTEST ON CACHE BOOL " ")
+  message(STATUS "Enabling GoogleTest...")
+  set (BUILD_GMOCK ON CACHE BOOL "Option: build gmock and gtest -- ON" FORCE)
+  set (INSTALL_GTEST OFF CACHE BOOL "Option: install gtest -- OFF" FORCE)
   add_subdirectory("${THIRD_PARTY_ROOT}/googletest")
 endif()
 
