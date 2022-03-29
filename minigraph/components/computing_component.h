@@ -43,13 +43,16 @@ class ComputingComponent : public ComponentBase<GID_T> {
     while (this->switch_.load(std::memory_order_relaxed)) {
       GID_T gid;
       while (!task_queue_->read(gid)) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        if (this->switch_.load(std::memory_order_relaxed) == false) {
+          return;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
       }
       GRAPH_T* graph = (GRAPH_T*)data_mngr_->GetGraph(gid);
 
       // RUN APP
-      // ProcessGraph(gid, graph, 5, this->get_superstep_via_gid(gid),
-      //             this->cpu_thread_pool_, app_wrapper_);
+      ProcessGraph(gid, graph, 5, this->get_superstep_via_gid(gid),
+                   this->cpu_thread_pool_, app_wrapper_);
     };
   }
 

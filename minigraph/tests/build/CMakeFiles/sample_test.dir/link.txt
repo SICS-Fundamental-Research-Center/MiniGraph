@@ -1,0 +1,1 @@
+/usr/bin/c++ -rdynamic CMakeFiles/sample_test.dir/sample_test.o -o /bin/sample_test  -lgtest -lgtest_main -lminigraph 

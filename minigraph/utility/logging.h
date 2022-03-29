@@ -3,7 +3,6 @@
 
 #include <folly/logging/xlog.h>
 
-
 namespace minigraph {
 namespace utility {
 namespace logging {
@@ -18,15 +17,14 @@ namespace logging {
 inline constexpr char kDefaultConfigStderr[] =
     "INFO; default:async=true,sync_level=WARN";
 
-
 // Default logging configuration for debugging (print all to stderr).
-inline constexpr char kDebugConfig[] =
-    "DEBUG; default:async=false";
+inline constexpr char kDebugConfig[] = "DEBUG; default:async=false";
 
 // Default logging configuration for both stdout and file logging.
 inline std::string DefaultConfigWithLogFile(const std::string& filepath) {
   return "INFO:default:f; default=stream:stream=stdout,async=true,"
-         "sync_level=WARN; f=file:path=" + filepath;
+         "sync_level=WARN; f=file:path=" +
+         filepath;
 }
 
 // Initialize the logging system for a specific application.
@@ -76,8 +74,8 @@ void OverrideConfig(const std::string& config_str);
 // with python-style formatting.
 #define LOGF_DEBUG(...) XLOGF(DBG, ##__VA_ARGS__)
 
-}
-}
-}
+}  // namespace logging
+}  // namespace utility
+}  // namespace minigraph
 
 #endif  // MINIGRAPH_UTILITY_LOGGING_H_

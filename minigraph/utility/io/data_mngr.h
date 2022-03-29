@@ -36,7 +36,6 @@ class DataMgnr {
   }
 
   GRAPH_T* GetGraph(GID_T gid) {
-    CSR_T* csr_graph = (CSR_T*)pgraph_by_gid_->find(gid)->second;
     if (pgraph_by_gid_->count(gid)) {
       return pgraph_by_gid_->find(gid)->second;
     } else {
