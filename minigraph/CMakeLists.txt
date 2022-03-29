@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(libminigraph)
+project(minigraph)
 
 # Directories
 set (EXECUTABLE_OUTPUT_PATH ${PROJECT_ROOT_DIR}/bin)
@@ -82,8 +82,8 @@ endif()
 #######################
 # Generate libminigraph
 #######################
-add_library (libminigraph
-        ${MINIGRAPH_SOURCES} utility/io/data_mngr.h 2d_pie/edge_map_reduce.h 2d_pie/auto_app_base.h)
+add_library (minigraph
+        ${MINIGRAPH_SOURCES})
 
-target_link_libraries(libminigraph
+target_link_libraries(minigraph
         ${FOLLY_LIBRARIES} )
