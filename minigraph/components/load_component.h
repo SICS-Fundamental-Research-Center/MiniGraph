@@ -46,10 +46,11 @@ class LoadComponent : public ComponentBase<GID_T> {
   void Run() override {
     while (this->switch_.load(std::memory_order_relaxed) == true) {
       GID_T gid;
-      while (read_trigger_->read(gid) == false) {
+      while (!read_trigger_->read(gid)) {
         if (this->switch_.load(std::memory_order_relaxed) == false) {
           return;
         }
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
       }
       // process gid
       CSRPt& csr_pt = pt_by_gid_->find(gid)->second;

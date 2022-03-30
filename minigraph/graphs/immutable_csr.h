@@ -90,7 +90,7 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
 
   size_t get_num_vertexes() const override { return num_vertexes_; }
 
-  bool CleanUp() {
+  void CleanUp() {
     if (vdata_ != nullptr) {
       free(vdata_);
       vdata_ = nullptr;
@@ -142,10 +142,10 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
 
     cout << "##### ImmutableCSRGraph GID: " << gid_
          << ", num_verteses: " << num_vertexes_
-         << ", sum_in_degree:" << sum_in_edges_ << ", sum_out_degree"
-         << sum_out_edges_ << " #####" << endl;
+         << ", sum_in_degree:" << sum_in_edges_
+         << ", sum_out_degree: " << sum_out_edges_ << " #####" << endl;
 
-    int i = 0;
+    size_t i = 0;
     for (auto& iter_vertex : *vertexes_info_) {
       if (++i > count) {
         break;
@@ -157,7 +157,7 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
         cout << "     "
              << "------in edge------" << endl
              << "   ";
-        for (int i = 0; i < iter_vertex.second->indegree; i++) {
+        for (size_t i = 0; i < iter_vertex.second->indegree; i++) {
           cout << iter_vertex.second->in_edges[i] << ", ";
         }
         cout << endl;
@@ -166,7 +166,7 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
         cout << "     "
              << "------out edge------" << endl
              << "   ";
-        for (int i = 0; i < iter_vertex.second->outdegree; i++) {
+        for (size_t i = 0; i < iter_vertex.second->outdegree; i++) {
           cout << iter_vertex.second->out_edges[i] << ", ";
         }
         cout << endl;
@@ -196,28 +196,26 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       if (i == 0) {
         in_offset_[i] = 0;
         if (iter_vertex.second->indegree > 0) {
-          int start = 0, end = iter_vertex.second->indegree;
+          size_t start = 0;
           memcpy((in_edges_ + start), iter_vertex.second->in_edges,
                  sizeof(VID_T) * iter_vertex.second->indegree);
         }
         out_offset_[i] = 0;
         if (iter_vertex.second->outdegree > 0) {
-          int start = 0, end = iter_vertex.second->outdegree;
-          memcpy((out_edges_), iter_vertex.second->out_edges,
+          size_t start = 0;
+          memcpy((out_edges_ + start), iter_vertex.second->out_edges,
                  sizeof(VID_T) * iter_vertex.second->outdegree);
         }
       } else {
         out_offset_[i] = outdegree[i - 1] + out_offset_[i - 1];
         if (iter_vertex.second->outdegree > 0) {
-          int start = out_offset_[i],
-              end = out_offset_[i] + iter_vertex.second->outdegree;
+          size_t start = out_offset_[i];
           memcpy((out_edges_ + start), iter_vertex.second->out_edges,
                  iter_vertex.second->outdegree * sizeof(VID_T));
         }
         in_offset_[i] = indegree[i - 1] + in_offset_[i - 1];
         if (iter_vertex.second->indegree > 0) {
-          int start = in_offset_[i],
-              end = in_offset_[i] + iter_vertex.second->indegree;
+          size_t start = in_offset_[i];
           memcpy((in_edges_ + start), iter_vertex.second->in_edges,
                  iter_vertex.second->indegree * sizeof(VID_T));
         }
@@ -254,7 +252,7 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
         std::equal_to<int64_t>, std::allocator<char>,
         folly::AtomicHashArrayQuadraticProbeFcn>(1024);
 
-    for (int i = 0; i < num_vertexes_; i++) {
+    for (size_t i = 0; i < num_vertexes_; i++) {
       auto vertex_info = new graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>;
       vertex_info->vid = vertex_[i];
       if (i != num_vertexes_ - 1) {

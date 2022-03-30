@@ -138,9 +138,9 @@ class MiniGraphSys {
                                         AUTOAPP_T>::Run,
         computing_component_.get());
     this->cpu_thread_pool_->Commit(task_cc);
-    std::this_thread::sleep_for(std::chrono::milliseconds(10000));
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     this->Stop();
-    XLOG(INFO, "RunSyS(): finish");
+    LOG_INFO("RUNSYS(): finish");
   }
 
  private:

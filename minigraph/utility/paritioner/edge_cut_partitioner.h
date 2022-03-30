@@ -67,6 +67,7 @@ class EdgeCutPartitioner {
                              vdata_pt, localid2globalid_pt);
       count++;
     }
+    return true;
   }
 
   bool SplitImmutableCSR(const size_t& num_partitions,
@@ -86,7 +87,6 @@ class EdgeCutPartitioner {
     const size_t num_vertex_per_fragments =
         immutable_csr->get_num_vertexes() / num_partitions;
     VID_T localid = 0;
-    VID_T globalid = 0;
     GID_T gid = 0;
     size_t count = 0;
     graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>* csr_fragment =

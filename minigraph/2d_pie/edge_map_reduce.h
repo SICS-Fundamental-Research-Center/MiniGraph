@@ -7,23 +7,26 @@
 
 namespace minigraph {
 
-template <typename GRAPH_T>
+template <typename GRAPH_T, typename CONTEXT_T>
 class EdgeMapBase {
  public:
   EdgeMapBase() = default;
   ~EdgeMapBase() = default;
 
-  void EdgeMap(GRAPH_T* graph) {
-    for (size_t tid = 0; tid < graph->get_num_vertexes(); tid += num_worker_)
-      // run vertex centric operations.
-      EdgeReduce();
+  void EdgeMap(GRAPH_T* graph, const CONTEXT_T& context) {
+    //  run vertex centric operations.
+    LOG_INFO("EdgeMap", graph->get_num_vertexes());
+
+    graph->Deserialized();
+    graph->ShowGraph();
+    // EdgeReduce();
   };
 
  private:
   size_t num_worker_;
   utility::CPUThreadPool* cpu_thread_pool_ = nullptr;
 
-  virtual void EdgeReduce() = 0;
+  virtual void EdgeReduce(const CONTEXT_T& context) = 0;
 };
 
 }  // namespace minigraph

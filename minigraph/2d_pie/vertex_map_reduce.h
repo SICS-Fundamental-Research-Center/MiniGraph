@@ -7,23 +7,24 @@
 
 namespace minigraph {
 
-template <typename GRAPH_T>
+template <typename GRAPH_T, typename CONTEXT_T>
 class VertexMapBase {
  public:
   VertexMapBase() = default;
   ~VertexMapBase() = default;
 
-  void VertexMap(GRAPH_T* graph) {
-    for (size_t tid = 0; tid < graph->get_num_vertexes(); tid += num_worker_)
+  void VertexMap(GRAPH_T* graph, const CONTEXT_T& context){
+      // for (size_t tid = 0; tid < graph->get_num_vertexes(); tid +=
+      // num_worker_)
       // run vertex centric operations.
-      VertexReduce();
+      // VertexReduce();
   };
 
  private:
   size_t num_worker_;
   utility::CPUThreadPool* cpu_thread_pool_ = nullptr;
 
-  virtual void VertexReduce() = 0;
+  virtual void VertexReduce(const CONTEXT_T& context) = 0;
 };
 
 }  // namespace minigraph

@@ -9,14 +9,17 @@
 
 namespace minigraph {
 
-template <typename GRAPH_T>
+template <typename GRAPH_T, typename CONTEXT_T>
 class AutoAppBase {
-  using VertexMap_T = VertexMapBase<GRAPH_T>;
-  using EdgeMap_T = EdgeMapBase<GRAPH_T>;
+  using VertexMap_T = VertexMapBase<GRAPH_T, CONTEXT_T>;
+  using EdgeMap_T = EdgeMapBase<GRAPH_T, CONTEXT_T>;
 
  public:
-  AutoAppBase(){};
-  AutoAppBase(VertexMap_T* vertex_map, EdgeMap_T* edge_map) {}
+  AutoAppBase() = default;
+  AutoAppBase(VertexMap_T* vertex_map, EdgeMap_T* edge_map) {
+    vertex_map_ = vertex_map;
+    edge_map_ = edge_map;
+  }
   virtual ~AutoAppBase() = default;
 
   //
@@ -27,7 +30,7 @@ class AutoAppBase {
   //
   // @param graph
   virtual void PEval(GRAPH_T* graph,
-                     utility::CPUThreadPool* cpu_thread_pool) = 0;
+                     utility::CPUThreadPool* cpu_thread_pool = nullptr) = 0;
 
   // @brief Incremental evaluation to implement.
   // @note: This pure virtual function works as an interface, instructing users
@@ -35,7 +38,7 @@ class AutoAppBase {
   // be invoked directly, not via virtual functions.
   // @param graph
   virtual void IncEval(GRAPH_T* graph,
-                       utility::CPUThreadPool* cpu_thread_pool) = 0;
+                       utility::CPUThreadPool* cpu_thread_pool = nullptr) = 0;
 
   // @brief Incremental evaluation to implement.
   // @note: This pure virtual function works as an interface, instructing users
@@ -44,7 +47,9 @@ class AutoAppBase {
   // @param Message
   virtual void MsgAggr() = 0;
 
- private:
+  EdgeMapBase<GRAPH_T, CONTEXT_T>* edge_map_ = nullptr;
+  VertexMapBase<GRAPH_T, CONTEXT_T>* vertex_map_ = nullptr;
+  CONTEXT_T context;
 };
 
 }  // namespace minigraph

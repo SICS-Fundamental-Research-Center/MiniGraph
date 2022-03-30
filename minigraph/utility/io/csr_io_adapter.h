@@ -42,7 +42,11 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       case csr_bin:
         return this->ReadBIN2ImmutableCSR(graph, gid, pt[0], pt[1], pt[2],
                                           pt[3], pt[4]);
+      case weight_edge_graph_csv:
+        // not supported now.
+        return false;
     }
+    return false;
   }
 
   template <class... Args>
@@ -107,7 +111,7 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     folly::AtomicHashMap<VID_T, std::vector<VID_T>*> graph_out_edges(1024);
     std::vector<VID_T> src = doc.GetColumn<VID_T>("src");
     std::vector<VID_T> dst = doc.GetColumn<VID_T>("dst");
-    for (int i = 0; i < src.size(); i++) {
+    for (size_t i = 0; i < src.size(); i++) {
       auto iter = graph_out_edges.find(src.at(i));
       if (iter != graph_out_edges.end()) {
         iter->second->push_back(dst.at(i));
@@ -135,7 +139,7 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       vertex_info->indegree = iter.second->size();
       vertex_info->in_edges =
           (VID_T*)malloc(sizeof(VID_T) * vertex_info->indegree);
-      for (int i = 0; i < iter.second->size(); i++) {
+      for (size_t i = 0; i < iter.second->size(); i++) {
         ((VID_T*)vertex_info->in_edges)[i] = iter.second->at(i);
       }
       immutable_csr->vertexes_info_->insert(
@@ -147,7 +151,7 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
         iter_vertexes_info->second->outdegree = iter.second->size();
         iter_vertexes_info->second->out_edges =
             (VID_T*)malloc(sizeof(VID_T) * iter.second->size());
-        for (int i = 0; i < iter.second->size(); i++) {
+        for (size_t i = 0; i < iter.second->size(); i++) {
           iter_vertexes_info->second->out_edges[i] = iter.second->at(i);
         }
       } else {
@@ -157,7 +161,7 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
         vertex_info->outdegree = iter.second->size();
         vertex_info->out_edges =
             (VID_T*)malloc(sizeof(VID_T) * iter.second->size());
-        for (int i = 0; i < iter.second->size(); i++) {
+        for (size_t i = 0; i < iter.second->size(); i++) {
           ((VID_T*)vertex_info->out_edges)[i] = iter.second->at(i);
         }
         immutable_csr->vertexes_info_->insert(
@@ -338,6 +342,7 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     meta_in_file.close();
     meta_out_file.close();
     localid2globalid_file.close();
+    return true;
   }
 };
 
