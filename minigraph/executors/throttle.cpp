@@ -1,5 +1,7 @@
 #include "executors/throttle.h"
 
+#include <utility>
+
 
 namespace minigraph {
 namespace executors {
@@ -70,6 +72,23 @@ const Schedulable::Metadata& Throttle::metadata() const {
 
 Schedulable::Metadata* Throttle::mutable_metadata() {
   return &metadata_;
+}
+
+size_t Throttle::parallelism() {
+  std::lock_guard<std::mutex> grd(mtx_);
+  return max_parallelism_;
+}
+
+ThrottleFactory::ThrottleFactory(TaskRunner *downstream) :
+    downstream_(downstream) {}
+
+std::unique_ptr<Throttle> ThrottleFactory::New(
+    size_t initial_parallelism,
+    Schedulable::Metadata&& metadata) {
+  auto instance = std::make_unique<Throttle>(
+      downstream_, initial_parallelism);
+  std::swap(*(instance->mutable_metadata()), metadata);
+  return instance;
 }
 
 } // namespace executors

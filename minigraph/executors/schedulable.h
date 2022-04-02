@@ -2,6 +2,8 @@
 #define MINIGRAPH_EXECUTORS_SCHEDULABLE_H_
 
 #include <cstddef>
+#include <type_traits>
+#include <memory>
 
 
 namespace minigraph {
@@ -28,6 +30,22 @@ class Schedulable {
 
   // Return the const reference to the metadata object.
   virtual const Metadata& metadata() const = 0;
+
+  // Get the current parallelism limit.
+  virtual size_t parallelism() = 0;
+};
+
+// A companion factory class for Schedulable.
+template <typename Schedulable_T>
+class SchedulableFactory {
+ public:
+  static_assert(std::is_base_of_v<Schedulable, Schedulable_T>,
+                "SchedulableFactory's template type must be a Schedulable.");
+
+  // Create a new instance of Schedulable_T.
+  virtual std::unique_ptr<Schedulable_T> New(
+      size_t initial_parallelism,
+      Schedulable::Metadata&& metadata) = 0;
 };
 
 } // namespace executors

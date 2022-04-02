@@ -31,7 +31,7 @@ class Throttle : public TaskRunner, public Schedulable {
   // A non-default destructor is required to restore semaphore to its original
   // status before destruction. Otherwise, the destructor might raise a
   // EXC_BAD_INSTRUCTION fault on macOS.
-  ~Throttle();
+  virtual ~Throttle();
 
   // Run the task.
   // The call will *block* if its parallelism has been saturated, until
@@ -57,6 +57,9 @@ class Throttle : public TaskRunner, public Schedulable {
   // Return the const reference to the metadata object.
   const Schedulable::Metadata& metadata() const override;
 
+  // Get the current parallelism limit.
+  size_t parallelism() override;
+
   // Return a mutable pointer to the internal metadata object.
   Schedulable::Metadata* mutable_metadata();
 
@@ -79,6 +82,20 @@ class Throttle : public TaskRunner, public Schedulable {
   // rare in practice and contentions are *extremely* low, using a mutex is
   // good enough.
   std::mutex mtx_;
+};
+
+// A companion factory class for Throttle.
+class ThrottleFactory : public SchedulableFactory<Throttle> {
+ public:
+  explicit ThrottleFactory(TaskRunner* downstream);
+
+  // Create a new instance of Throttle, given the initial parallelism
+  // and metadata.
+  std::unique_ptr<Throttle> New(size_t initial_parallelism,
+                                Schedulable::Metadata&& metadata) override;
+
+ private:
+  TaskRunner* downstream_;
 };
 
 } // namespace executors

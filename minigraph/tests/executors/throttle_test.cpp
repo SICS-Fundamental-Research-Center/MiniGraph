@@ -50,11 +50,11 @@ class DummyTaskRunner : public TaskRunner {
 
 class ThrottleTest : public ::testing::Test {
  protected:
-  ThrottleTest() : throttle_(&dummy_, MAX_PARALLELISM) {
+  ThrottleTest() : factory_(&dummy_) {
   }
 
   DummyTaskRunner dummy_;
-  Throttle throttle_;
+  ThrottleFactory factory_;
 };
 
 TEST_F(ThrottleTest, ThrottleCanLimitMaxParallelism) {
@@ -62,8 +62,10 @@ TEST_F(ThrottleTest, ThrottleCanLimitMaxParallelism) {
   std::mutex mtx;
   std::condition_variable cv;
 
+  auto throttle = factory_.New(MAX_PARALLELISM, {});
+
   for (int i = 0; i < MAX_PARALLELISM; i++) {
-    throttle_.Run([&] {
+    throttle->Run([&] {
       running_tasks++;
       std::unique_lock<std::mutex> lck(mtx);
       cv.wait(lck);
@@ -78,7 +80,7 @@ TEST_F(ThrottleTest, ThrottleCanLimitMaxParallelism) {
   enqueue_threads.reserve(TOTAL_TASKS);
   for (int i = 0; i < TOTAL_TASKS - MAX_PARALLELISM; i++) {
     enqueue_threads.emplace_back(std::thread([&] {
-      throttle_.Run([&] {
+      throttle->Run([&] {
         running_tasks++;
         std::unique_lock<std::mutex> lck(mtx);
         cv.wait(lck);
@@ -115,8 +117,10 @@ TEST_F(ThrottleTest, IncreaseParallelismCanBeAchievedImmediately) {
   std::mutex mtx;
   std::condition_variable cv;
 
+  auto throttle = factory_.New(MAX_PARALLELISM, {});
+
   for (int i = 0; i < MAX_PARALLELISM; i++) {
-    throttle_.Run([&] {
+    throttle->Run([&] {
       running_tasks++;
       std::unique_lock<std::mutex> lck(mtx);
       cv.wait(lck);
@@ -131,7 +135,7 @@ TEST_F(ThrottleTest, IncreaseParallelismCanBeAchievedImmediately) {
   enqueue_threads.reserve(TOTAL_TASKS);
   for (int i = 0; i < TOTAL_TASKS - MAX_PARALLELISM; i++) {
     enqueue_threads.emplace_back(std::thread([&] {
-      throttle_.Run([&] {
+      throttle->Run([&] {
         running_tasks++;
         std::unique_lock<std::mutex> lck(mtx);
         cv.wait(lck);
@@ -144,7 +148,7 @@ TEST_F(ThrottleTest, IncreaseParallelismCanBeAchievedImmediately) {
   EXPECT_EQ(0, dummy_.CompletedTasks());
 
   // Now improve parallelism and check the number of running tasks.
-  throttle_.IncreaseParallelism(DELTA_PARALLELISM);
+  throttle->IncreaseParallelism(DELTA_PARALLELISM);
   std::this_thread::sleep_for(10ms);
   EXPECT_EQ(MAX_PARALLELISM + DELTA_PARALLELISM, running_tasks.load());
   EXPECT_EQ(0, dummy_.CompletedTasks());
@@ -167,8 +171,10 @@ TEST_F(ThrottleTest, DecreaseParallelismIsInEffectAfterReturn) {
   std::mutex mtx;
   std::condition_variable cv;
 
+  auto throttle = factory_.New(MAX_PARALLELISM, {});
+
   for (int i = 0; i < MAX_PARALLELISM; i++) {
-    throttle_.Run([&] {
+    throttle->Run([&] {
       running_tasks++;
       std::unique_lock<std::mutex> lck(mtx);
       cv.wait(lck);
@@ -183,7 +189,7 @@ TEST_F(ThrottleTest, DecreaseParallelismIsInEffectAfterReturn) {
   enqueue_threads.reserve(TOTAL_TASKS);
   for (int i = 0; i < MAX_PARALLELISM * 2; i++) {
     enqueue_threads.emplace_back(std::thread([&] {
-      throttle_.Run([&] {
+      throttle->Run([&] {
         running_tasks++;
         std::unique_lock<std::mutex> lck(mtx);
         cv.wait(lck);
@@ -198,8 +204,8 @@ TEST_F(ThrottleTest, DecreaseParallelismIsInEffectAfterReturn) {
   // Now improve parallelism and check the number of running tasks.
   for (int i = 0; i < DELTA_PARALLELISM; i++) {
     std::atomic_bool success(false);
-    auto t = std::thread([&, this] {
-      int remaining = throttle_.DecrementParallelism();
+    auto t = std::thread([&] {
+      int remaining = throttle->DecrementParallelism();
       EXPECT_EQ(MAX_PARALLELISM - i - 1, remaining);
       success.store(true);
     });
@@ -217,7 +223,7 @@ TEST_F(ThrottleTest, DecreaseParallelismIsInEffectAfterReturn) {
 
   for (int i = MAX_PARALLELISM * 3; i < TOTAL_TASKS; i++) {
     enqueue_threads.emplace_back(std::thread([&] {
-      throttle_.Run([&] {
+      throttle->Run([&] {
         running_tasks++;
         std::unique_lock<std::mutex> lck(mtx);
         cv.wait(lck);
@@ -249,12 +255,12 @@ TEST_F(ThrottleTest, DecreaseParallelismIsInEffectAfterReturn) {
 }
 
 TEST_F(ThrottleTest, ThrottleWithZeroParallelismBlockExecution) {
-  Throttle blocking_throttle(&dummy_, 0);
+  auto blocking_throttle = factory_.New(0, {});
 
   std::atomic_int completed_tasks(0);
 
   auto t = std::thread([&] {
-    blocking_throttle.Run([&] {
+    blocking_throttle->Run([&] {
       completed_tasks++;
     });
   });
@@ -262,7 +268,7 @@ TEST_F(ThrottleTest, ThrottleWithZeroParallelismBlockExecution) {
 
   std::this_thread::sleep_for(10ms);
   EXPECT_EQ(0, completed_tasks.load());
-  EXPECT_EQ(1, blocking_throttle.IncreaseParallelism(1));
+  EXPECT_EQ(1, blocking_throttle->IncreaseParallelism(1));
   std::this_thread::sleep_for(10ms);
   EXPECT_EQ(1, completed_tasks.load());
   EXPECT_EQ(1, dummy_.CompletedTasks());
