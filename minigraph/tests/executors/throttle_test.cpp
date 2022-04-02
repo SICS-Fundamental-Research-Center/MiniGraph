@@ -7,8 +7,6 @@
 #include <list>
 #include <chrono>
 
-#include "utility/logging.h"
-
 
 namespace minigraph {
 namespace executors {
@@ -216,8 +214,6 @@ TEST_F(ThrottleTest, DecreaseParallelismIsInEffectAfterReturn) {
       std::this_thread::sleep_for(1ms);
     }
     t.join();
-    LOGF_INFO("Parallelism decrement succeeded after {} notifications.",
-              notify_count);
   }
   std::this_thread::sleep_for(10ms);
 
