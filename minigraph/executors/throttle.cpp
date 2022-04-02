@@ -7,6 +7,7 @@ namespace executors {
 
 Throttle::Throttle(TaskRunner* downstream, size_t max_parallelism) :
     downstream_(downstream),
+    metadata_(),
     sem_(max_parallelism),
     original_parallelism_(max_parallelism),
     max_parallelism_(max_parallelism) {}

@@ -248,5 +248,27 @@ TEST_F(ThrottleTest, DecreaseParallelismIsInEffectAfterReturn) {
   }
 }
 
+TEST_F(ThrottleTest, ThrottleWithZeroParallelismBlockExecution) {
+  Throttle blocking_throttle(&dummy_, 0);
+
+  std::atomic_int completed_tasks(0);
+
+  auto t = std::thread([&] {
+    blocking_throttle.Run([&] {
+      completed_tasks++;
+    });
+  });
+  // t should be blocking execution because Run() is blocked.
+
+  std::this_thread::sleep_for(10ms);
+  EXPECT_EQ(0, completed_tasks.load());
+  EXPECT_EQ(1, blocking_throttle.IncreaseParallelism(1));
+  std::this_thread::sleep_for(10ms);
+  EXPECT_EQ(1, completed_tasks.load());
+  EXPECT_EQ(1, dummy_.CompletedTasks());
+  t.join();
+}
+
+
 } // namespace executors
 } // namespace minigraph
