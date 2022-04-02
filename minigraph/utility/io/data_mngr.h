@@ -29,7 +29,7 @@ class DataMgnr {
         new graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>;
     csr_io_adapter_->Read((GRAPH_T*)immutable_csr, csr_bin, gid,
                           csr_pt.vertex_pt, csr_pt.meta_in_pt,
-                          csr_pt.meta_in_pt, csr_pt.vdata_pt,
+                          csr_pt.meta_out_pt, csr_pt.vdata_pt,
                           csr_pt.localid2globalid_pt);
     pgraph_by_gid_->insert(gid, (GRAPH_T*)immutable_csr);
     return (GRAPH_T*)immutable_csr;

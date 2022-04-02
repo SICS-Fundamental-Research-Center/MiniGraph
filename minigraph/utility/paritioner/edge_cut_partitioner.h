@@ -45,10 +45,10 @@ class EdgeCutPartitioner {
     };
     auto count = 0;
     for (auto& iter_fragments : *fragments_) {
-      graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>* fragment =
+      auto fragment =
           (graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>*)iter_fragments;
-      fragment->ShowGraph();
       fragment->Serialize();
+      fragment->ShowGraph();
       std::string vertex_pt =
           root_pt_ + "/vertex/" + std::to_string(count) + ".v";
       std::string meta_out_pt =
@@ -59,10 +59,6 @@ class EdgeCutPartitioner {
           root_pt_ + "/vdata/" + std::to_string(count) + ".vdata";
       std::string localid2globalid_pt =
           root_pt_ + "/localid2globalid/" + std::to_string(count) + ".idmap";
-      XLOG(INFO, meta_out_pt);
-      XLOG(INFO, meta_in_pt);
-      XLOG(INFO, vdata_pt);
-      XLOG(INFO, localid2globalid_pt);
       csr_io_adapter_->Write(*fragment, vertex_pt, meta_in_pt, meta_out_pt,
                              vdata_pt, localid2globalid_pt);
       count++;

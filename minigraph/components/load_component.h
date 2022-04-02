@@ -93,13 +93,11 @@ class LoadComponent : public ComponentBase<GID_T> {
                folly::ProducerConsumerQueue<GID_T>* task_queue,
                std::atomic<size_t>* num_idle_workers) {
     data_mngr->LoadGraph(gid, csr_pt);
-    GRAPH_T* graph = (GRAPH_T*)data_mngr->GetGraph(gid);
     while (!task_queue->write(gid)) {
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
       continue;
     }
-    graph->Deserialized();
-    graph->ShowGraph();
+    // GRAPH_T* graph = (GRAPH_T*)data_mngr->GetGraph(gid);
     // if (data_mngr_->LoadGraph(gid, csr_pt) != nullptr) {
     //   task_queue->write(gid);
     //   (*num_idle_workers)++;

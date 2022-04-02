@@ -13,6 +13,8 @@ using vid_t = unsigned;
 using vdata_t = unsigned;
 using edata_t = unsigned;
 
+#define VID_MAX (((unsigned)(-1)) >> 1)
+
 #ifndef HAVE_MODE_T
 #define HAVE_MODE_T 1
 #endif

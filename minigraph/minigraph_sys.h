@@ -43,8 +43,7 @@ class MiniGraphSys {
       edge_cut_partitioner_ =
           std::make_unique<minigraph::utility::partitioner::EdgeCutPartitioner<
               GID_T, VDATA_T, VDATA_T, EDATA_T>>(
-              "/home/hsiaoko/Project/data/graph/soc-LiveJournal1.mini.csv",
-              work_space);
+              "/home/hsiaoko/Project/data/graph/a.csv", work_space);
       edge_cut_partitioner_->RunPartition(2);
     }
 
@@ -138,7 +137,7 @@ class MiniGraphSys {
                                         AUTOAPP_T>::Run,
         computing_component_.get());
     this->cpu_thread_pool_->Commit(task_cc);
-    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    std::this_thread::sleep_for(std::chrono::milliseconds(15000));
     this->Stop();
     LOG_INFO("RUNSYS(): finish");
   }

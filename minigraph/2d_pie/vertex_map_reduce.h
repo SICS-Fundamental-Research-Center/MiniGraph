@@ -11,18 +11,25 @@ template <typename GRAPH_T, typename CONTEXT_T>
 class VertexMapBase {
  public:
   VertexMapBase() = default;
+  VertexMapBase(const CONTEXT_T& context) { context_ = context; };
   ~VertexMapBase() = default;
 
-  void VertexMap(GRAPH_T* graph, const CONTEXT_T& context){
+  void VertexMap(){
       // for (size_t tid = 0; tid < graph->get_num_vertexes(); tid +=
       // num_worker_)
       // run vertex centric operations.
       // VertexReduce();
   };
 
+  void Bind(GRAPH_T* graph, utility::CPUThreadPool* cpu_thread_pool) {
+    graph_ = graph;
+    cpu_thread_pool_ = cpu_thread_pool;
+  }
+
  private:
-  size_t num_worker_;
   utility::CPUThreadPool* cpu_thread_pool_ = nullptr;
+  GRAPH_T* graph_ = nullptr;
+  CONTEXT_T context_;
 
   virtual void VertexReduce(const CONTEXT_T& context) = 0;
 };

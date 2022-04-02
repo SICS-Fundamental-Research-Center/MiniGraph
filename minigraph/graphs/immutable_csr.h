@@ -2,6 +2,7 @@
 #define MINIGRAPH_GRAPHS_IMMUTABLECSR_H
 
 #include "graphs/graph.h"
+#include "portability/sys_types.h"
 #include "utility/logging.h"
 #include <folly/AtomicHashArray.h>
 #include <folly/AtomicHashMap.h>
@@ -34,16 +35,8 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
         VID_T, graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>*, std::hash<int64_t>,
         std::equal_to<int64_t>, std::allocator<char>,
         folly::AtomicHashArrayQuadraticProbeFcn>(65536 * 8);
-    this->map_globalid2localid_ =
-        new folly::AtomicHashMap<VID_T, VID_T, std::hash<int64_t>,
-                                 std::equal_to<int64_t>, std::allocator<char>,
-                                 folly::AtomicHashArrayQuadraticProbeFcn>(
-            65536 * 8);
-    this->map_localid2globalid_ =
-        new folly::AtomicHashMap<VID_T, VID_T, std::hash<int64_t>,
-                                 std::equal_to<int64_t>, std::allocator<char>,
-                                 folly::AtomicHashArrayQuadraticProbeFcn>(
-            65536 * 8);
+    this->map_globalid2localid_ = new folly::AtomicHashMap<VID_T, VID_T>(65536);
+    this->map_localid2globalid_ = new folly::AtomicHashMap<VID_T, VID_T>(65536);
   };
 
   ImmutableCSR(GID_T gid) : Graph<GID_T, VID_T, VDATA_T, EDATA_T>(gid){};
@@ -130,7 +123,7 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     }
   };
 
-  void ShowGraph(const size_t& count = 2) {
+  void ShowGraph(const size_t& count = 10) {
     if (vertexes_info_ == nullptr) {
       XLOG(ERR, "ShowGraph fault: ", "vertexes_info_ is nullptr");
       return;
@@ -150,7 +143,9 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       if (++i > count) {
         break;
       }
-      cout << "   vid: " << iter_vertex.second->vid
+      cout << "   local_vid: " << iter_vertex.second->vid << " global_vid: "
+           << map_localid2globalid_->find(iter_vertex.second->vid)->second
+           << " label: " << vdata_[iter_vertex.second->vid]
            << " outdegree: " << iter_vertex.second->outdegree
            << " indegree:" << iter_vertex.second->indegree << endl;
       if (iter_vertex.second->indegree > 0) {
@@ -175,7 +170,6 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
   }
 
   bool Serialize() {
-    XLOG(INFO, "Serialize()");
     if (vertexes_info_ == nullptr) {
       return false;
     }
@@ -223,6 +217,12 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       ++i;
     }
 
+    // serialized vdata.
+    if (vdata_ == nullptr) {
+      vdata_ = (VDATA_T*)malloc(sizeof(VDATA_T) * num_vertexes_);
+      memset(vdata_, 0, sizeof(VDATA_T) * num_vertexes_);
+    }
+
     // serialized localid2globalid;
     if (map_localid2globalid_ != nullptr) {
       buf_localid2globalid_ = (VID_T*)malloc(sizeof(VID_T) * 2 * num_vertexes_);
@@ -247,11 +247,11 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       XLOG(INFO, "Deserialized fault: ", "vertex_info_ already exist..");
       return false;
     }
+    LOG_INFO("Deserialized()");
     vertexes_info_ = new folly::AtomicHashMap<
         VID_T, graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>*, std::hash<int64_t>,
         std::equal_to<int64_t>, std::allocator<char>,
         folly::AtomicHashArrayQuadraticProbeFcn>(1024);
-
     for (size_t i = 0; i < num_vertexes_; i++) {
       auto vertex_info = new graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>;
       vertex_info->vid = vertex_[i];
@@ -259,20 +259,59 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
         vertex_info->outdegree = out_offset_[i + 1] - out_offset_[i];
         vertex_info->indegree = in_offset_[i + 1] - in_offset_[i];
         vertex_info->in_edges = (in_edges_ + in_offset_[i]);
-        vertex_info->out_edges = (in_edges_ + out_offset_[i]);
+        vertex_info->out_edges = (out_edges_ + out_offset_[i]);
+        vertex_info->vdata = (vdata_ + i);
       } else {
         vertex_info->outdegree = sum_out_edges_ - out_offset_[i];
         vertex_info->indegree = sum_in_edges_ - in_offset_[i];
         vertex_info->in_edges = (in_edges_ + in_offset_[i]);
-        vertex_info->out_edges = (in_edges_ + out_offset_[i]);
+        vertex_info->out_edges = (out_edges_ + out_offset_[i]);
+        vertex_info->vdata = (vdata_ + i);
       }
       vertexes_info_->insert(std::make_pair(vertex_info->vid, vertex_info));
     }
     return true;
   }
 
+  graphs::VertexInfo<VID_T, VDATA_T, EDATA_T> GetVertex(VID_T vid) {
+    graphs::VertexInfo<VID_T, VDATA_T, EDATA_T> vertex_info;
+    vertex_info.vid = vertex_[vid];
+    if (vid != num_vertexes_ - 1) {
+      vertex_info.outdegree = out_offset_[vid + 1] - out_offset_[vid];
+      vertex_info.indegree = in_offset_[vid + 1] - in_offset_[vid];
+      vertex_info.in_edges = (in_edges_ + in_offset_[vid]);
+      vertex_info.out_edges = (out_edges_ + out_offset_[vid]);
+      vertex_info.vdata = (vdata_ + vid);
+    } else {
+      vertex_info.outdegree = sum_out_edges_ - out_offset_[vid];
+      vertex_info.indegree = sum_in_edges_ - in_offset_[vid];
+      vertex_info.in_edges = (in_edges_ + in_offset_[vid]);
+      vertex_info.out_edges = (out_edges_ + out_offset_[vid]);
+      vertex_info.vdata = (vdata_ + vid);
+    }
+    return vertex_info;
+  }
+
+  VID_T globalid2localid(const VID_T& vid) const {
+    auto local_id_iter = this->map_globalid2localid_->find(vid);
+    if (local_id_iter != map_globalid2localid_->end()) {
+      return local_id_iter->second;
+    } else {
+      return VID_MAX;
+    }
+  }
+
+  VID_T localid2globalid(const VID_T& vid) const {
+    auto local_id_iter = map_localid2globalid_->find(vid);
+    if (local_id_iter != map_localid2globalid_->end()) {
+      return local_id_iter->second;
+    } else {
+      return VID_MAX;
+    }
+  }
+
  public:
-  // basic param
+  //  basic param
   GID_T gid_ = -1;
   size_t num_vertexes_ = 0;
   size_t sum_in_edges_ = 0;
@@ -299,14 +338,8 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       folly::AtomicHashArrayQuadraticProbeFcn>* vertexes_info_ = nullptr;
 
   // only for subgraphs.
-  folly::AtomicHashMap<VID_T, VID_T, std::hash<int64_t>, std::equal_to<int64_t>,
-                       std::allocator<char>,
-                       folly::AtomicHashArrayQuadraticProbeFcn>*
-      map_localid2globalid_ = nullptr;
-  folly::AtomicHashMap<VID_T, VID_T, std::hash<int64_t>, std::equal_to<int64_t>,
-                       std::allocator<char>,
-                       folly::AtomicHashArrayQuadraticProbeFcn>*
-      map_globalid2localid_ = nullptr;
+  folly::AtomicHashMap<VID_T, VID_T>* map_localid2globalid_ = nullptr;
+  folly::AtomicHashMap<VID_T, VID_T>* map_globalid2localid_ = nullptr;
 };
 
 }  // namespace graphs

@@ -31,6 +31,11 @@ struct Message {
 template <typename GID_T, typename VID_T, typename VDATA_T, typename EDATA_T>
 class Graph {
  public:
+  typedef VID_T vid_t;
+  typedef GID_T gid_t;
+  typedef VDATA_T vdata_t;
+  typedef EDATA_T edata_t;
+
   explicit Graph(GID_T gid) {
     std::cout << "Graph()" << std::endl;
     gid_ = gid;

@@ -81,10 +81,13 @@ class ComputingComponent : public ComponentBase<GID_T> {
   void ProcessGraph(const GID_T& gid, GRAPH_T* graph, const size_t& num_workers,
                     const size_t& step, utility::CPUThreadPool* cpu_thread_pool,
                     APP_WARP* app_warpper) {
+    utility::CPUThreadPool* thread_pool = new utility::CPUThreadPool(2, 1);
+    app_warpper->auto_app_->Bind(graph, thread_pool);
+    LOG_INFO("PROCESS");
     if (step == 0) {
-      app_warpper->auto_app_->PEval(graph, cpu_thread_pool);
+      app_warpper->auto_app_->PEval();
     } else {
-      app_warpper->auto_app_->IncEval(graph, cpu_thread_pool);
+      // app_warpper->auto_app_->IncEval();
     }
   }
 
