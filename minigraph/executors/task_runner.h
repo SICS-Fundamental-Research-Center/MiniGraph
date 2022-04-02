@@ -1,5 +1,5 @@
-#ifndef MINIGRAPH_EXECUTORS_TASK_PROCESSOR_H_
-#define MINIGRAPH_EXECUTORS_TASK_PROCESSOR_H_
+#ifndef MINIGRAPH_EXECUTORS_TASK_RUNNER_H_
+#define MINIGRAPH_EXECUTORS_TASK_RUNNER_H_
 
 #include <functional>
 
@@ -12,7 +12,7 @@ typedef std::function<void ()> Task;
 
 // An interface class, which features a `Run` function that accepts a `Task`
 // and run it.
-class TaskProcessor {
+class TaskRunner {
  public:
   // Start executing a task.
   //
@@ -27,4 +27,4 @@ class TaskProcessor {
 } // namespace executors
 } // namespace minigraph
 
-#endif //MINIGRAPH_EXECUTORS_TASK_PROCESSOR_H_
+#endif //MINIGRAPH_EXECUTORS_TASK_RUNNER_H_

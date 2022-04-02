@@ -23,10 +23,10 @@ using namespace std::chrono_literals;
 #define DELTA_PARALLELISM 4
 #define TOTAL_TASKS 200
 
-class DummyTaskProcessor : public TaskProcessor {
+class DummyTaskRunner : public TaskRunner {
  public:
-  DummyTaskProcessor() : counter_(0) {}
-  ~DummyTaskProcessor() {
+  DummyTaskRunner() : counter_(0) {}
+  ~DummyTaskRunner() {
     for (auto& t : ts_) {
       t.join();
     }
@@ -53,7 +53,7 @@ class ThrottleTest : public ::testing::Test {
   ThrottleTest() : throttle_(&dummy_, MAX_PARALLELISM) {
   }
 
-  DummyTaskProcessor dummy_;
+  DummyTaskRunner dummy_;
   Throttle throttle_;
 };
 
@@ -250,4 +250,3 @@ TEST_F(ThrottleTest, DecreaseParallelismIsInEffectAfterReturn) {
 
 } // namespace executors
 } // namespace minigraph
-

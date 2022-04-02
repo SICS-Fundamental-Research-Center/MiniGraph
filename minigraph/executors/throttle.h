@@ -1,7 +1,7 @@
 #ifndef MINIGRAPH_MINIGRAPH_EXECUTORS_THROTTLE_H_
 #define MINIGRAPH_MINIGRAPH_EXECUTORS_THROTTLE_H_
 
-#include "executors/task_processor.h"
+#include "executors/task_runner.h"
 
 #include <mutex>
 
@@ -11,7 +11,7 @@
 namespace minigraph {
 namespace executors {
 
-// An intermediary TaskProcessor that is used to throttle the maximum
+// An intermediary TaskRunner that is used to throttle the maximum
 // parallelism of task execution, by limiting the number of tasks being
 // processed at the same time.
 //
@@ -21,11 +21,11 @@ namespace executors {
 // Internally, Throttle uses a NativeSemaphore to limit the number of tasks
 // under execution. Once a task is completed, it will `post()` the semaphore
 // to release the resources.
-class Throttle : public TaskProcessor {
+class Throttle : public TaskRunner {
  public:
-  // As an intermediate TaskProcessor, it must be constructed by providing
-  // a downstream TaskProcessor.
-  explicit Throttle(TaskProcessor* downstream, size_t max_parallelism);
+  // As an intermediate TaskRunner, it must be constructed by providing
+  // a downstream TaskRunner.
+  explicit Throttle(TaskRunner* downstream, size_t max_parallelism);
 
   // A non-default destructor is required to restore semaphore to its original
   // status before destruction. Otherwise, the destructor might raise a
@@ -54,7 +54,7 @@ class Throttle : public TaskProcessor {
   int DecrementParallelism();
 
  private:
-  TaskProcessor* downstream_;
+  TaskRunner* downstream_;
 
   folly::NativeSemaphore sem_;
 

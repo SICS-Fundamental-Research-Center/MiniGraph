@@ -5,7 +5,7 @@ namespace minigraph {
 namespace executors {
 
 
-Throttle::Throttle(TaskProcessor* downstream, size_t max_parallelism) :
+Throttle::Throttle(TaskRunner* downstream, size_t max_parallelism) :
     downstream_(downstream),
     sem_(max_parallelism),
     original_parallelism_(max_parallelism),
