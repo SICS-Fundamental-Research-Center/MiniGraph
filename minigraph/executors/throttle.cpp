@@ -63,5 +63,13 @@ int Throttle::DecrementParallelism() {
   return (int) after;
 }
 
+const Schedulable::Metadata& Throttle::metadata() const {
+  return metadata_;
+}
+
+Schedulable::Metadata* Throttle::mutable_metadata() {
+  return &metadata_;
+}
+
 } // namespace executors
 } // namespace minigraph

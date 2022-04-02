@@ -2,6 +2,7 @@
 #define MINIGRAPH_MINIGRAPH_EXECUTORS_THROTTLE_H_
 
 #include "executors/task_runner.h"
+#include "executors/schedulable.h"
 
 #include <mutex>
 
@@ -21,7 +22,7 @@ namespace executors {
 // Internally, Throttle uses a NativeSemaphore to limit the number of tasks
 // under execution. Once a task is completed, it will `post()` the semaphore
 // to release the resources.
-class Throttle : public TaskRunner {
+class Throttle : public TaskRunner, public Schedulable {
  public:
   // As an intermediate TaskRunner, it must be constructed by providing
   // a downstream TaskRunner.
@@ -41,7 +42,7 @@ class Throttle : public TaskRunner {
   // Return the maximum parallelism after the change.
   //
   // The call will return immediately.
-  int IncreaseParallelism(size_t delta);
+  int IncreaseParallelism(size_t delta) override;
 
   // Decrement the limit on parallelism by 1.
   // Return the maximum parallelism after the change. If the maximum parallelism
@@ -51,10 +52,18 @@ class Throttle : public TaskRunner {
   // This is achieved on a best-effort basis. It will *try* to recycle
   // computing resource once it is released by task completion
   // by *not* replenishing the semaphore.
-  int DecrementParallelism();
+  int DecrementParallelism() override;
+
+  // Return the const reference to the metadata object.
+  const Schedulable::Metadata& metadata() const override;
+
+  // Return a mutable pointer to the internal metadata object.
+  Schedulable::Metadata* mutable_metadata();
 
  private:
   TaskRunner* downstream_;
+
+  Schedulable::Metadata metadata_;
 
   folly::NativeSemaphore sem_;
 
