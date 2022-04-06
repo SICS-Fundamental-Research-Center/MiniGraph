@@ -15,6 +15,10 @@ namespace executors {
 template <typename Schedulable_T>
 class Scheduler {
  public:
+  // A default virtual destructor to avoid warning when this interface class
+  // is used directly in the code.
+  virtual ~Scheduler() = default;
+
   // Interface for creating a new Schedulable and allocating resources on
   // creation. The initialization is done via the companion factory class
   // of the Schedulable.
