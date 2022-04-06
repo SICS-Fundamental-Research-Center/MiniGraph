@@ -84,7 +84,7 @@ ThrottleFactory::ThrottleFactory(TaskRunner *downstream) :
 
 std::unique_ptr<Throttle> ThrottleFactory::New(
     size_t initial_parallelism,
-    Schedulable::Metadata&& metadata) {
+    Schedulable::Metadata&& metadata) const {
   auto instance = std::make_unique<Throttle>(
       downstream_, initial_parallelism);
   std::swap(*(instance->mutable_metadata()), metadata);

@@ -45,7 +45,7 @@ class SchedulableFactory {
   // Create a new instance of Schedulable_T.
   virtual std::unique_ptr<Schedulable_T> New(
       size_t initial_parallelism,
-      Schedulable::Metadata&& metadata) = 0;
+      Schedulable::Metadata&& metadata) const = 0;
 };
 
 } // namespace executors

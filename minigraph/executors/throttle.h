@@ -91,8 +91,9 @@ class ThrottleFactory : public SchedulableFactory<Throttle> {
 
   // Create a new instance of Throttle, given the initial parallelism
   // and metadata.
-  std::unique_ptr<Throttle> New(size_t initial_parallelism,
-                                Schedulable::Metadata&& metadata) override;
+  std::unique_ptr<Throttle> New(
+      size_t initial_parallelism,
+      Schedulable::Metadata&& metadata) const override;
 
  private:
   TaskRunner* downstream_;
