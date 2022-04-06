@@ -12,15 +12,18 @@ CPUScheduler::CPUScheduler(unsigned int num_threads) :
     total_threads_(num_threads) {}
 
 std::unique_ptr<Throttle> CPUScheduler::AllocateNew(
-    SchedulableFactory<Throttle>* factory) {
+    SchedulableFactory<Throttle>* factory,
+    Schedulable::Metadata&& metadata) {
   auto q = q_.lock();
   if (q->empty()) {
-    std::unique_ptr<Throttle> throttle = factory->New(total_threads_, {});
+    std::unique_ptr<Throttle> throttle = factory->New(
+        total_threads_, std::forward<Schedulable::Metadata>(metadata));
     q->push_back(throttle.get());
     return throttle;
   }
   else {
-    std::unique_ptr<Throttle> throttle = factory->New(0, {});
+    std::unique_ptr<Throttle> throttle = factory->New(
+        0, std::forward<Schedulable::Metadata>(metadata));
     q->push_back(throttle.get());
     return throttle;
   }
@@ -53,6 +56,7 @@ void CPUScheduler::Remove(Throttle* throttle) {
 
   while (throttle->DecrementParallelism() > 0) {
     // Reclaim all thread allocations from the removed Throttle.
+    // TODO: is it necessary?
   }
   q->pop_front();
   if (!q->empty()) {

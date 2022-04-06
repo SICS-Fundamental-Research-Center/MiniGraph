@@ -28,10 +28,10 @@ class CPUScheduler : public Scheduler<Throttle> {
       unsigned int num_threads = std::thread::hardware_concurrency());
   virtual ~CPUScheduler() = default;
 
-
   // Create a new Throttle and allocate remaining threads to it.
   std::unique_ptr<Throttle> AllocateNew(
-      SchedulableFactory<Throttle>* factory) override;
+      SchedulableFactory<Throttle>* factory,
+      Schedulable::Metadata&& metadata) override;
 
   // Remove a throttle and recycle its assigned resources.
   void Remove(Throttle* throttle) override;

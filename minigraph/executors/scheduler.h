@@ -23,7 +23,8 @@ class Scheduler {
   // pointer to the created instance, in case `RescheduleAll()` is called and
   // initially allocated resources need to be adjusted.
   virtual std::unique_ptr<Schedulable_T> AllocateNew(
-      SchedulableFactory<Schedulable_T>* factory) = 0;
+      SchedulableFactory<Schedulable_T>* factory,
+      Schedulable::Metadata&& metadata) = 0;
 
   // Interface for removing a previously created Schedulable instance, by
   // releasing its allocated resources.

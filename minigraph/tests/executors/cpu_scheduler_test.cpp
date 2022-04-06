@@ -34,9 +34,9 @@ class CPUSchedulerTest : public ::testing::Test {
 TEST_F(CPUSchedulerTest, SchedulerAllocateThreadsPreemptively) {
   // Create three new throttle in a sequence. The first will be assigned
   // all threads, while the rest two has 0 allocation.
-  auto t1 = scheduler_.AllocateNew(&factory_);
-  auto t2 = scheduler_.AllocateNew(&factory_);
-  auto t3 = scheduler_.AllocateNew(&factory_);
+  auto t1 = scheduler_.AllocateNew(&factory_, {});
+  auto t2 = scheduler_.AllocateNew(&factory_, {});
+  auto t3 = scheduler_.AllocateNew(&factory_, {});
   EXPECT_EQ((size_t) parallelism, t1->parallelism());
   EXPECT_EQ(0, t2->parallelism());
   EXPECT_EQ(0, t3->parallelism());
@@ -54,7 +54,7 @@ TEST_F(CPUSchedulerTest, SchedulerAllocateThreadsPreemptively) {
   EXPECT_EQ((size_t) parallelism, t3->parallelism());
 
   // Now allocate t4.
-  auto t4 = scheduler_.AllocateNew(&factory_);
+  auto t4 = scheduler_.AllocateNew(&factory_, {});
   EXPECT_EQ(0, t1->parallelism());
   EXPECT_EQ(0, t2->parallelism());
   EXPECT_EQ((size_t) parallelism, t3->parallelism());
@@ -86,9 +86,9 @@ TEST_F(CPUSchedulerTest, RemovingAThrottleNotAtTheFrontTriggersErrorLogging) {
   using ::testing::HasSubstr;
 
   // Allocate 3 Throttle instances.
-  auto t1 = scheduler_.AllocateNew(&factory_);
-  auto t2 = scheduler_.AllocateNew(&factory_);
-  auto t3 = scheduler_.AllocateNew(&factory_);
+  auto t1 = scheduler_.AllocateNew(&factory_, {});
+  auto t2 = scheduler_.AllocateNew(&factory_, {});
+  auto t3 = scheduler_.AllocateNew(&factory_, {});
   EXPECT_EQ((size_t) parallelism, t1->parallelism());
   EXPECT_EQ(0, t2->parallelism());
   EXPECT_EQ(0, t3->parallelism());
