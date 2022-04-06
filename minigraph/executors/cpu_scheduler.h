@@ -14,15 +14,12 @@
 namespace minigraph {
 namespace executors {
 
-// An alias of Scheduler for Throttle as Schedulable.
-using ThrottleScheduler = Scheduler<Throttle>;
-
 // A scheduler implementation.
 //
 // It assigns CPU resources to allocated Throttle instances *preemptively*:
 // If there is resource available, it assigns *all* idle threads to the first
 // Throttle waiting in line.
-class CPUScheduler : public ThrottleScheduler {
+class CPUScheduler : public Scheduler<Throttle> {
  public:
   // Default constructor.
   // `num_threads` indicates the total number of available threads. If its value
