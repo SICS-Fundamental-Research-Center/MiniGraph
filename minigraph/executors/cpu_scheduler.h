@@ -26,11 +26,11 @@ class CPUScheduler : public Scheduler<Throttle> {
   // is not provided, hardware concurrency is used.
   explicit CPUScheduler(
       unsigned int num_threads = std::thread::hardware_concurrency());
-  virtual ~CPUScheduler() = default;
+  ~CPUScheduler() override = default;
 
   // Create a new Throttle and allocate remaining threads to it.
   std::unique_ptr<Throttle> AllocateNew(
-      SchedulableFactory<Throttle>* factory,
+      const SchedulableFactory<Throttle>* factory,
       Schedulable::Metadata&& metadata) override;
 
   // Remove a throttle and recycle its assigned resources.

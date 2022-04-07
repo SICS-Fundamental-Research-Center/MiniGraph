@@ -12,7 +12,7 @@ CPUScheduler::CPUScheduler(unsigned int num_threads) :
     total_threads_(num_threads) {}
 
 std::unique_ptr<Throttle> CPUScheduler::AllocateNew(
-    SchedulableFactory<Throttle>* factory,
+    const SchedulableFactory<Throttle>* factory,
     Schedulable::Metadata&& metadata) {
   auto q = q_.lock();
   if (q->empty()) {
