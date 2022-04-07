@@ -22,6 +22,14 @@ class TaskRunner {
   // As a result, the client code is responsible for checking the termination
   // of tasks.
   virtual void Run(Task&& task) = 0;
+
+  // Get the current parallelism for running tasks if a bunch of tasks are
+  // submitted via Run().
+  //
+  // It is useful for task submitters to estimate the currently allowed
+  // concurrency, and to batch tiny tasks into larger serial ones while
+  // making no compromise on utilization of allocated resources.
+  virtual size_t RunParallelism() = 0;
 };
 
 } // namespace executors

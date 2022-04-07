@@ -32,7 +32,7 @@ class Schedulable {
   virtual const Metadata& metadata() const = 0;
 
   // Get the current parallelism limit.
-  virtual size_t parallelism() = 0;
+  virtual size_t AllocatedParallelism() = 0;
 };
 
 // A companion factory class for Schedulable.

@@ -38,6 +38,9 @@ class Throttle : public TaskRunner, public Schedulable {
   // previously submitted tasks have been completed.
   void Run(Task&& task) override;
 
+  // Get the current parallelism limit.
+  size_t RunParallelism() override;
+
   // Increase the limit on parallelism by `delta`.
   // Return the maximum parallelism after the change.
   //
@@ -58,7 +61,7 @@ class Throttle : public TaskRunner, public Schedulable {
   const Schedulable::Metadata& metadata() const override;
 
   // Get the current parallelism limit.
-  size_t parallelism() override;
+  size_t AllocatedParallelism() override;
 
   // Return a mutable pointer to the internal metadata object.
   Schedulable::Metadata* mutable_metadata();

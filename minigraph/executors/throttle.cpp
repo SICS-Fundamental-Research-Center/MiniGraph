@@ -38,6 +38,10 @@ void Throttle::Run(Task&& task) {
   });
 }
 
+size_t Throttle::RunParallelism() {
+  return AllocatedParallelism();
+}
+
 int Throttle::IncreaseParallelism(size_t delta) {
   size_t after;
   {
@@ -74,7 +78,7 @@ Schedulable::Metadata* Throttle::mutable_metadata() {
   return &metadata_;
 }
 
-size_t Throttle::parallelism() {
+size_t Throttle::AllocatedParallelism() {
   std::lock_guard<std::mutex> grd(mtx_);
   return max_parallelism_;
 }

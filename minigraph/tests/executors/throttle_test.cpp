@@ -37,6 +37,11 @@ class DummyTaskRunner : public TaskRunner {
     }));
   }
 
+  size_t RunParallelism() override {
+    // Do nothing.
+    return 0;
+  }
+
   int CompletedTasks() {
     return counter_.load();
   }
