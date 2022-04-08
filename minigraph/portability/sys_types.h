@@ -14,6 +14,7 @@ using vdata_t = unsigned;
 using edata_t = unsigned;
 
 #define VID_MAX (((unsigned)(-1)) >> 1)
+#define GID_MAX (((unsigned)(-1)) >> 1)
 
 #ifndef HAVE_MODE_T
 #define HAVE_MODE_T 1
@@ -25,7 +26,7 @@ using edata_t = unsigned;
 // Rename events for state machine.
 #define LOAD 'L'
 #define UNLOAD 'U'
-#define NOTHINGCHANGE 'N'
+#define NOTHINGCHANGED 'N'
 #define CHANGED 'C'
 #define AGGREGATE 'A'
 #define FIXPOINT 'F'

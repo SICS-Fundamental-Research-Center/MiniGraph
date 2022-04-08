@@ -29,6 +29,8 @@ namespace graphs {
 
 template <typename GID_T, typename VID_T, typename VDATA_T, typename EDATA_T>
 class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
+  using VertexInfo = graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>;
+
  public:
   ImmutableCSR() : Graph<GID_T, VID_T, VDATA_T, EDATA_T>() {
     this->vertexes_info_ = new folly::AtomicHashMap<
@@ -292,6 +294,29 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     return vertex_info;
   }
 
+  graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>* CopyVertex(VID_T vid) {
+    VertexInfo* vertex_info = new VertexInfo;
+    vertex_info->vid = vertex_[vid];
+    if (vid != num_vertexes_ - 1) {
+      vertex_info->outdegree = out_offset_[vid + 1] - out_offset_[vid];
+      vertex_info->indegree = in_offset_[vid + 1] - in_offset_[vid];
+    } else {
+      vertex_info->outdegree = sum_out_edges_ - out_offset_[vid];
+      vertex_info->indegree = sum_in_edges_ - in_offset_[vid];
+    }
+    vertex_info->in_edges =
+        (VID_T*)malloc(sizeof(VID_T) * vertex_info->indegree);
+    memcpy(vertex_info->in_edges, in_edges_ + in_offset_[vid],
+           vertex_info->indegree * sizeof(VID_T));
+    vertex_info->out_edges =
+        (VID_T*)malloc(sizeof(VID_T) * vertex_info->outdegree);
+    memcpy(vertex_info->out_edges, out_edges_ + out_offset_[vid],
+           vertex_info->outdegree * sizeof(VID_T));
+    vertex_info->vdata = (VDATA_T*)malloc(sizeof(VDATA_T));
+    *vertex_info->vdata = *(vdata_ + vid);
+    return vertex_info;
+  }
+
   VID_T globalid2localid(const VID_T& vid) const {
     auto local_id_iter = this->map_globalid2localid_->find(vid);
     if (local_id_iter != map_globalid2localid_->end()) {
@@ -308,6 +333,21 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     } else {
       return VID_MAX;
     }
+  }
+
+  folly::AtomicHashMap<VID_T, GID_T>* GetBorderVertexes() {
+    folly::AtomicHashMap<VID_T, GID_T>* border_vertexes =
+        new folly::AtomicHashMap<VID_T, GID_T>(num_vertexes_);
+    for (size_t vid = 0; vid < num_vertexes_; vid++) {
+      graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>&& vertex_info =
+          GetVertex(vertex_[vid]);
+      for (size_t i_ngh = 0; i_ngh < vertex_info.indegree; ++i_ngh) {
+        if (globalid2localid(vertex_info.in_edges[i_ngh]) == VID_MAX) {
+          border_vertexes->insert(vertex_info.in_edges[i_ngh], gid_);
+        }
+      }
+    }
+    return border_vertexes;
   }
 
  public:

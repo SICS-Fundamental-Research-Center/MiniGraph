@@ -2,6 +2,7 @@
 #ifndef MINIGRAPH_GRAPHS_GRAPH_H
 #define MINIGRAPH_GRAPHS_GRAPH_H
 
+#include <folly/AtomicHashMap.h>
 #include <folly/FBString.h>
 #include <folly/Range.h>
 #include <iostream>
@@ -22,10 +23,15 @@ struct VertexInfo {
   EDATA_T* edata = nullptr;
 };
 
+template <typename GID_T, typename VID_T>
+struct MSG {
+  folly::AtomicHashMap<VID_T, GID_T>* bordet_vertexes = nullptr;  // vertex that
+};
+
 template <typename VID_T, typename VDATA_T, typename EDATA_T>
 struct Message {
-  std::shared_ptr<std::unordered_map<VID_T, VDATA_T>> updated_val_by_vid;
-  // ... to be filled.
+  folly::AtomicHashMap<VID_T, VDATA_T>* msg = nullptr;  // vertex that
+  // to add
 };
 
 template <typename GID_T, typename VID_T, typename VDATA_T, typename EDATA_T>

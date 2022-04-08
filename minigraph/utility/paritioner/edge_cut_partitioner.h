@@ -32,10 +32,12 @@ namespace partitioner {
 template <typename GID_T, typename VID_T, typename VDATA_T, typename EDATA_T>
 class EdgeCutPartitioner {
  public:
+  folly::AtomicHashMap<VID_T, std::vector<GID_T>*>* global_border_vertexes_ =
+      nullptr;
+
   EdgeCutPartitioner(const std::string& graph_pt, const std::string& root_pt) {
     graph_pt_ = graph_pt;
     root_pt_ = root_pt;
-    XLOG(INFO, "  Origin Graph: ", graph_pt_);
   };
 
   bool RunPartition(const size_t& number_partitions) {
@@ -44,6 +46,7 @@ class EdgeCutPartitioner {
       return false;
     };
     auto count = 0;
+
     for (auto& iter_fragments : *fragments_) {
       auto fragment =
           (graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>*)iter_fragments;
@@ -59,8 +62,10 @@ class EdgeCutPartitioner {
           root_pt_ + "/vdata/" + std::to_string(count) + ".vdata";
       std::string localid2globalid_pt =
           root_pt_ + "/localid2globalid/" + std::to_string(count) + ".idmap";
-      csr_io_adapter_->Write(*fragment, vertex_pt, meta_in_pt, meta_out_pt,
-                             vdata_pt, localid2globalid_pt);
+      csr_io_adapter_->Write(*fragment, csr_bin, vertex_pt, meta_in_pt,
+                             meta_out_pt, vdata_pt, localid2globalid_pt);
+      auto border_vertexes = fragment->GetBorderVertexes();
+      MergeBorderVertexes(border_vertexes);
       count++;
     }
     return true;
@@ -150,6 +155,25 @@ class EdgeCutPartitioner {
       nullptr;
   std::unique_ptr<io::CSRIOAdapter<GID_T, VID_T, VDATA_T, EDATA_T>>
       csr_io_adapter_ = nullptr;
+
+  void MergeBorderVertexes(
+      folly::AtomicHashMap<VID_T, GID_T>* border_vertexes) {
+    if (global_border_vertexes_ == nullptr) {
+      global_border_vertexes_ =
+          new folly::AtomicHashMap<VID_T, std::vector<GID_T>*>(65536);
+    }
+    for (auto iter = border_vertexes->begin(); iter != border_vertexes->end();
+         iter++) {
+      auto iter_global = global_border_vertexes_->find(iter->first);
+      if (iter_global != global_border_vertexes_->end()) {
+        iter_global->second->push_back(iter->second);
+      } else {
+        std::vector<GID_T>* vec_gid = new std::vector<GID_T>;
+        vec_gid->push_back(iter->second);
+        global_border_vertexes_->insert(iter->first, vec_gid);
+      }
+    }
+  }
 };
 
 }  // namespace partitioner
