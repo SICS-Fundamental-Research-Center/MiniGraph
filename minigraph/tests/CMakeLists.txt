@@ -8,14 +8,17 @@ set (EXECUTABLE_OUTPUT_PATH ${PROJECT_ROOT_DIR}/bin)
 ####################
 # Build Unit Tests #
 ####################
-file (GLOB testfiles "${CMAKE_CURRENT_SOURCE_DIR}/*_test.cpp")
+file (GLOB testfiles
+    "${CMAKE_CURRENT_SOURCE_DIR}/*_test.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/executors/*_test.cpp"
+    )
 foreach (testfile ${testfiles})
     get_filename_component (filename ${testfile} NAME_WE)
     string (REPLACE "_test"
             "" testname
             ${filename})
     string (TOUPPER ${testname} TESTNAME)
-    add_executable(${filename} "${filename}.cpp")
+    add_executable(${filename} "${testfile}")
     target_link_libraries(${filename}
         gtest
         gtest_main

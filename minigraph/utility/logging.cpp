@@ -12,7 +12,7 @@ void InitOrDie(const std::string& config_str) {
   folly::LoggerDB::get().registerHandlerFactory(
       std::make_unique<folly::FileHandlerFactory>(), true);
   folly::initLoggingOrDie(config_str);
-};
+}
 
 void UpdateConfig(const std::string& config_str) {
   folly::LoggerDB::get().updateConfig(folly::parseLogConfig(config_str));
