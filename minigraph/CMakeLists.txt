@@ -64,6 +64,7 @@ include_directories(${THIRD_PARTY_ROOT}/rapidcsv/src)
 
 file(GLOB MINIGRAPH_SOURCES
     "*.cpp"
+    "executors/*.cpp"
     "graphs/*.cpp"
     "portability/*.cpp"
     "state_machine/*.cpp"
