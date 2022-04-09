@@ -46,7 +46,7 @@ class MiniGraphSys {
       edge_cut_partitioner_ =
           std::make_unique<minigraph::utility::partitioner::EdgeCutPartitioner<
               GID_T, VDATA_T, VDATA_T, EDATA_T>>(
-              "/home/hsiaoko/Project/data/graph/a.csv", work_space);
+              "inputs/edge_graph_csv/test.csv", work_space);
       edge_cut_partitioner_->RunPartition(2);
     }
 
