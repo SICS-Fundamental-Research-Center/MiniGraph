@@ -126,10 +126,9 @@ class StateMachine {
       iter.second->is("RT"_s) ? ++count : 0;
     }
     if (count < graph_state_.size()) {
-      for (auto& iter : graph_state_) {
-        iter.second->process_event(GoOn{});
-        assert(iter.second->is("Idle"_s));
-      }
+      // for (auto& iter : graph_state_) {
+      //   if (iter.second->is("RC"_s)) iter.second->process_event(GoOn{});
+      // }
       return false;
     } else {
       system_state_.process_event(Fixpoint{});

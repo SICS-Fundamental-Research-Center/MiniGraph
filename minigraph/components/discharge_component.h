@@ -65,7 +65,7 @@ class DischargeComponent : public ComponentBase<GID_T> {
       folly::ProducerConsumerQueue<GID_T>* read_trigger,
       folly::AtomicHashMap<GID_T, CSRPt>* pt_by_gid,
       utility::StateMachine<GID_T>* state_machine) {
-    GRAPH_T* graph = (CSR_T*)data_mngr->GetGraph(gid);
+    (CSR_T*)data_mngr->GetGraph(gid);
     CSRPt& csr_pt = pt_by_gid->find(gid)->second;
     data_mngr->WriteGraph(gid, csr_pt);
     if (state_machine->GraphIs(gid, RC)) {
@@ -91,14 +91,15 @@ class DischargeComponent : public ComponentBase<GID_T> {
   std::atomic<bool> switch_ = true;
 
   bool TrySync() {
-    LOG_INFO("!!!!!!!!!!!!!!!!!!!!!!!GLOBAL_STEP:",
-             this->get_global_superstep());
     size_t count = 0;
     for (auto& iter : *this->superstep_by_gid_) {
       if (iter.second->load() > this->get_global_superstep()) ++count;
     }
     if (count == this->superstep_by_gid_->size()) {
       this->global_superstep_->store(this->global_superstep_->load() + 1);
+      return true;
+    } else {
+      return false;
     }
   }
 };

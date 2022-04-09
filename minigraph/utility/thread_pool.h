@@ -8,9 +8,9 @@
 #include <cstddef>
 #include <functional>
 #include <future>
+#include <iostream>
 #include <memory>
 #include <stdexcept>
-#include <iostream>
 
 namespace minigraph {
 namespace utility {
@@ -45,7 +45,6 @@ class CPUThreadPool : virtual public ThreadPool {
   template <class F, class... Args>
   void Commit(F&& f, Args&&... args) {
     auto task = std::bind(std::forward<F>(f), std::forward<Args>(args)...);
-    std::cout << "Commit" << std::endl;
     cpu_executor_->add(task);
   }
   void Commit(Task task) { cpu_executor_->add(task); };

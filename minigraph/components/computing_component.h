@@ -2,6 +2,9 @@
 #define MINIGRAPH_COMPUTING_COMPONENT_H
 
 #include "components/component_base.h"
+#include "executors/scheduled_executor.h"
+#include "executors/scheduler.h"
+#include "executors/task_runner.h"
 #include "graphs/immutable_csr.h"
 #include "utility/io/data_mngr.h"
 #include "utility/thread_pool.h"
@@ -36,6 +39,8 @@ class ComputingComponent : public ComponentBase<GID_T> {
     partial_result_queue_ = partial_result_queue;
     num_idle_workers_ = std::make_unique<std::atomic<size_t>>(num_wroker_cc);
     app_wrapper_ = app_wrapper;
+    scheduled_executor_ =
+        std::make_unique<executors::ScheduledExecutor>(num_wroker_cc);
     XLOG(INFO, "Init ComputingComponent: Finish.");
   };
 
@@ -47,16 +52,15 @@ class ComputingComponent : public ComponentBase<GID_T> {
         if (this->switch_.load(std::memory_order_relaxed) == false) return;
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
       }
-      LOG_INFO("gid:", gid);
-      // auto cpu_thread_pool = new utility::CPUThreadPool(2, 1);
-      // auto task = std::bind(
-      //     &components::ComputingComponent<GID_T, VID_T, VDATA_T, EDATA_T,
-      //                                     GRAPH_T, AUTOAPP_T>::ProcessGraph,
-      //     this, gid, cpu_thread_pool, partial_result_queue_, data_mngr_,
-      //     app_wrapper_, this->state_machine_);
-      // this->cpu_thread_pool_->Commit(task);
-      ProcessGraph(gid, this->cpu_thread_pool_, partial_result_queue_,
-                   data_mngr_, app_wrapper_, this->state_machine_);
+      auto cpu_thread_pool = new utility::CPUThreadPool(2, 1);
+      auto task = std::bind(
+          &components::ComputingComponent<GID_T, VID_T, VDATA_T, EDATA_T,
+                                          GRAPH_T, AUTOAPP_T>::ProcessGraph,
+          this, gid, cpu_thread_pool, partial_result_queue_, data_mngr_,
+          app_wrapper_, this->state_machine_);
+      this->cpu_thread_pool_->Commit(task);
+      //  ProcessGraph(gid, this->cpu_thread_pool_, partial_result_queue_,
+      //              data_mngr_, app_wrapper_, this->state_machine_);
     }
   }
 
@@ -82,14 +86,19 @@ class ComputingComponent : public ComponentBase<GID_T> {
   // 2D-PIE>
   APP_WARP* app_wrapper_ = nullptr;
 
+  std::unique_ptr<executors::ScheduledExecutor> scheduled_executor_ = nullptr;
+
   void ProcessGraph(
       const GID_T& gid, utility::CPUThreadPool* cpu_thread_pool,
       folly::ProducerConsumerQueue<GID_T>* partial_result_queue,
       utility::io::DataMgnr<GID_T, VID_T, VDATA_T, EDATA_T>* data_mngr,
       APP_WARP* app_wrapper, utility::StateMachine<GID_T>* state_machine) {
-    utility::CPUThreadPool* thread_pool = new utility::CPUThreadPool(2, 1);
+    executors::TaskRunner* task_runner =
+        scheduled_executor_->RequestTaskRunner(this, {});
+
     app_wrapper->auto_app_->Bind((GRAPH_T*)data_mngr->GetGraph(gid),
-                                 thread_pool);
+                                 task_runner);
+
     if (this->get_superstep_via_gid(gid) == 0) {
       app_wrapper->auto_app_->PEval()
           ? state_machine->ProcessEvent(gid, CHANGED)
@@ -100,6 +109,7 @@ class ComputingComponent : public ComponentBase<GID_T> {
           : state_machine->ProcessEvent(gid, NOTHINGCHANGED);
     }
     this->add_superstep_via_gid(gid);
+
     app_wrapper->auto_app_->MsgAggr(
         app_wrapper->auto_app_->global_border_vertexes_info_,
         app_wrapper->auto_app_->partial_border_vertexes_info_);

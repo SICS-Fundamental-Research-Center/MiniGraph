@@ -3,10 +3,15 @@
 
 #include "2d_pie/edge_map_reduce.h"
 #include "2d_pie/vertex_map_reduce.h"
+#include "executors/scheduled_executor.h"
+#include "executors/scheduler.h"
+#include "executors/task_runner.h"
+#include "executors/throttle.h"
 #include "graphs/graph.h"
 #include "graphs/immutable_csr.h"
 #include "utility/thread_pool.h"
 #include <folly/MPMCQueue.h>
+#include <folly/concurrency/DynamicBoundedQueue.h>
 
 namespace minigraph {
 
@@ -14,7 +19,6 @@ template <typename GRAPH_T, typename CONTEXT_T>
 class AutoAppBase {
   using VertexMap_T = VertexMapBase<GRAPH_T, CONTEXT_T>;
   using EdgeMap_T = EdgeMapBase<GRAPH_T, CONTEXT_T>;
-  typedef folly::MPMCQueue<typename GRAPH_T::vid_t> Frontier;
   using VertexInfo =
       graphs::VertexInfo<typename GRAPH_T::vid_t, typename GRAPH_T::vdata_t,
                          typename GRAPH_T::edata_t>;
@@ -30,6 +34,8 @@ class AutoAppBase {
         new folly::AtomicHashMap<typename GRAPH_T::vid_t, VertexInfo*>(1024);
   }
   virtual ~AutoAppBase() { free(visited_); };
+
+  typedef folly::DMPMCQueue<VertexInfo, false> Frontier;
 
   //
   // @brief Partial evaluation to implement.
@@ -58,13 +64,15 @@ class AutoAppBase {
       folly::AtomicHashMap<typename GRAPH_T::vid_t, VertexInfo*>*
           partial_border_vertexes_info) = 0;
 
-  void Bind(GRAPH_T* graph, utility::CPUThreadPool* cpu_thread_pool) {
+  void Bind(GRAPH_T* graph, executors::TaskRunner* task_runner) {
     graph_ = graph;
-    cpu_thread_pool_ = cpu_thread_pool;
-    edge_map_->Bind(graph, cpu_thread_pool);
-    vertex_map_->Bind(graph, cpu_thread_pool);
+    // cpu_thread_pool_ = cpu_thread_pool;
+    edge_map_->Bind(graph);
+    vertex_map_->Bind(graph);
     visited_ = (bool*)malloc(sizeof(bool) * graph_->get_num_vertexes());
+    task_runner_ = task_runner;
   }
+
   void Bind(folly::AtomicHashMap<typename GRAPH_T::vid_t, VertexInfo*>*
                 global_border_vertexes_info,
             folly::AtomicHashMap<typename GRAPH_T::vid_t,
@@ -85,6 +93,7 @@ class AutoAppBase {
   folly::AtomicHashMap<typename GRAPH_T::vid_t,
                        std::vector<typename GRAPH_T::gid_t>*>*
       global_border_vertexes_ = nullptr;
+  executors::TaskRunner* task_runner_;
   bool* visited_ = nullptr;
 
  protected:
@@ -112,7 +121,6 @@ class AutoAppBase {
         }
       }
     }
-    LOG_INFO("************************", partial_border_vertexes_info_->size());
     return tag;
   }
 };

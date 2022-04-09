@@ -322,11 +322,7 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       return false;
     }
 
-    XLOG(INFO, "Read file: ", vertex_pt);
-    XLOG(INFO, "Read file: ", meta_in_pt);
-    XLOG(INFO, "Read file: ", meta_out_pt);
-    XLOG(INFO, "Read file: ", vdata_pt);
-    XLOG(INFO, "Read file: ", localid2globalid_pt);
+    XLOG(INFO, "Read Graph: ", gid);
     auto immutable_csr =
         (graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>*)graph;
     immutable_csr->CleanUp();

@@ -318,7 +318,10 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
   }
 
   VID_T globalid2localid(const VID_T& vid) const {
-    auto local_id_iter = this->map_globalid2localid_->find(vid);
+    auto local_id_iter = map_globalid2localid_->find(vid);
+    // for (auto& iter : *map_globalid2localid_) {
+    //   LOG_INFO(vid, ", ", iter.first, ", ", iter.second);
+    // }
     if (local_id_iter != map_globalid2localid_->end()) {
       return local_id_iter->second;
     } else {

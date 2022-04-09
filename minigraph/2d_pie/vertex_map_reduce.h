@@ -21,13 +21,10 @@ class VertexMapBase {
       // VertexReduce();
   };
 
-  void Bind(GRAPH_T* graph, utility::CPUThreadPool* cpu_thread_pool) {
-    graph_ = graph;
-    cpu_thread_pool_ = cpu_thread_pool;
-  }
+  void Bind(GRAPH_T* graph) { graph_ = graph; }
 
  private:
-  utility::CPUThreadPool* cpu_thread_pool_ = nullptr;
+  // utility::CPUThreadPool* cpu_thread_pool_ = nullptr;
   GRAPH_T* graph_ = nullptr;
   CONTEXT_T context_;
 
