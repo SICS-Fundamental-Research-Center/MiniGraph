@@ -16,6 +16,7 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <unordered_map>
 
 using std::cout;
 using std::endl;
@@ -34,7 +35,7 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
 
   template <class... Args>
   bool Read(graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>* graph,
-            const GraphFormat& graph_format, GID_T gid, Args&&... args) {
+            const GraphFormat& graph_format, const GID_T& gid, Args&&... args) {
     std::string pt[] = {(args)...};
     switch (graph_format) {
       case edge_graph_csv:
@@ -50,12 +51,23 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
   }
 
   template <class... Args>
-  bool Write(graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>& graph,
-             Args&&... args) {
+  bool Write(const graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>& graph,
+             const GraphFormat& graph_format, Args&&... args) {
     std::string pt[] = {(args)...};
-    return this->WriteCSR2Bin(
-        (graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>&)graph, pt[0],
-        pt[1], pt[2], pt[3], pt[4]);
+
+    switch (graph_format) {
+      case edge_graph_csv:
+        return false;
+      case csr_bin:
+        return this->WriteCSR2Bin(
+            (graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>&)graph, pt[0],
+            pt[1], pt[2], pt[3], pt[4]);
+      case weight_edge_graph_csv:
+        // not supported now.
+        // TO DO: load graph in weight edge csv format.
+        return false;
+    }
+    return true;
   }
 
   bool IsExist(const std::string& pt) const override {
@@ -87,6 +99,112 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     std::ofstream file(pt, std::ios::binary);
     file.close();
   };
+
+  bool WriteGlobalBorderVertexes(
+      const folly::AtomicHashMap<VID_T, std::vector<GID_T>*>&
+          global_border_vertexes,
+      const std::string& border_vertexes_pt) {
+    if (IsExist(border_vertexes_pt)) {
+      remove(border_vertexes_pt.c_str());
+    }
+    std::ofstream border_vertexes_file(border_vertexes_pt,
+                                       std::ios::binary | std::ios::app);
+    VID_T* buf_border_vertexes =
+        (VID_T*)malloc(sizeof(VID_T) * global_border_vertexes.size());
+    size_t* buf_offset =
+        (size_t*)malloc(sizeof(size_t) * global_border_vertexes.size());
+    size_t buf_size[global_border_vertexes.size()];
+    size_t sum_gid = 0;
+    size_t i = 0;
+    for (auto iter = global_border_vertexes.begin();
+         iter != global_border_vertexes.end(); iter++) {
+      sum_gid += iter->second->size();
+      buf_border_vertexes[i] = iter->first;
+      buf_size[i] = iter->second->size();
+      i++;
+    }
+
+    GID_T* buf_gid = (GID_T*)malloc(sizeof(GID_T) * sum_gid);
+    i = 0;
+    for (auto iter = global_border_vertexes.begin();
+         iter != global_border_vertexes.end(); iter++) {
+      LOG_INFO(iter->first);
+      if (i == 0) {
+        buf_offset[i] = 0;
+      } else {
+        buf_offset[i] = buf_offset[i - 1] + buf_size[i];
+      }
+      size_t j = 0;
+      for (auto& iter_vec_gid : *iter->second) {
+        LOG_INFO(iter_vec_gid);
+        *(buf_gid + buf_offset[i] + j++) = iter_vec_gid;
+      }
+      i++;
+    }
+    for (int i = 0; i < global_border_vertexes.size(); i++) {
+      std::cout << buf_border_vertexes[i] << ", ";
+    }
+    cout << endl;
+    for (int i = 0; i < global_border_vertexes.size(); i++) {
+      std::cout << buf_offset[i] << ", ";
+    }
+    cout << endl;
+    for (int i = 0; i < sum_gid; i++) {
+      std::cout << buf_gid[i] << ", ";
+    }
+    cout << endl;
+
+    size_t buf_config[2];
+    buf_config[0] = global_border_vertexes.size();
+    buf_config[1] = sum_gid;
+    border_vertexes_file.write((char(*)) & buf_config, sizeof(size_t) * 2);
+    border_vertexes_file.write((char(*))buf_border_vertexes,
+                               sizeof(VID_T) * buf_config[0]);
+    border_vertexes_file.write((char(*))buf_offset,
+                               sizeof(size_t) * buf_config[0]);
+    border_vertexes_file.write((char(*))buf_gid, sizeof(GID_T) * buf_config[1]);
+    free(buf_border_vertexes);
+    free(buf_offset);
+    free(buf_gid);
+    return true;
+  }
+
+  bool ReadGlobalBorderVertexes(
+      folly::AtomicHashMap<VID_T, std::pair<size_t, GID_T*>>*
+          global_border_vertexes,
+      const std::string& border_vertexes_pt) {
+    if (global_border_vertexes == nullptr) {
+      LOG_INFO("segmentation fault: ", "global_border_vertexes is nullptr");
+      return false;
+    }
+    std::ifstream border_vertexes_file(border_vertexes_pt,
+                                       std::ios::binary | std::ios::app);
+    size_t* buf_config = (size_t*)malloc(sizeof(size_t) * 2);
+    border_vertexes_file.read((char*)buf_config, sizeof(size_t) * 2);
+
+    VID_T* buf_border_vertexes = (VID_T*)malloc(sizeof(VID_T) * buf_config[0]);
+    size_t* buf_offset = (size_t*)malloc(sizeof(size_t) * buf_config[0]);
+    GID_T* buf_gid = (GID_T*)malloc(sizeof(GID_T) * buf_config[1]);
+    border_vertexes_file.read((char*)buf_border_vertexes,
+                              sizeof(VID_T) * buf_config[0]);
+    border_vertexes_file.read((char*)buf_offset,
+                              sizeof(size_t) * buf_config[0]);
+    border_vertexes_file.read((char*)buf_gid, sizeof(GID_T) * buf_config[1]);
+    for (size_t i = 0; i < buf_config[0]; ++i) {
+      if (i < buf_config[0] - 1) {
+        size_t num_gid = buf_offset[i + 1] - buf_offset[i];
+        global_border_vertexes->insert(
+            buf_border_vertexes[i],
+            std::make_pair(num_gid, (buf_gid + buf_offset[i])));
+      } else {
+        size_t num_gid = buf_config[1] - buf_offset[i];
+        global_border_vertexes->insert(
+            buf_border_vertexes[i],
+            std::make_pair(num_gid, (buf_gid + buf_offset[i])));
+      }
+    }
+    return true;
+  }
 
  private:
   bool ReadCSV2ImmutableCSR(
@@ -169,6 +287,9 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       }
     }
     immutable_csr->num_vertexes_ = immutable_csr->vertexes_info_->size();
+    immutable_csr->vdata_ =
+        (VDATA_T*)malloc(sizeof(VDATA_T) * immutable_csr->num_vertexes_);
+
     return true;
   }
 
@@ -201,59 +322,101 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       return false;
     }
 
+    XLOG(INFO, "Read Graph: ", gid);
     auto immutable_csr =
         (graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>*)graph;
     immutable_csr->CleanUp();
 
-    folly::File vertex_file(vertex_pt, O_RDONLY);
-    folly::File meta_in_file(meta_in_pt, O_RDONLY);
-    folly::File meta_out_file(meta_out_pt, O_RDONLY);
-    folly::File localid2globalid_file(localid2globalid_pt, O_RDONLY);
+    std::ifstream vertex_file(vertex_pt, std::ios::binary | std::ios::app);
+    std::ifstream meta_in_file(meta_in_pt, std::ios::binary | std::ios::app);
+    std::ifstream meta_out_file(meta_out_pt, std::ios::binary | std::ios::app);
+    std::ifstream vdata_file(vdata_pt, std::ios::binary | std::ios::app);
+    std::ifstream localid2globalid_file(localid2globalid_pt,
+                                        std::ios::binary | std::ios::app);
 
     // read vertexes_.
-    auto vertex_fd = vertex_file.fd();
-    size_t* buf = (size_t*)malloc(sizeof(size_t) * 2);
-    buf = (size_t*)malloc(sizeof(size_t));
-    folly::readNoInt(vertex_fd, buf, sizeof(size_t));
-    immutable_csr->num_vertexes_ = buf[0];
-    immutable_csr->vertex_ =
-        (VID_T*)malloc(sizeof(VID_T) * immutable_csr->num_vertexes_);
-    folly::readNoInt(vertex_fd, immutable_csr->vertex_,
-                     sizeof(VID_T) * immutable_csr->num_vertexes_);
+    {
+      size_t* buf = (size_t*)malloc(sizeof(size_t));
+      buf = (size_t*)malloc(sizeof(size_t));
+      vertex_file.read((char*)buf, sizeof(size_t));
+      immutable_csr->num_vertexes_ = buf[0];
+      immutable_csr->vertex_ =
+          (VID_T*)malloc(sizeof(VID_T) * immutable_csr->num_vertexes_);
+      vertex_file.read((char*)immutable_csr->vertex_, sizeof(VID_T) * buf[0]);
+      free(buf);
+    }
 
     // read in_offset and in edges;
-    auto meta_in_fd = meta_in_file.fd();
-    folly::readNoInt(meta_in_fd, buf, sizeof(size_t) * 2);
-    if (buf[0] != immutable_csr->num_vertexes_) {
-      XLOG(ERR, "files don't match");
-      return false;
+    {
+      size_t* buf = (size_t*)malloc(sizeof(size_t) * 2);
+      meta_in_file.read((char*)buf, sizeof(size_t) * 2);
+      if (buf[0] != immutable_csr->num_vertexes_) {
+        XLOG(ERR, "files don't match");
+        return false;
+      }
+      immutable_csr->sum_in_edges_ = buf[1];
+      immutable_csr->in_offset_ = (size_t*)malloc(sizeof(size_t) * buf[0]);
+      meta_in_file.read((char*)immutable_csr->in_offset_,
+                        sizeof(size_t) * buf[0]);
+      immutable_csr->in_edges_ = (VID_T*)malloc(sizeof(VID_T) * buf[1]);
+      meta_in_file.read((char*)immutable_csr->in_edges_,
+                        sizeof(VID_T) * buf[1]);
+      free(buf);
     }
-    immutable_csr->sum_in_edges_ = buf[1];
-    immutable_csr->in_offset_ = (size_t*)malloc(sizeof(size_t) * buf[0]);
-    folly::readNoInt(meta_in_fd, immutable_csr->in_offset_,
-                     sizeof(size_t) * buf[0]);
-    immutable_csr->in_edges_ = (VID_T*)malloc(sizeof(VID_T) * buf[1]);
-    folly::readNoInt(meta_in_fd, immutable_csr->in_edges_,
-                     sizeof(VID_T) * buf[1]);
 
-    // read out_offset and out edges;
-    auto meta_out_fd = meta_out_file.fd();
-    folly::readNoInt(meta_out_fd, buf, sizeof(size_t) * 2);
-    if (buf[0] != immutable_csr->num_vertexes_) {
-      XLOG(ERR, "files don't match");
-      return false;
+    // read out_offset and in edges;
+    {
+      size_t* buf = (size_t*)malloc(sizeof(size_t) * 2);
+      meta_out_file.read((char*)buf, sizeof(size_t) * 2);
+      if (buf[0] != immutable_csr->num_vertexes_) {
+        XLOG(ERR, "files don't match");
+        return false;
+      }
+      immutable_csr->sum_out_edges_ = buf[1];
+      immutable_csr->out_offset_ = (size_t*)malloc(sizeof(size_t) * buf[0]);
+      meta_out_file.read((char*)immutable_csr->out_offset_,
+                         sizeof(size_t) * buf[0]);
+      immutable_csr->out_edges_ = (VID_T*)malloc(sizeof(VID_T) * buf[1]);
+      meta_out_file.read((char*)immutable_csr->out_edges_,
+                         sizeof(VID_T) * buf[1]);
+      free(buf);
     }
-    immutable_csr->sum_out_edges_ = buf[1];
-    immutable_csr->out_offset_ = (size_t*)malloc(sizeof(size_t) * buf[0]);
-    folly::readNoInt(meta_out_fd, immutable_csr->out_offset_,
-                     sizeof(size_t) * buf[0]);
-    immutable_csr->out_edges_ = (VID_T*)malloc(sizeof(VID_T) * buf[1]);
-    folly::readNoInt(meta_out_fd, immutable_csr->out_edges_,
-                     sizeof(VID_T) * buf[1]);
 
-    free(buf);
+    // read vdata.
+    {
+      size_t* buf = (size_t*)malloc(sizeof(size_t));
+      vdata_file.read((char*)buf, sizeof(size_t));
+      immutable_csr->vdata_ = (VDATA_T*)malloc(sizeof(VDATA_T) * buf[0]);
+      vdata_file.read((char*)immutable_csr->vdata_, sizeof(VDATA_T) * buf[0]);
+      free(buf);
+    }
+
+    // load map from local id to global id.
+    {
+      size_t* buf = (size_t*)malloc(sizeof(size_t));
+      localid2globalid_file.read((char*)buf, sizeof(size_t));
+      immutable_csr->buf_localid2globalid_ =
+          (VID_T*)malloc(sizeof(VID_T) * buf[0] * 2);
+      localid2globalid_file.read((char*)immutable_csr->buf_localid2globalid_,
+                                 sizeof(VID_T) * buf[0] * 2);
+      for (size_t i = 0; i < buf[0]; ++i) {
+        immutable_csr->map_localid2globalid_->insert(
+            immutable_csr->buf_localid2globalid_[i],
+            immutable_csr->buf_localid2globalid_[i + buf[0]]);
+        immutable_csr->map_globalid2localid_->insert(
+            immutable_csr->buf_localid2globalid_[i + buf[0]],
+            immutable_csr->buf_localid2globalid_[i]);
+      }
+      free(buf);
+    }
+
     immutable_csr->is_serialized_ = true;
     immutable_csr->gid_ = gid;
+
+    meta_in_file.close();
+    meta_out_file.close();
+    localid2globalid_file.close();
+    vdata_file.close();
     return true;
   }
 
@@ -266,79 +429,90 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       XLOG(ERR, "Graph has not been serialized.");
       return false;
     }
-    if (!IsExist(vertex_pt)) {
-      Touch(vertex_pt);
+    if (IsExist(vertex_pt)) {
+      remove(vertex_pt.c_str());
     }
-    if (!IsExist(meta_in_pt)) {
-      Touch(meta_in_pt);
+    if (IsExist(meta_in_pt)) {
+      remove(meta_in_pt.c_str());
     }
-    if (!IsExist(meta_out_pt)) {
-      Touch(meta_out_pt);
+    if (IsExist(meta_out_pt)) {
+      remove(meta_out_pt.c_str());
     }
-    if (!IsExist(localid2globalid_pt)) {
-      Touch(localid2globalid_pt);
+    if (IsExist(vdata_pt)) {
+      remove(vdata_pt.c_str());
+    }
+    if (IsExist(localid2globalid_pt)) {
+      remove(localid2globalid_pt.c_str());
     }
 
-    folly::File vertex_file(vertex_pt, O_WRONLY);
-    folly::File meta_in_file(meta_in_pt, O_WRONLY);
-    folly::File meta_out_file(meta_out_pt, O_WRONLY);
-    folly::File localid2globalid_file(localid2globalid_pt, O_WRONLY);
+    std::ofstream vertex_file(vertex_pt, std::ios::binary | std::ios::app);
+    std::ofstream meta_in_file(meta_in_pt, std::ios::binary | std::ios::app);
+    std::ofstream meta_out_file(meta_out_pt, std::ios::binary | std::ios::app);
+    std::ofstream vdata_file(vdata_pt, std::ios::binary | std::ios::app);
+    std::ofstream localid2globalid_file(localid2globalid_pt,
+                                        std::ios::binary | std::ios::app);
 
-    XLOG(INFO, "Write file: ", vertex_pt);
-    XLOG(INFO, "Write file: ", meta_in_pt);
-    XLOG(INFO, "Write file: ", meta_out_pt);
-    XLOG(INFO, "Write file: ", localid2globalid_pt);
-
-    // write Vertexes.
+    // write vertexes.
     if (graph.vertex_ != nullptr) {
-      auto vertex_fd = vertex_file.fd();
-      size_t* buff = (size_t*)malloc(sizeof(size_t));
-      buff[0] = graph.num_vertexes_;
-      folly::writeNoInt(vertex_fd, buff, sizeof(size_t));
-      folly::writeNoInt(vertex_fd, graph.vertex_,
+      size_t* buf = (size_t*)malloc(sizeof(size_t));
+      buf[0] = graph.num_vertexes_;
+      vertex_file.write((char*)buf, sizeof(size_t));
+      vertex_file.write((char*)graph.vertex_,
                         graph.num_vertexes_ * sizeof(VID_T));
-      free(buff);
+      free(buf);
     }
 
     // write in edges.
     if (graph.in_offset_ != nullptr && graph.in_edges_ != nullptr) {
-      auto meta_in_fd = meta_in_file.fd();
-      size_t* buff = (size_t*)malloc(sizeof(size_t) * 2);
-      buff[0] = graph.num_vertexes_;
-      buff[1] = graph.sum_in_edges_;
-      folly::writeNoInt(meta_in_fd, buff, sizeof(size_t) * 2);
-      folly::writeNoInt(meta_in_fd, graph.in_offset_,
-                        sizeof(size_t) * graph.num_vertexes_);
-      folly::writeNoInt(meta_in_fd, graph.in_edges_,
-                        sizeof(VID_T) * graph.sum_in_edges_);
-      free(buff);
+      size_t* buf = (size_t*)malloc(sizeof(size_t) * 2);
+      buf[0] = graph.num_vertexes_;
+      buf[1] = graph.sum_in_edges_;
+      meta_in_file.write((char*)buf, sizeof(size_t) * 2);
+      meta_in_file.write((char*)graph.in_offset_, sizeof(size_t) * buf[0]);
+      meta_in_file.write((char*)graph.in_edges_, sizeof(VID_T) * buf[1]);
+      free(buf);
     }
 
     // write out edges.
-    if (graph.out_offset_ != nullptr && graph.out_edges_ != nullptr) {
-      auto meta_out_fd = meta_out_file.fd();
-      size_t* buff = (size_t*)malloc(sizeof(size_t) * 2);
-      buff[0] = graph.num_vertexes_;
-      buff[1] = graph.sum_out_edges_;
-      folly::writeNoInt(meta_out_fd, buff, sizeof(size_t) * 2);
-      folly::writeNoInt(meta_out_fd, graph.out_offset_,
-                        sizeof(size_t) * graph.num_vertexes_);
-      folly::writeNoInt(meta_out_fd, graph.out_edges_,
-                        sizeof(VID_T) * graph.sum_out_edges_);
-      free(buff);
+
+    if (graph.in_offset_ != nullptr && graph.in_edges_ != nullptr) {
+      size_t* buf = (size_t*)malloc(sizeof(size_t) * 2);
+      buf[0] = graph.num_vertexes_;
+      buf[1] = graph.sum_out_edges_;
+      meta_out_file.write((char*)buf, sizeof(size_t) * 2);
+      meta_out_file.write((char*)graph.out_offset_, sizeof(size_t) * buf[0]);
+      meta_out_file.write((char*)graph.out_edges_, sizeof(VID_T) * buf[1]);
+      free(buf);
     }
 
-    // write buf (only for subgraph)
+    // write label of vertexes
+    if (graph.vdata_ != nullptr) {
+      size_t* buf = (size_t*)malloc(sizeof(size_t));
+      buf[0] = graph.num_vertexes_;
+      vdata_file.write((char*)buf, sizeof(size_t));
+      vdata_file.write((char*)graph.vdata_, sizeof(VDATA_T) * buf[0]);
+      free(buf);
+    } else {
+      size_t* buf = (size_t*)malloc(sizeof(size_t));
+      buf[0] = graph.num_vertexes_;
+      auto buf_vdata = (VID_T*)malloc(sizeof(VDATA_T) * buf[0]);
+      memset(buf_vdata, 0, sizeof(VDATA_T) * buf[0]);
+      vdata_file.write((char*)buf, sizeof(size_t));
+      vdata_file.write((char*)buf_vdata, sizeof(VDATA_T) * buf[0]);
+      free(buf);
+    }
+
+    // write buf localid 2 globalid (only for subgraph)
     if (graph.buf_localid2globalid_ != nullptr) {
-      auto localid2globalid_fd = localid2globalid_file.fd();
-      size_t* buff = (size_t*)malloc(sizeof(size_t));
-      buff[0] = graph.num_vertexes_;
-      folly::writeNoInt(localid2globalid_fd, buff, sizeof(size_t));
-      folly::writeNoInt(localid2globalid_fd, graph.buf_localid2globalid_,
-                        graph.num_vertexes_ * 2 * sizeof(VID_T));
-      free(buff);
+      size_t* buf = (size_t*)malloc(sizeof(size_t));
+      buf[0] = graph.num_vertexes_;
+      localid2globalid_file.write((char*)buf, sizeof(size_t));
+      localid2globalid_file.write((char*)graph.buf_localid2globalid_,
+                                  buf[0] * 2 * sizeof(VID_T));
+      free(buf);
     }
 
+    vertex_file.close();
     meta_in_file.close();
     meta_out_file.close();
     localid2globalid_file.close();

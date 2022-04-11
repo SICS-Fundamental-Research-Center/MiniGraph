@@ -31,7 +31,7 @@ class ComponentBase {
   virtual void Run() = 0;
   virtual void Stop() = 0;
 
-  size_t get_superstep_via_gid(GID_T gid) {
+  size_t get_superstep_via_gid(const GID_T& gid) const {
     auto iter = superstep_by_gid_->find(gid);
     if (iter == superstep_by_gid_->end()) {
       XLOG(INFO, "get_super_via_gid Error: ", "gid not found.");
@@ -40,6 +40,16 @@ class ComponentBase {
       return iter->second->load();
     }
   };
+
+  void add_superstep_via_gid(const GID_T& gid, const size_t val = 1) {
+    auto iter = superstep_by_gid_->find(gid);
+    if (iter == superstep_by_gid_->end()) {
+      LOG_ERROR("get_super_via_gid Error: ", "gid not found.");
+      return;
+    } else {
+      iter->second->store(iter->second->load() + val);
+    }
+  }
 
   size_t get_global_superstep() { return global_superstep_->load(); };
 

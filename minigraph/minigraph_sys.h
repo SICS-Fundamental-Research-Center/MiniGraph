@@ -27,12 +27,15 @@ template <typename GID_T, typename VID_T, typename VDATA_T, typename EDATA_T,
 class MiniGraphSys {
   using GRAPH_BASE_T = graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>;
   // using CSR_T = graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>;
+  using VertexInfo = graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>;
 
  public:
-  MiniGraphSys(const std::string& work_space, const size_t& num_workers_lc,
-               const size_t& num_workers_cc, const size_t& num_workers_dc,
-               const size_t& num_threads_cpu, const size_t& max_threads_io,
-               const bool is_partition, AppWrapper<AUTOAPP_T>* app_wrapper) {
+  MiniGraphSys(
+      const std::string& work_space, const size_t& num_workers_lc,
+      const size_t& num_workers_cc, const size_t& num_workers_dc,
+      const size_t& num_threads_cpu, const size_t& max_threads_io,
+      const bool is_partition,
+      AppWrapper<AUTOAPP_T, GID_T, VID_T, VDATA_T, EDATA_T>* app_wrapper) {
     // configure sys.
     num_workers_lc_ = num_workers_lc;
     num_workers_cc_ = num_workers_cc;
@@ -43,16 +46,12 @@ class MiniGraphSys {
       edge_cut_partitioner_ =
           std::make_unique<minigraph::utility::partitioner::EdgeCutPartitioner<
               GID_T, VDATA_T, VDATA_T, EDATA_T>>(
-              "/home/hsiaoko/Project/data/graph/soc-LiveJournal1.mini.csv",
-              work_space);
+              "inputs/edge_graph_csv/test.csv", work_space);
       edge_cut_partitioner_->RunPartition(2);
     }
 
     // find all files.
-    pt_by_gid_ =
-        new folly::AtomicHashMap<GID_T, CSRPt, std::hash<int64_t>,
-                                 std::equal_to<int64_t>, std::allocator<char>,
-                                 folly::AtomicHashArrayQuadraticProbeFcn>(64);
+    pt_by_gid_ = new folly::AtomicHashMap<GID_T, CSRPt>(64);
     InitPtByGid(work_space);
 
     // init global superstep
@@ -86,7 +85,7 @@ class MiniGraphSys {
 
     // init task queue
     task_queue_ = std::make_unique<folly::ProducerConsumerQueue<GID_T>>(
-        vec_gid.size() + 1);
+        vec_gid.size() + 10);
 
     // init partial result queue
     partial_result_queue_ =
@@ -98,27 +97,32 @@ class MiniGraphSys {
         utility::io::DataMgnr<GID_T, VID_T, VDATA_T, EDATA_T>>();
 
     // init auto_app.
-    app_wrapper_ = std::make_unique<AppWrapper<AUTOAPP_T>>();
+    app_wrapper_ = std::make_unique<
+        AppWrapper<AUTOAPP_T, GID_T, VID_T, VDATA_T, EDATA_T>>();
     app_wrapper_.reset(app_wrapper);
-    app_wrapper_->BindThreadPool(cpu_thread_pool_.get());
+    if (edge_cut_partitioner_->global_border_vertexes_ != nullptr) {
+      app_wrapper_->InitBorderVertexes(
+          edge_cut_partitioner_->global_border_vertexes_);
+    }
 
     // init components
     load_component_ = std::make_unique<
         components::LoadComponent<GID_T, VID_T, VDATA_T, EDATA_T, GRAPH_T>>(
         cpu_thread_pool_.get(), io_thread_pool_.get(), superstep_by_gid_,
-        global_superstep_, state_machine_, task_queue_.get(), pt_by_gid_,
-        read_trigger_.get(), data_mngr_.get(), num_workers_lc);
+        global_superstep_, state_machine_, read_trigger_.get(),
+        task_queue_.get(), pt_by_gid_, data_mngr_.get(), num_workers_lc);
     computing_component_ = std::make_unique<components::ComputingComponent<
         GID_T, VID_T, VDATA_T, EDATA_T, GRAPH_T, AUTOAPP_T>>(
         cpu_thread_pool_.get(), io_thread_pool_.get(), superstep_by_gid_,
         global_superstep_, state_machine_, task_queue_.get(),
         partial_result_queue_.get(), data_mngr_.get(), num_workers_cc,
         app_wrapper_.get());
-    // discharge_component_ = std::make_unique<
-    //     components::DischargeComponent<GID_T, VID_T, VDATA_T, EDATA_T>>(
-    //     cpu_thread_pool_, io_thread_pool_, superstep_by_gid_,
-    //     global_superstep_, state_machine_, partial_result_queue_,
-    //     pt_by_gid_);
+    discharge_component_ =
+        std::make_unique<components::DischargeComponent<GID_T, VID_T, VDATA_T,
+                                                        EDATA_T, GRAPH_T>>(
+            cpu_thread_pool_.get(), io_thread_pool_.get(), superstep_by_gid_,
+            global_superstep_, state_machine_, partial_result_queue_.get(),
+            pt_by_gid_, read_trigger_.get(), data_mngr_.get(), num_workers_cc);
   };
 
   ~MiniGraphSys() = default;
@@ -126,6 +130,7 @@ class MiniGraphSys {
   void Stop() {
     load_component_->Stop();
     computing_component_->Stop();
+    discharge_component_->Stop();
   }
 
   void RunSys() {
@@ -138,9 +143,25 @@ class MiniGraphSys {
                                         AUTOAPP_T>::Run,
         computing_component_.get());
     this->cpu_thread_pool_->Commit(task_cc);
-    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+
+    auto task_dc =
+        std::bind(&components::DischargeComponent<GID_T, VID_T, VDATA_T,
+                                                  EDATA_T, GRAPH_T>::Run,
+                  discharge_component_.get());
+    this->cpu_thread_pool_->Commit(task_dc);
+    while (!this->state_machine_->IsTerminated()) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    }
+
+    std::cout << ("         -***- RUNSYS(): finish -***-     ") << std::endl;
+    GRAPH_T* graph = (GRAPH_T*)data_mngr_->GetGraph((GID_T)0);
+    graph->Deserialized();
+    graph->ShowGraph();
+
+    graph = (GRAPH_T*)data_mngr_->GetGraph((GID_T)1);
+    graph->Deserialized();
+    graph->ShowGraph();
     this->Stop();
-    LOG_INFO("RUNSYS(): finish");
   }
 
  private:
@@ -151,10 +172,7 @@ class MiniGraphSys {
   std::unique_ptr<folly::ProducerConsumerQueue<GID_T>> read_trigger_ = nullptr;
 
   // files list
-  folly::AtomicHashMap<GID_T, CSRPt, std::hash<int64_t>, std::equal_to<int64_t>,
-                       std::allocator<char>,
-                       folly::AtomicHashArrayQuadraticProbeFcn>* pt_by_gid_ =
-      nullptr;
+  folly::AtomicHashMap<GID_T, CSRPt>* pt_by_gid_ = nullptr;
 
   // partitioner
   std::unique_ptr<minigraph::utility::partitioner::EdgeCutPartitioner<
@@ -188,15 +206,22 @@ class MiniGraphSys {
                                                  GRAPH_T, AUTOAPP_T>>
       computing_component_ = nullptr;
   std::unique_ptr<
-      components::DischargeComponent<GID_T, VID_T, VDATA_T, EDATA_T>>
+      components::DischargeComponent<GID_T, VID_T, VDATA_T, EDATA_T, GRAPH_T>>
       discharge_component_ = nullptr;
 
   // data manager
   std::unique_ptr<utility::io::DataMgnr<GID_T, VID_T, VDATA_T, EDATA_T>>
       data_mngr_ = nullptr;
 
-  // 2D-PIE>
-  std::unique_ptr<AppWrapper<AUTOAPP_T>> app_wrapper_ = nullptr;
+  // 2D-PIE
+  std::unique_ptr<AppWrapper<AUTOAPP_T, GID_T, VID_T, VDATA_T, EDATA_T>>
+      app_wrapper_ = nullptr;
+
+  // global border vertexes
+  std::unique_ptr<folly::AtomicHashMap<VID_T, std::pair<size_t, GID_T*>>>
+      global_border_vertexes_ = nullptr;
+  std::unique_ptr<folly::AtomicHashMap<VID_T, VertexInfo*>>
+      global_border_vertesxes_info_ = nullptr;
 
   bool InitPtByGid(const std::string& work_space) {
     std::string vertex_root = work_space + "/vertex/";

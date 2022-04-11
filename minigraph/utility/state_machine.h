@@ -95,23 +95,23 @@ class StateMachine {
     }
   };
 
-  bool GraphIs(const GID_T& gid, const char& event) const {
-    assert(event == IDLE || event == ACTIVE || event == RT || event == RC ||
-           event == TERMINATE);
+  bool GraphIs(const GID_T& gid, const char& state) const {
+    assert(state == IDLE || state == ACTIVE || state == RT || state == RC ||
+           state == TERMINATE);
     auto iter = graph_state_.find(gid);
     using namespace sml;
     if (iter != graph_state_.end()) {
-      switch (event) {
+      switch (state) {
         case IDLE:
-          return iter->second.is("Idle"_s);
+          return iter->second->is("Idle"_s);
         case ACTIVE:
-          return iter->second.is("Active"_s);
+          return iter->second->is("Active"_s);
         case RT:
-          return iter->second.is("RT"_s);
+          return iter->second->is("RT"_s);
         case RC:
-          return iter->second.is("RC"_s);
+          return iter->second->is("RC"_s);
         case TERMINATE:
-          return iter->second.is(X);
+          return iter->second->is(X);
         default:
           break;
       }
@@ -126,10 +126,9 @@ class StateMachine {
       iter.second->is("RT"_s) ? ++count : 0;
     }
     if (count < graph_state_.size()) {
-      for (auto& iter : graph_state_) {
-        iter.second->process_event(GoOn{});
-        assert(iter.second->is("Idle"_s));
-      }
+      // for (auto& iter : graph_state_) {
+      //   if (iter.second->is("RC"_s)) iter.second->process_event(GoOn{});
+      // }
       return false;
     } else {
       system_state_.process_event(Fixpoint{});
@@ -138,10 +137,35 @@ class StateMachine {
     }
   };
 
+  GID_T GetXStateOf(const char state) {
+    GID_T gid = GID_MAX;
+    for (auto& iter : graph_state_) {
+      switch (state) {
+        case IDLE:
+          if (iter.second->is("Idle"_s)) gid = iter.first;
+          break;
+        case ACTIVE:
+          if (iter.second->is("Active"_s)) gid = iter.first;
+          break;
+        case RT:
+          if (iter.second->is("RT"_s)) gid = iter.first;
+          break;
+        case RC:
+          if (iter.second->is("RC"_s)) gid = iter.first;
+          break;
+        case TERMINATE:
+          if (iter.second->is(X)) gid = iter.first;
+          break;
+        default:
+          break;
+      }
+    }
+    return gid;
+  }
+
   bool ProcessEvent(GID_T gid, const char event) {
     using namespace sml;
-    std::cout << event << std::endl;
-    assert(event == LOAD || event == UNLOAD || event == NOTHINGCHANGE ||
+    assert(event == LOAD || event == UNLOAD || event == NOTHINGCHANGED ||
            event == CHANGED || event == AGGREGATE || event == FIXPOINT ||
            event == GOON);
     auto iter = graph_state_.find(gid);
@@ -155,7 +179,7 @@ class StateMachine {
           iter->second->process_event(Unload{});
           assert(iter->second->is("Idle"_s));
           break;
-        case NOTHINGCHANGE:
+        case NOTHINGCHANGED:
           iter->second->process_event(NothingChanged{});
           assert(iter->second->is("RT"_s));
           break;
@@ -181,6 +205,15 @@ class StateMachine {
       return true;
     }
     return false;
+  }
+
+  std::vector<GID_T> Evoke() {
+    std::vector<GID_T> output;
+    for (auto& iter : graph_state_) {
+      iter.second->is("RT"_s)                ? output.push_back(iter.first),
+          iter.second->process_event(GoOn{}) : 0;
+    }
+    return output;
   }
 
  private:
