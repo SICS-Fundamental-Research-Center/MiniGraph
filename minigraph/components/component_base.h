@@ -16,12 +16,10 @@ class ComponentBase {
  public:
   ComponentBase<GID_T>(
       utility::CPUThreadPool* cpu_thread_pool,
-      utility::IOThreadPool* io_thread_pool,
       folly::AtomicHashMap<GID_T, std::atomic<size_t>*>* superstep_by_gid,
       std::atomic<size_t>* global_superstep,
       utility::StateMachine<GID_T>* state_machine) {
     cpu_thread_pool_ = cpu_thread_pool;
-    io_thread_pool_ = io_thread_pool;
     superstep_by_gid_ = superstep_by_gid;
     global_superstep_ = global_superstep;
     state_machine_ = state_machine;

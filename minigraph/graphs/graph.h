@@ -49,6 +49,7 @@ class Graph {
   explicit Graph() {}
   inline GID_T get_gid() const { return gid_; }
   virtual size_t get_num_vertexes() const = 0;
+  virtual void CleanUp() = 0;
 
  private:
   GID_T gid_ = -1;
