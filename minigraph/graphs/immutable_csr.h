@@ -6,6 +6,7 @@
 #include "utility/logging.h"
 #include <folly/AtomicHashArray.h>
 #include <folly/AtomicHashMap.h>
+#include <folly/AtomicUnorderedMap.h>
 #include <folly/Benchmark.h>
 #include <folly/Conv.h>
 #include <folly/File.h>
@@ -37,8 +38,12 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
         VID_T, graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>*, std::hash<int64_t>,
         std::equal_to<int64_t>, std::allocator<char>,
         folly::AtomicHashArrayQuadraticProbeFcn>(65536 * 8);
-    this->map_globalid2localid_ = new folly::AtomicHashMap<VID_T, VID_T>(65536);
-    this->map_localid2globalid_ = new folly::AtomicHashMap<VID_T, VID_T>(65536);
+    map_globalid2localid_ = new folly::AtomicHashMap<VID_T, VID_T>(65536);
+    map_localid2globalid_ = new folly::AtomicHashMap<VID_T, VID_T>(65536);
+    unorder_map_localid2globalid_ =
+        new folly::AtomicUnorderedInsertMap<VID_T, VID_T>(65536);
+    unorder_map_vertexes_info_ = new folly::AtomicUnorderedInsertMap<
+        VID_T, graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>*>(48475711);
   };
 
   ImmutableCSR(GID_T gid) : Graph<GID_T, VID_T, VDATA_T, EDATA_T>(gid){};
@@ -85,7 +90,7 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
 
   size_t get_num_vertexes() const override { return num_vertexes_; }
 
-  void CleanUp() {
+  void CleanUp() override {
     if (vdata_ != nullptr) {
       free(vdata_);
       vdata_ = nullptr;
@@ -319,9 +324,6 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
 
   VID_T globalid2localid(const VID_T& vid) const {
     auto local_id_iter = map_globalid2localid_->find(vid);
-    // for (auto& iter : *map_globalid2localid_) {
-    //   LOG_INFO(vid, ", ", iter.first, ", ", iter.second);
-    // }
     if (local_id_iter != map_globalid2localid_->end()) {
       return local_id_iter->second;
     } else {
@@ -379,10 +381,15 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       VID_T, graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>*, std::hash<int64_t>,
       std::equal_to<int64_t>, std::allocator<char>,
       folly::AtomicHashArrayQuadraticProbeFcn>* vertexes_info_ = nullptr;
+  folly::AtomicUnorderedInsertMap<VID_T,
+                                  graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>*>*
+      unorder_map_vertexes_info_ = nullptr;
 
   // only for subgraphs.
   folly::AtomicHashMap<VID_T, VID_T>* map_localid2globalid_ = nullptr;
   folly::AtomicHashMap<VID_T, VID_T>* map_globalid2localid_ = nullptr;
+  folly::AtomicUnorderedInsertMap<VID_T, VID_T>* unorder_map_localid2globalid_ =
+      nullptr;
 };
 
 }  // namespace graphs

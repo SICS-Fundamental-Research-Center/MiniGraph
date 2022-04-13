@@ -282,11 +282,16 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
         for (size_t i = 0; i < iter.second->size(); i++) {
           ((VID_T*)vertex_info->out_edges)[i] = iter.second->at(i);
         }
-        immutable_csr->vertexes_info_->insert(
-            std::make_pair(iter.first, vertex_info));
+        immutable_csr->unorder_map_vertexes_info_->emplace(iter.first,
+                                                           vertex_info);
+        LOG_INFO(iter.first);
+        // immutable_csr->vertexes_info_->insert(
+        //     std::make_pair(iter.first, vertex_info));
       }
     }
     immutable_csr->num_vertexes_ = immutable_csr->vertexes_info_->size();
+    // immutable_csr->num_vertexes_ =
+    //     immutable_csr->unorder_map_vertexes_info_->size();
     immutable_csr->vdata_ =
         (VDATA_T*)malloc(sizeof(VDATA_T) * immutable_csr->num_vertexes_);
 

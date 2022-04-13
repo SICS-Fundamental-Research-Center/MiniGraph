@@ -52,22 +52,24 @@ class EdgeMapBase {
     std::vector<std::function<void()>> tasks;
     while (!frontier_in->empty()) {
       frontier_in->dequeue(vertex_info);
-      LOG_INFO("Processing VID: ", vertex_info.vid,
-               ", frontier_in->size(): ", frontier_in->size(),
-               ",  num_finished_tasks: ",
-               num_finished_tasks.load(std::memory_order_relaxed),
-               " task count: ", task_count.load());
+      LOG_INFO("Processing VID: ", vertex_info.vid);
       task_count.store(task_count.load(std::memory_order_relaxed) + 1);
 
       auto task = std::bind(&EdgeMapBase<GRAPH_T, CONTEXT_T>::EdgeReduce, this,
                             vertex_info, frontier_out, visited,
-                            &num_finished_tasks, &task_count, &cv);
+                            &num_finished_tasks, &task_count, &cv, &lck);
       tasks.push_back(task);
     }
-    for (size_t i = 0; i < tasks.size(); i++) {
+    size_t i = 0;
+    for (; i < tasks.size(); i++) {
       task_runner->Run(std::forward<std::function<void()>&&>(tasks.at(i)));
     }
-    cv.wait(lck);
+
+    while (num_finished_tasks.load(std::memory_order_acquire) <
+           task_count.load(std::memory_order_acquire)) {
+      cv.wait(lck);
+    }
+
     delete frontier_in;
     return frontier_out;
   };
@@ -79,8 +81,8 @@ class EdgeMapBase {
  private:
   void EdgeReduce(VertexInfo& vertex_info, Frontier4* frontier_out,
                   bool* visited, std::atomic<size_t>* num_finished_tasks,
-                  std::atomic<size_t>* task_count,
-                  std::condition_variable* cv) {
+                  std::atomic<size_t>* task_count, std::condition_variable* cv,
+                  std::unique_lock<std::mutex>* lck) {
     for (size_t i = 0; i < vertex_info.outdegree; i++) {
       auto local_id = this->graph_->globalid2localid(vertex_info.out_edges[i]);
       if (local_id == VID_MAX) {
@@ -94,11 +96,16 @@ class EdgeMapBase {
         }
       }
     }
-    num_finished_tasks->store(
-        num_finished_tasks->load(std::memory_order_relaxed) + 1);
-    if (task_count->load(std::memory_order_relaxed) ==
-        num_finished_tasks->load(std::memory_order_relaxed)) {
-      cv->notify_all();
+    num_finished_tasks->fetch_add(1);
+
+    LOG_INFO(num_finished_tasks->load(std::memory_order_seq_cst), " / ",
+             task_count->load(std::memory_order_seq_cst));
+
+    if (task_count->load(std::memory_order_acquire) ==
+        num_finished_tasks->load(std::memory_order_acquire)) {
+      if (lck->owns_lock()) {
+        cv->notify_one();
+      }
     }
   };
 

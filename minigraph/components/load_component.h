@@ -23,22 +23,19 @@ class LoadComponent : public ComponentBase<GID_T> {
  public:
   LoadComponent(
       utility::CPUThreadPool* cpu_thread_pool,
-      utility::IOThreadPool* io_thread_pool,
       folly::AtomicHashMap<GID_T, std::atomic<size_t>*>* superstep_by_gid,
       std::atomic<size_t>* global_superstep,
       utility::StateMachine<GID_T>* state_machine,
       folly::ProducerConsumerQueue<GID_T>* read_trigger,
       folly::ProducerConsumerQueue<GID_T>* task_queue,
       folly::AtomicHashMap<GID_T, CSRPt>* pt_by_gid,
-      utility::io::DataMgnr<GID_T, VID_T, VDATA_T, EDATA_T>* data_mngr,
-      const size_t& num_wroker_lc)
-      : ComponentBase<GID_T>(cpu_thread_pool, io_thread_pool, superstep_by_gid,
+      utility::io::DataMgnr<GID_T, VID_T, VDATA_T, EDATA_T>* data_mngr)
+      : ComponentBase<GID_T>(cpu_thread_pool, superstep_by_gid,
                              global_superstep, state_machine) {
     pt_by_gid_ = pt_by_gid;
     data_mngr_ = data_mngr;
     task_queue_ = task_queue;
     read_trigger_ = read_trigger;
-    num_idle_workers_ = std::make_unique<std::atomic<size_t>>(num_wroker_lc);
     XLOG(INFO, "Init LoadComponent: Finish.");
   }
 
@@ -60,19 +57,10 @@ class LoadComponent : public ComponentBase<GID_T> {
   void Stop() override { this->switch_.store(false); }
 
  private:
-  // configuration
-  std::unique_ptr<std::atomic<size_t>> num_idle_workers_ = nullptr;
-
   folly::ProducerConsumerQueue<GID_T>* read_trigger_;
-
-  // task queue
   folly::ProducerConsumerQueue<GID_T>* task_queue_;
-
   folly::AtomicHashMap<GID_T, CSRPt>* pt_by_gid_;
-
-  // data manager
   utility::io::DataMgnr<GID_T, VID_T, VDATA_T, EDATA_T>* data_mngr_ = nullptr;
-
   std::atomic<bool> switch_ = true;
 
   void ProcessGraph(

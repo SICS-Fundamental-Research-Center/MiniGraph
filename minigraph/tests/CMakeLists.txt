@@ -9,8 +9,9 @@ set (EXECUTABLE_OUTPUT_PATH ${PROJECT_ROOT_DIR}/bin)
 # Build Unit Tests #
 ####################
 file (GLOB testfiles
-    "${CMAKE_CURRENT_SOURCE_DIR}/*_test.cpp"
-    "${CMAKE_CURRENT_SOURCE_DIR}/executors/*_test.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/*_test.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/executors/*_test.cpp"
+        "${CMAKE_CURRENT_SOURCE_DIR}/2d_pie/*_test.cpp"
     )
 foreach (testfile ${testfiles})
     get_filename_component (filename ${testfile} NAME_WE)

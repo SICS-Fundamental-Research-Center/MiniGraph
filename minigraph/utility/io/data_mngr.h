@@ -25,12 +25,9 @@ class DataMgnr {
         utility::io::CSRIOAdapter<GID_T, VID_T, VDATA_T, EDATA_T>>();
   };
 
-  bool LoadGraph(GID_T gid, CSRPt csr_pt) {
+  bool LoadGraph(const GID_T& gid, const CSRPt& csr_pt) {
     auto immutable_csr =
         new graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>;
-    LOG_INFO("LOADGRAPH");
-    immutable_csr->Deserialized();
-    immutable_csr->ShowGraph();
     if (csr_io_adapter_->Read((GRAPH_BASE_T*)immutable_csr, csr_bin, gid,
                               csr_pt.vertex_pt, csr_pt.meta_in_pt,
                               csr_pt.meta_out_pt, csr_pt.vdata_pt,
@@ -42,8 +39,9 @@ class DataMgnr {
     }
   }
 
-  bool WriteGraph(GID_T gid, CSRPt csr_pt) {
+  bool WriteGraph(const GID_T& gid, const CSRPt& csr_pt) {
     auto graph = this->GetGraph(gid);
+    LOG_INFO("write gid: ", gid);
     if (csr_io_adapter_->Write(*((GRAPH_BASE_T*)graph), csr_bin,
                                csr_pt.vertex_pt, csr_pt.meta_in_pt,
                                csr_pt.meta_out_pt, csr_pt.vdata_pt,
@@ -54,7 +52,7 @@ class DataMgnr {
     }
   }
 
-  GRAPH_BASE_T* GetGraph(GID_T gid) {
+  GRAPH_BASE_T* GetGraph(const GID_T& gid) {
     if (pgraph_by_gid_->count(gid)) {
       return pgraph_by_gid_->find(gid)->second;
     } else {
@@ -62,18 +60,19 @@ class DataMgnr {
     }
   }
 
-  // folly::AtomicHashMap<VID_T, VertexInfo*>* LoadBorderVertexes(
-  //     const std::string& border_vertexes_pt) {
-  //   folly::AtomicHashMap<VID_T, VertexInfo*>* global_border_vertexes =
-  //   // csr_io_adapter_->ReadGlobalBorderVertexes(global_border_vertexes,
-  //   //                                           border_vertexes_pt);
-  //   return global_border_vertexes;
-  // }
+  void EraseGraph(const GID_T& gid) {
+    if (pgraph_by_gid_->count(gid)) {
+      auto&& graph = pgraph_by_gid_->find(gid)->second;
+      graph->CleanUp();
+      pgraph_by_gid_->erase(gid);
+    }
+  };
 
-  void EraseGraph(GID_T gid) { pgraph_by_gid_->erase(gid); };
-
-  void EraseMsg(){};
-  void InsertMsg(){};
+  void CleanUp() {
+    for (auto& iter : *pgraph_by_gid_) {
+      iter.second->CleanUp();
+    }
+  }
 
  private:
   std::unique_ptr<MSG_T> global_msg_ = nullptr;

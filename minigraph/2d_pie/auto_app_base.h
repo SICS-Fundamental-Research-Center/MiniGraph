@@ -66,7 +66,6 @@ class AutoAppBase {
 
   void Bind(GRAPH_T* graph, executors::TaskRunner* task_runner) {
     graph_ = graph;
-    // cpu_thread_pool_ = cpu_thread_pool;
     edge_map_->Bind(graph);
     vertex_map_->Bind(graph);
     visited_ = (bool*)malloc(sizeof(bool) * graph_->get_num_vertexes());

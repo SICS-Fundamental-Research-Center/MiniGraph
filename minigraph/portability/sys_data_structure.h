@@ -7,6 +7,7 @@
 #include "graphs/immutable_csr.h"
 #include "utility/thread_pool.h"
 #include <folly/AtomicHashMap.h>
+#include <condition_variable>
 #include <string>
 
 struct CSRPt {
