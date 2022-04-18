@@ -12,7 +12,7 @@
 #include <condition_variable>
 
 namespace minigraph {
-
+/*
 template <typename GRAPH_T, typename CONTEXT_T>
 class BFSVertexMap : public minigraph::VertexMapBase<GRAPH_T, CONTEXT_T> {
  public:
@@ -166,5 +166,5 @@ TEST_F(AutoAppTest, BasicAssertions) {
   EXPECT_EQ(0, 0);
   EXPECT_EQ(true, minigraph_sys_->RunSys());
 }
-
+*/
 }  // namespace minigraph

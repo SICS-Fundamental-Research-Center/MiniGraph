@@ -3,12 +3,14 @@
 //
 #pragma once
 
+#include <condition_variable>
+#include <string>
+
+#include <folly/AtomicHashMap.h>
+
 #include "graphs/graph.h"
 #include "graphs/immutable_csr.h"
 #include "utility/thread_pool.h"
-#include <folly/AtomicHashMap.h>
-#include <condition_variable>
-#include <string>
 
 struct CSRPt {
   std::string vertex_pt;
@@ -28,10 +30,9 @@ class AppWrapper {
   AppWrapper(AutoApp* auto_app) { auto_app_ = auto_app; }
   AppWrapper() = default;
 
-  void InitBorderVertexes(folly::AtomicHashMap<VID_T, std::vector<GID_T>*>*
-                              global_border_vertexes) {
-    auto_app_->global_border_vertexes_info_ =
-        new folly::AtomicHashMap<VID_T, VertexInfo*>(1024);
+  void InitBorderVertexes(
+      std::unordered_map<VID_T, std::vector<GID_T>*>* global_border_vertexes) {
+    auto_app_->global_border_vertexes_info_ = new std::unordered_map<VID_T, VertexInfo*>();
     auto_app_->global_border_vertexes_ = global_border_vertexes;
   }
 

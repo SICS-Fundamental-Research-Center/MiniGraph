@@ -2,15 +2,18 @@
 #ifndef MINIGRAPH_COMPONENT_BASE_H
 #define MINIGRAPH_COMPONENT_BASE_H
 
-#include "utility/logging.h"
-#include "utility/state_machine.h"
-#include "utility/thread_pool.h"
-#include <folly/AtomicHashMap.h>
 #include <atomic>
 #include <memory>
 
+#include <folly/AtomicHashMap.h>
+
+#include "utility/logging.h"
+#include "utility/state_machine.h"
+#include "utility/thread_pool.h"
+
 namespace minigraph {
 namespace components {
+
 template <typename GID_T>
 class ComponentBase {
  public:

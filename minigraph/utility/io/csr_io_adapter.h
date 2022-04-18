@@ -4,19 +4,22 @@
 #ifndef MINIGRAPH_UTILITY_IO_CSR_IO_ADAPTER_H
 #define MINIGRAPH_UTILITY_IO_CSR_IO_ADAPTER_H
 
-#include "graphs/immutable_csr.h"
-#include "io_adapter_base.h"
-#include "portability/sys_data_structure.h"
-#include "portability/sys_types.h"
-#include "rapidcsv.h"
-#include "utility/logging.h"
-#include <folly/AtomicHashArray.h>
-#include <folly/AtomicHashMap.h>
-#include <sys/stat.h>
 #include <fstream>
 #include <iostream>
 #include <string>
 #include <unordered_map>
+
+#include <folly/AtomicHashArray.h>
+#include <folly/AtomicHashMap.h>
+#include <sys/stat.h>
+
+#include "rapidcsv.h"
+
+#include "graphs/immutable_csr.h"
+#include "io_adapter_base.h"
+#include "portability/sys_data_structure.h"
+#include "portability/sys_types.h"
+#include "utility/logging.h"
 
 using std::cout;
 using std::endl;
@@ -70,11 +73,6 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     return true;
   }
 
-  bool IsExist(const std::string& pt) const override {
-    struct stat buffer;
-    return (stat(pt.c_str(), &buffer) == 0);
-  }
-
   void MakeDirectory(const std::string& pt) override {
     std::string dir = pt;
     int len = dir.size();
@@ -95,11 +93,16 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     }
   }
 
+  bool IsExist(const std::string& pt) const override {
+    struct stat buffer;
+    return (stat(pt.c_str(), &buffer) == 0);
+  }
+
   void Touch(const std::string& pt) override {
     std::ofstream file(pt, std::ios::binary);
     file.close();
   };
-
+  /*
   bool WriteGlobalBorderVertexes(
       const folly::AtomicHashMap<VID_T, std::vector<GID_T>*>&
           global_border_vertexes,
@@ -168,6 +171,7 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     free(buf_gid);
     return true;
   }
+  */
 
   bool ReadGlobalBorderVertexes(
       folly::AtomicHashMap<VID_T, std::pair<size_t, GID_T*>>*
@@ -225,8 +229,9 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
                            rapidcsv::SeparatorParams(','));
 
     // generate related edges for each vertex.
-    folly::AtomicHashMap<VID_T, std::vector<VID_T>*> graph_in_edges(1024);
-    folly::AtomicHashMap<VID_T, std::vector<VID_T>*> graph_out_edges(1024);
+    std::unordered_map<VID_T, std::vector<VID_T>*> graph_out_edges;
+    std::unordered_map<VID_T, std::vector<VID_T>*> graph_in_edges;
+
     std::vector<VID_T> src = doc.GetColumn<VID_T>("src");
     std::vector<VID_T> dst = doc.GetColumn<VID_T>("dst");
     for (size_t i = 0; i < src.size(); i++) {
@@ -260,12 +265,11 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       for (size_t i = 0; i < iter.second->size(); i++) {
         ((VID_T*)vertex_info->in_edges)[i] = iter.second->at(i);
       }
-      immutable_csr->vertexes_info_->insert(
-          std::make_pair(iter.first, vertex_info));
+      immutable_csr->vertexes_info_->emplace(iter.first, vertex_info);
     }
     for (auto& iter : graph_out_edges) {
       auto iter_vertexes_info = immutable_csr->vertexes_info_->find(iter.first);
-      if (iter_vertexes_info != immutable_csr->vertexes_info_->end()) {
+      if (iter_vertexes_info != immutable_csr->vertexes_info_->cend()) {
         iter_vertexes_info->second->outdegree = iter.second->size();
         iter_vertexes_info->second->out_edges =
             (VID_T*)malloc(sizeof(VID_T) * iter.second->size());
@@ -282,19 +286,12 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
         for (size_t i = 0; i < iter.second->size(); i++) {
           ((VID_T*)vertex_info->out_edges)[i] = iter.second->at(i);
         }
-        immutable_csr->unorder_map_vertexes_info_->emplace(iter.first,
-                                                           vertex_info);
-        LOG_INFO(iter.first);
-        // immutable_csr->vertexes_info_->insert(
-        //     std::make_pair(iter.first, vertex_info));
+        immutable_csr->vertexes_info_->emplace(iter.first, vertex_info);
       }
     }
     immutable_csr->num_vertexes_ = immutable_csr->vertexes_info_->size();
-    // immutable_csr->num_vertexes_ =
-    //     immutable_csr->unorder_map_vertexes_info_->size();
     immutable_csr->vdata_ =
         (VDATA_T*)malloc(sizeof(VDATA_T) * immutable_csr->num_vertexes_);
-
     return true;
   }
 
@@ -406,11 +403,11 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
                                  sizeof(VID_T) * buf[0] * 2);
       for (size_t i = 0; i < buf[0]; ++i) {
         immutable_csr->map_localid2globalid_->insert(
-            immutable_csr->buf_localid2globalid_[i],
-            immutable_csr->buf_localid2globalid_[i + buf[0]]);
+            std::make_pair(immutable_csr->buf_localid2globalid_[i],
+                           immutable_csr->buf_localid2globalid_[i + buf[0]]));
         immutable_csr->map_globalid2localid_->insert(
-            immutable_csr->buf_localid2globalid_[i + buf[0]],
-            immutable_csr->buf_localid2globalid_[i]);
+            std::make_pair(immutable_csr->buf_localid2globalid_[i + buf[0]],
+                           immutable_csr->buf_localid2globalid_[i]));
       }
       free(buf);
     }

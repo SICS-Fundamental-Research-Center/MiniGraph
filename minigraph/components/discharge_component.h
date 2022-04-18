@@ -1,12 +1,14 @@
 #ifndef MINIGRAPH_DISCHARGE_COMPONENT_H
 #define MINIGRAPH_DISCHARGE_COMPONENT_H
 
+#include <string>
+
+#include <folly/ProducerConsumerQueue.h>
+
 #include "components/component_base.h"
 #include "portability/sys_data_structure.h"
 #include "utility/io/csr_io_adapter.h"
 #include "utility/thread_pool.h"
-#include <folly/ProducerConsumerQueue.h>
-#include <string>
 
 namespace minigraph {
 namespace components {
@@ -45,10 +47,10 @@ class DischargeComponent : public ComponentBase<GID_T> {
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
       }
+      LOG_INFO("DC: ", gid);
       ProcessPartialResult(gid, data_mngr_, read_trigger_, pt_by_gid_,
                            this->state_machine_);
-
-      TrySync();
+      // TrySync();
     }
   }
 

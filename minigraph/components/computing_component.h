@@ -1,6 +1,11 @@
 #ifndef MINIGRAPH_COMPUTING_COMPONENT_H
 #define MINIGRAPH_COMPUTING_COMPONENT_H
 
+#include <condition_variable>
+#include <memory>
+
+#include <folly/ProducerConsumerQueue.h>
+
 #include "components/component_base.h"
 #include "executors/scheduled_executor.h"
 #include "executors/scheduler.h"
@@ -8,9 +13,6 @@
 #include "graphs/immutable_csr.h"
 #include "utility/io/data_mngr.h"
 #include "utility/thread_pool.h"
-#include <folly/ProducerConsumerQueue.h>
-#include <condition_variable>
-#include <memory>
 
 namespace minigraph {
 namespace components {
@@ -22,6 +24,11 @@ template <typename GID_T, typename VID_T, typename VDATA_T, typename EDATA_T,
 class ComputingComponent : public ComponentBase<GID_T> {
   using GRAPH_BASE_T = graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>;
   using APP_WARP = AppWrapper<AUTOAPP_T, GID_T, VID_T, VDATA_T, EDATA_T>;
+  using VertexInfo =
+      graphs::VertexInfo<typename GRAPH_T::vid_t, typename GRAPH_T::vdata_t,
+                         typename GRAPH_T::edata_t>;
+  using PARTIAL_RESULT_T =
+      std::unordered_map<typename GRAPH_T::vid_t, VertexInfo*>;
 
  public:
   ComputingComponent(
@@ -87,24 +94,20 @@ class ComputingComponent : public ComponentBase<GID_T> {
     executors::TaskRunner* task_runner =
         scheduled_executor_->RequestTaskRunner(this, {});
 
-    app_wrapper->auto_app_->Bind((GRAPH_T*)data_mngr->GetGraph(gid),
-                                 task_runner);
-
+    app_wrapper->auto_app_->Bind(task_runner);
+    GRAPH_T* graph = (GRAPH_T*)data_mngr->GetGraph(gid);
+    PARTIAL_RESULT_T partial_result;
     if (this->get_superstep_via_gid(gid) == 0) {
-      app_wrapper->auto_app_->PEval()
+      app_wrapper->auto_app_->PEval(*graph, partial_result)
           ? state_machine->ProcessEvent(gid, CHANGED)
           : state_machine->ProcessEvent(gid, NOTHINGCHANGED);
     } else {
-      app_wrapper->auto_app_->IncEval()
+      app_wrapper->auto_app_->IncEval(*graph, partial_result)
           ? state_machine->ProcessEvent(gid, CHANGED)
           : state_machine->ProcessEvent(gid, NOTHINGCHANGED);
     }
     this->add_superstep_via_gid(gid);
-
-    app_wrapper->auto_app_->MsgAggr(
-        app_wrapper->auto_app_->global_border_vertexes_info_,
-        app_wrapper->auto_app_->partial_border_vertexes_info_);
-
+    app_wrapper->auto_app_->MsgAggr(partial_result);
     if (state_machine->GraphIs(gid, RC)) {
       partial_result_queue->write(gid);
     }
