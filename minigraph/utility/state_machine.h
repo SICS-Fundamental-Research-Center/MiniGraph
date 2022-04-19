@@ -2,9 +2,6 @@
 #ifndef MINIGRAPH_UTILITY_STATE_MACHINE_H_
 #define MINIGRAPH_UTILITY_STATE_MACHINE_H_
 
-#include "portability/sys_types.h"
-#include <boost/sml.hpp>
-#include <folly/AtomicHashMap.h>
 #include <assert.h>
 #include <iostream>
 #include <map>
@@ -12,6 +9,11 @@
 #include <stdio.h>
 #include <unordered_map>
 #include <vector>
+
+#include <boost/sml.hpp>
+#include <folly/AtomicHashMap.h>
+
+#include "portability/sys_types.h"
 
 namespace minigraph {
 namespace utility {

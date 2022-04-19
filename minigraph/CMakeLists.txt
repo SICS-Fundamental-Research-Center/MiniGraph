@@ -63,13 +63,14 @@ include_directories(${THIRD_PARTY_ROOT}/rapidcsv/src)
 #######################
 
 file(GLOB MINIGRAPH_SOURCES
-    "*.cpp"
-    "executors/*.cpp"
-    "graphs/*.cpp"
-    "portability/*.cpp"
-    "state_machine/*.cpp"
-    "utility/*.cpp"
-    )
+        "*.cpp"
+        "executors/*.cpp"
+        "2d_pie/*.cpp"
+        "graphs/*.cpp"
+        "portability/*.cpp"
+        "state_machine/*.cpp"
+        "utility/*.cpp"
+        )
 
 
 #######################
@@ -84,7 +85,7 @@ endif()
 # Generate libminigraph
 #######################
 add_library (minigraph
-        ${MINIGRAPH_SOURCES})
+        ${MINIGRAPH_SOURCES} tests/2d_pie/bfs_test.cpp)
 
 target_link_libraries(minigraph
         ${FOLLY_LIBRARIES} )

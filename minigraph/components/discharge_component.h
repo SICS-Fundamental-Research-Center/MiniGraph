@@ -1,12 +1,14 @@
 #ifndef MINIGRAPH_DISCHARGE_COMPONENT_H
 #define MINIGRAPH_DISCHARGE_COMPONENT_H
 
+#include <string>
+
+#include <folly/ProducerConsumerQueue.h>
+
 #include "components/component_base.h"
 #include "portability/sys_data_structure.h"
 #include "utility/io/csr_io_adapter.h"
 #include "utility/thread_pool.h"
-#include <folly/ProducerConsumerQueue.h>
-#include <string>
 
 namespace minigraph {
 namespace components {
@@ -19,23 +21,19 @@ class DischargeComponent : public ComponentBase<GID_T> {
  public:
   DischargeComponent(
       utility::CPUThreadPool* cpu_thread_pool,
-      utility::IOThreadPool* io_thread_pool,
       folly::AtomicHashMap<GID_T, std::atomic<size_t>*>* superstep_by_gid,
       std::atomic<size_t>* global_superstep,
       utility::StateMachine<GID_T>* state_machine,
-
       folly::ProducerConsumerQueue<GID_T>* partial_result_queue,
       folly::AtomicHashMap<GID_T, CSRPt>* pt_by_gid,
       folly::ProducerConsumerQueue<GID_T>* read_trigger,
-      utility::io::DataMgnr<GID_T, VID_T, VDATA_T, EDATA_T>* data_mngr,
-      const size_t& num_wroker_dc)
-      : ComponentBase<GID_T>(cpu_thread_pool, io_thread_pool, superstep_by_gid,
+      utility::io::DataMgnr<GID_T, VID_T, VDATA_T, EDATA_T>* data_mngr)
+      : ComponentBase<GID_T>(cpu_thread_pool, superstep_by_gid,
                              global_superstep, state_machine) {
     partial_result_queue_ = partial_result_queue;
     pt_by_gid_ = pt_by_gid;
     read_trigger_ = read_trigger;
     data_mngr_ = data_mngr;
-    num_idle_workers_ = std::make_unique<std::atomic<size_t>>(num_wroker_dc);
     XLOG(INFO, "Init DischargeComponent: Finish.");
   }
 
@@ -49,11 +47,10 @@ class DischargeComponent : public ComponentBase<GID_T> {
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
       }
-      LOG_INFO("gid", gid);
+      LOG_INFO("DC: ", gid);
       ProcessPartialResult(gid, data_mngr_, read_trigger_, pt_by_gid_,
                            this->state_machine_);
-
-      TrySync();
+      // TrySync();
     }
   }
 
@@ -68,6 +65,7 @@ class DischargeComponent : public ComponentBase<GID_T> {
     (CSR_T*)data_mngr->GetGraph(gid);
     CSRPt& csr_pt = pt_by_gid->find(gid)->second;
     data_mngr->WriteGraph(gid, csr_pt);
+    data_mngr->EraseGraph(gid);
     if (state_machine->GraphIs(gid, RC)) {
       state_machine->ProcessEvent(gid, AGGREGATE);
       std::vector<GID_T>&& evoked_gid = state_machine->Evoke();
@@ -79,9 +77,6 @@ class DischargeComponent : public ComponentBase<GID_T> {
   }
 
  private:
-  // configuration
-  std::unique_ptr<std::atomic<size_t>> num_idle_workers_ = nullptr;
-
   folly::ProducerConsumerQueue<GID_T>* partial_result_queue_ = nullptr;
   // data manager
   utility::io::DataMgnr<GID_T, VID_T, VDATA_T, EDATA_T>* data_mngr_ = nullptr;
@@ -96,7 +91,7 @@ class DischargeComponent : public ComponentBase<GID_T> {
       if (iter.second->load() > this->get_global_superstep()) ++count;
     }
     if (count == this->superstep_by_gid_->size()) {
-      this->global_superstep_->store(this->global_superstep_->load() + 1);
+      this->global_superstep_->fetch_add(1);
       return true;
     } else {
       return false;

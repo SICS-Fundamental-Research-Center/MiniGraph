@@ -1,13 +1,11 @@
 #ifndef MINIGRAPH_MINIGRAPH_EXECUTORS_THROTTLE_H_
 #define MINIGRAPH_MINIGRAPH_EXECUTORS_THROTTLE_H_
 
-#include "executors/task_runner.h"
 #include "executors/schedulable.h"
-
-#include <mutex>
-
+#include "executors/task_runner.h"
 #include <folly/synchronization/NativeSemaphore.h>
-
+#include <mutex>
+#include <stdexcept>
 
 namespace minigraph {
 namespace executors {
@@ -102,8 +100,7 @@ class ThrottleFactory : public SchedulableFactory<Throttle> {
   TaskRunner* downstream_;
 };
 
-} // namespace executors
-} // namespace minigraph
+}  // namespace executors
+}  // namespace minigraph
 
-
-#endif //MINIGRAPH_MINIGRAPH_EXECUTORS_THROTTLE_H_
+#endif  // MINIGRAPH_MINIGRAPH_EXECUTORS_THROTTLE_H_

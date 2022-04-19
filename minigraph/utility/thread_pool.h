@@ -1,9 +1,6 @@
 #ifndef MINIGRAPH_UTILITY_THREAD_POOL_H_
 #define MINIGRAPH_UTILITY_THREAD_POOL_H_
 
-#include <folly/Function.h>
-#include <folly/executors/CPUThreadPoolExecutor.h>
-#include <folly/executors/IOThreadPoolExecutor.h>
 #include <atomic>
 #include <cstddef>
 #include <functional>
@@ -11,6 +8,10 @@
 #include <iostream>
 #include <memory>
 #include <stdexcept>
+
+#include <folly/Function.h>
+#include <folly/executors/CPUThreadPoolExecutor.h>
+#include <folly/executors/IOThreadPoolExecutor.h>
 
 namespace minigraph {
 namespace utility {

@@ -15,20 +15,12 @@ class VertexMapBase {
   ~VertexMapBase() = default;
 
   void VertexMap(){
-      // for (size_t tid = 0; tid < graph->get_num_vertexes(); tid +=
-      // num_worker_)
-      // run vertex centric operations.
-      // VertexReduce();
   };
 
-  void Bind(GRAPH_T* graph) { graph_ = graph; }
-
  private:
-  // utility::CPUThreadPool* cpu_thread_pool_ = nullptr;
-  GRAPH_T* graph_ = nullptr;
   CONTEXT_T context_;
 
-  virtual void VertexReduce(const CONTEXT_T& context) = 0;
+  //virtual void VertexReduce(const CONTEXT_T& context) = 0;
 };
 
 }  // namespace minigraph

@@ -3,12 +3,11 @@
 
 #include <functional>
 
-
 namespace minigraph {
 namespace executors {
 
 // Alias type name for an executable function.
-typedef std::function<void ()> Task;
+typedef std::function<void()> Task;
 
 // An interface class, which features a `Run` function that accepts a `Task`
 // and run it.
@@ -32,7 +31,7 @@ class TaskRunner {
   virtual size_t RunParallelism() = 0;
 };
 
-} // namespace executors
-} // namespace minigraph
+}  // namespace executors
+}  // namespace minigraph
 
-#endif //MINIGRAPH_EXECUTORS_TASK_RUNNER_H_
+#endif  // MINIGRAPH_EXECUTORS_TASK_RUNNER_H_
