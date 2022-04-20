@@ -1,12 +1,6 @@
 #ifndef MINIGRAPH_2D_PIE_AUTO_APP_BASE_H
 #define MINIGRAPH_2D_PIE_AUTO_APP_BASE_H
 
-#include <memory>
-#include <unordered_map>
-
-#include <folly/MPMCQueue.h>
-#include <folly/concurrency/DynamicBoundedQueue.h>
-
 #include "2d_pie/edge_map_reduce.h"
 #include "2d_pie/vertex_map_reduce.h"
 #include "executors/scheduled_executor.h"
@@ -16,6 +10,10 @@
 #include "graphs/graph.h"
 #include "graphs/immutable_csr.h"
 #include "utility/thread_pool.h"
+#include <folly/MPMCQueue.h>
+#include <folly/concurrency/DynamicBoundedQueue.h>
+#include <memory>
+#include <unordered_map>
 
 namespace minigraph {
 
@@ -90,21 +88,26 @@ class AutoAppBase {
                               PARTIAL_RESULT_T& partial_result) {
     assert(visited != nullptr);
     bool tag = false;
+    int count = 0;
     for (size_t i = 0; i < graph.get_num_vertexes(); i++) {
       if (visited[i] == true) {
+        if (count++ == 0) {
+          LOG_INFO(i);
+        }
+        tag == false ? tag = true : 0;
         auto globalid = graph.localid2globalid(i);
         if (global_border_vertexes_->find(globalid) !=
             global_border_vertexes_->end()) {
           auto iter = global_border_vertexes_info_->find(globalid);
           if (iter == global_border_vertexes_info_->end()) {
-            tag == false ? tag = true : 0;
+            // tag == false ? tag = true : 0;
             VertexInfo* vertex_info = graph.CopyVertex(i);
             partial_result.insert(std::make_pair(globalid, vertex_info));
           } else {
             if (iter->second->get_vdata() == graph.GetVertex(i).get_vdata()) {
               continue;
             } else {
-              tag == false ? tag = true : 0;
+              // tag == false ? tag = true : 0;
               VertexInfo* vertex_info = graph.CopyVertex(i);
               partial_result.insert(std::make_pair(globalid, vertex_info));
             }
@@ -112,6 +115,7 @@ class AutoAppBase {
         }
       }
     }
+    LOG_INFO("tag: ", tag, "count: ", count);
     return tag;
   }
 };
