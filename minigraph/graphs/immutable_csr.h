@@ -17,7 +17,6 @@
 #include <folly/Range.h>
 #include <folly/portability/Asm.h>
 #include <folly/portability/Atomic.h>
-#include <folly/portability/GTest.h>
 #include <folly/portability/SysTime.h>
 #include <jemalloc/jemalloc.h>
 
