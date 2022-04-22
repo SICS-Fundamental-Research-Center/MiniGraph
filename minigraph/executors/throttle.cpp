@@ -1,5 +1,6 @@
 #include "executors/throttle.h"
 
+#include <thread>
 #include <utility>
 
 #include "executors/scheduler.h"
@@ -16,26 +17,20 @@ Throttle::Throttle(Scheduler<Throttle>* scheduler,
     metadata_(),
     sem_(max_parallelism),
     original_parallelism_(max_parallelism),
-    max_parallelism_(max_parallelism) {}
+    allocated_parallelism_(max_parallelism) {}
 
 Throttle::~Throttle() {
   // Recycle resources, if it has not done so.
-  if (max_parallelism_ > 0) scheduler_->RecycleAllThreads(this);
+  const size_t parallelism = allocated_parallelism_.load();
+  if (parallelism > 0) scheduler_->RecycleAllThreads(this);
   scheduler_->Remove(this);
 
   // Reset sem_ status to its initial state, to avoid a destruction error.
-  std::lock_guard<std::mutex> grd(mtx_);
   for (int i = 0;
-       original_parallelism_ > max_parallelism_ &&
-       i < original_parallelism_ - max_parallelism_;
+       original_parallelism_ > 0 &&
+       i < original_parallelism_;
        i++) {
     sem_.post();
-  }
-  for (int i = 0;
-       original_parallelism_ < max_parallelism_ &&
-       i < max_parallelism_ - original_parallelism_;
-       i++) {
-    sem_.wait();
   }
 }
 
@@ -68,28 +63,22 @@ void Throttle::Run(const std::vector<Task>& tasks,
 
   std::mutex mtx;
   size_t pending_packages = num_packages;
-  size_t parallelism = GetParallelism();
   std::condition_variable finish_cv;
 
   for (size_t i = num_packages; i > 0; i--) {
     sem_.wait();
-    downstream_->Run([&] {
-      for (size_t j = indices[i-1]; j < indices[i]; j++) {
+    downstream_->Run([&, index = i] {
+      for (size_t j = indices[index-1]; j < indices[index]; j++) {
         tasks[j]();
       }
 
       // Modify the counter of `pending_packages`.
-      bool should_notify;
       {
         std::lock_guard grd(mtx);
         pending_packages--;
-        should_notify = (release_resource && pending_packages < parallelism)
-            || (!release_resource && pending_packages == 0);
       }
       sem_.post();
-      if (should_notify) {
-        finish_cv.notify_one();
-      }
+      finish_cv.notify_one();
     }, false);
   }
 
@@ -98,18 +87,20 @@ void Throttle::Run(const std::vector<Task>& tasks,
     finish_cv.wait(lck);
     // Here, cv is waked up after all task packages have been pushed downstream.
     if (release_resource) {
-      while (pending_packages < parallelism) {
-        parallelism--;
+      while (pending_packages < GetParallelism()) {
         scheduler_->RecycleOneThread(this);
       }
     }
-    if (pending_packages == 0) return;
+    if (pending_packages == 0) {
+      return;
+    }
   }
 }
 
 std::vector<size_t> Throttle::PackagedTaskIndices(size_t total_tasks) const {
+  const size_t min_parallelism = std::thread::hardware_concurrency() / 2;
   const size_t intended_batches = 4;
-  const size_t parallelism = GetParallelism();
+  const size_t parallelism = std::max(GetParallelism(), min_parallelism);
   const size_t num_packages =
       std::min(parallelism * intended_batches, total_tasks);
   const float step_size =
@@ -129,31 +120,25 @@ size_t Throttle::GetParallelism() const {
 }
 
 size_t Throttle::IncreaseParallelism(size_t delta) {
-  size_t after;
-  {
-    // Change `max_parallelism` before actually increasing semaphore counts.
-    std::lock_guard<std::mutex> grd(mtx_);
-    max_parallelism_ += delta;
-    after = max_parallelism_;
-  }
+  // Change `allocated_parallelism_` before actually increasing
+  // semaphore counts.
+  const size_t before = allocated_parallelism_.fetch_add(delta);
   for (size_t i = 0; i < delta; i++) {
     sem_.post();
   }
-  return after;
+  return before + delta;
 }
 
 size_t Throttle::DecrementParallelism() {
-  size_t after;
-  {
-    // Change `max_parallelism` before actually decrement semaphore counts.
-    std::lock_guard<std::mutex> grd(mtx_);
-    if (max_parallelism_ == 0) {
-      return -1;
-    }
-    after = --max_parallelism_;
+  // Change `allocated_parallelism_` before actually decrement semaphore counts.
+  const size_t before = allocated_parallelism_.fetch_sub(1);
+  if (before == 0) {
+    allocated_parallelism_++;
   }
-  sem_.wait();
-  return after;
+  else {
+    sem_.wait();
+  }
+  return before - 1;
 }
 
 const Schedulable::Metadata& Throttle::metadata() const {
@@ -165,8 +150,7 @@ Schedulable::Metadata* Throttle::mutable_metadata() {
 }
 
 size_t Throttle::AllocatedParallelism() const {
-  std::lock_guard<std::mutex> grd(mtx_);
-  return max_parallelism_;
+  return allocated_parallelism_.load();
 }
 
 ThrottleFactory::ThrottleFactory(Scheduler<Throttle>* scheduler,

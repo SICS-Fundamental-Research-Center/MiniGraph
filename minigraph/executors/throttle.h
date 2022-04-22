@@ -131,12 +131,7 @@ class Throttle final : public TaskRunner, public Schedulable {
 
   // Used to track the allowed parallelism, and to identify illegal operations,
   // e.g., reducing the maximum parallelism below 0.
-  size_t max_parallelism_;
-  // Mutex to protected concurrent access to max_parallelism. Since the variable
-  // is only accessed when parallelism is adjusted on-the-fly, which is very
-  // rare in practice and contentions are *extremely* low, using a mutex is
-  // good enough.
-  mutable std::mutex mtx_;
+  std::atomic_size_t allocated_parallelism_;
 };
 
 // A companion factory class for Throttle.
