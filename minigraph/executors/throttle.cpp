@@ -40,7 +40,8 @@ void Throttle::Run(Task&& task, bool release_resource) {
   std::condition_variable finish_cv;
 
   sem_.wait();
-  downstream_->Run([&, t = std::move(task)] {
+  downstream_->Run([this, &task_completed, &finish_cv, &mtx,
+                    t = std::move(task)] () {
     t();
     sem_.post();
     std::lock_guard grd(mtx);
@@ -67,7 +68,8 @@ void Throttle::Run(const std::vector<Task>& tasks,
 
   for (size_t i = num_packages; i > 0; i--) {
     sem_.wait();
-    downstream_->Run([&, index = i] {
+    downstream_->Run([this, &indices, &tasks, &mtx, &pending_packages,
+                      &finish_cv, index = i] () {
       for (size_t j = indices[index-1]; j < indices[index]; j++) {
         tasks[j]();
       }
