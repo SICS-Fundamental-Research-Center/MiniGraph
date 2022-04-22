@@ -2,6 +2,8 @@
 #define MINIGRAPH_EXECUTORS_TASK_RUNNER_H_
 
 #include <functional>
+#include <vector>
+
 
 namespace minigraph {
 namespace executors {
@@ -13,14 +15,17 @@ typedef std::function<void()> Task;
 // and run it.
 class TaskRunner {
  public:
-  // Start executing a task.
-  //
-  // The call will *block* until executor capacity is available.
-  // Returning from the call means the `task` is being scheduled and
-  // (probably) running, but not necessarily completed.
-  // As a result, the client code is responsible for checking the termination
-  // of tasks.
+  // Submit a task for execution.
+  // This call may or may *not* block until task is completed. Check for the
+  // concrete implementation for more details.
+  [[deprecated("Superseded by the overloads with a release_resource option.")]]
   virtual void Run(Task&& task) = 0;
+  virtual void Run(Task&& task, bool release_resource) = 0;
+
+  // Submit a batch of tasks for execution.
+  // This call may or may *not* block until task is completed. Check for the
+  // concrete implementation for more details.
+  virtual void Run(const std::vector<Task>& tasks, bool release_resource) = 0;
 
   // Get the current parallelism for running tasks if a bunch of tasks are
   // submitted via Run().
@@ -28,7 +33,8 @@ class TaskRunner {
   // It is useful for task submitters to estimate the currently allowed
   // concurrency, and to batch tiny tasks into larger serial ones while
   // making no compromise on utilization of allocated resources.
-  virtual size_t RunParallelism() = 0;
+  [[nodiscard]]
+  virtual size_t GetParallelism() const = 0;
 };
 
 }  // namespace executors

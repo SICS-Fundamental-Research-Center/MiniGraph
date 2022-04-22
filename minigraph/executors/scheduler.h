@@ -15,6 +15,9 @@ namespace executors {
 template <typename Schedulable_T>
 class Scheduler {
  public:
+  static_assert(std::is_base_of_v<Schedulable, Schedulable_T>,
+                "Scheduler's template type must be a Schedulable.");
+
   // A default virtual destructor to avoid warning when this interface class
   // is used directly in the code.
   virtual ~Scheduler() = default;
@@ -23,20 +26,25 @@ class Scheduler {
   // creation. The initialization is done via the companion factory class
   // of the Schedulable.
   // Return a unique pointer to the new Schedulable instance, transferring
-  // ownership to the caller. In addition, Scheduler typically keep a raw
-  // pointer to the created instance, in case `RescheduleAll()` is called and
-  // initially allocated resources need to be adjusted.
+  // ownership to the caller. In addition, Scheduler will keep a raw
+  // pointer to the created instance, in case the initially allocated resources
+  // need to be adjusted.
   virtual std::unique_ptr<Schedulable_T> AllocateNew(
       const SchedulableFactory<Schedulable_T>* factory,
       Schedulable::Metadata&& metadata) = 0;
 
-  // Interface for removing a previously created Schedulable instance, by
-  // releasing its allocated resources.
-  virtual void Remove(Schedulable_T* schedulable) = 0;
+  // Call to release one allocated thread in recycler to Scheduler.
+  virtual void RecycleOneThread(Schedulable_T* recycler) = 0;
 
-  // Interface for adjust all existing Schedulable instances, by rescheduling
-  // the resources among them.
-  virtual void RescheduleAll() = 0;
+  // Call to release all allocated threads in recycler to Scheduler.
+  virtual void RecycleAllThreads(Schedulable_T* recycler) = 0;
+
+ protected:
+  // Allow external call to Remove() via Schedulable_T's destructor only.
+  friend Schedulable_T::~Schedulable_T();
+  // Interface for removing a previously created Schedulable instance.
+  // If it has not released its allocated resources, release it before deletion.
+  virtual void Remove(Schedulable_T* schedulable) = 0;
 };
 
 } // namespace executors

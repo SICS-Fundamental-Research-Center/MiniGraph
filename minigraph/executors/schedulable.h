@@ -21,18 +21,20 @@ class Schedulable {
 
   // Increase the limit on parallelism by `delta`.
   // Return the maximum parallelism after the change.
-  virtual int IncreaseParallelism(size_t delta) = 0;
+  virtual size_t IncreaseParallelism(size_t delta) = 0;
 
   // Decrement the limit on parallelism by 1.
   // Return the maximum parallelism after the change. If the maximum parallelism
   // is 0 before the call, it will return -1.
-  virtual int DecrementParallelism() = 0;
+  virtual size_t DecrementParallelism() = 0;
 
   // Return the const reference to the metadata object.
+  [[nodiscard]]
   virtual const Metadata& metadata() const = 0;
 
   // Get the current parallelism limit.
-  virtual size_t AllocatedParallelism() = 0;
+  [[nodiscard]]
+  virtual size_t AllocatedParallelism() const = 0;
 };
 
 // A companion factory class for Schedulable.
