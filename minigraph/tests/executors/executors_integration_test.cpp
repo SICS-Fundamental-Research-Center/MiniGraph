@@ -3,8 +3,9 @@
 #include <gtest/gtest.h>
 
 #include <chrono>
+#include <vector>
 
-#include <folly/synchronization/Baton.h>
+#include "utility/logging.h"
 
 
 namespace minigraph {
@@ -13,52 +14,39 @@ namespace executors {
 using namespace std::chrono_literals;
 
 constexpr auto kSleepTime = 100ms;
-constexpr int kTaskBatches = 3;
+constexpr size_t kTaskBatches = 3;
 static const auto kTotalParallelism = std::thread::hardware_concurrency();
 
 class TaskSubmitter {
  public:
-  TaskSubmitter(ScheduledExecutor* executors) {
-    executors_ = executors;
-    runner_ = executors->RequestTaskRunner(this, {});
-    counter_ = 0;
-  }
+  explicit TaskSubmitter(ScheduledExecutor* executors) :
+      executors_(executors),
+      runner_(executors->RequestTaskRunner(this, {})),
+      counter_(0) {}
 
   ~TaskSubmitter() {
     executors_->RecycleTaskRunner(this, runner_);
   }
 
   void SubmitTaskBatch() {
+    std::vector<Task> tasks(kTotalParallelism * kTaskBatches, [this] {
+      counter_.fetch_add(1, std::memory_order_acquire);
+      std::this_thread::sleep_for(kSleepTime);
+    });
     // Record submission time.
-    submission_time_ = std::chrono::system_clock::now();
-    for (int i = 0; i < kTotalParallelism * kTaskBatches; i++) {
-      runner_->Run([this]() {
-        std::this_thread::sleep_for(kSleepTime);
-        if (kTotalParallelism * kTaskBatches == ++counter_){
-          // Last task to be completed.
-          barrier_.post();
-        }
-      });
-    }
-  }
-
-  void WaitUntilAllTasksCompleted(int expected_wait_batches = kTaskBatches) {
-    barrier_.wait();
-    auto runtime = std::chrono::system_clock::now() - submission_time_;
-    EXPECT_GE(runtime, expected_wait_batches * kSleepTime);
-    EXPECT_LE(runtime, (expected_wait_batches + 1) * kSleepTime);
+    auto submission_time = std::chrono::system_clock::now();
+    runner_->Run(tasks, true);
+    auto run_duration = std::chrono::system_clock::now() - submission_time;
+    LOGF_INFO("Run time: {} ms.", (float) run_duration.count() / 1e3);
   }
 
   int GetCounter() {
-    return counter_.load();
+    return counter_.load(std::memory_order_acquire);
   }
 
- private:
   ScheduledExecutor* executors_;
   TaskRunner* runner_;
   std::atomic_int counter_;
-  folly::Baton<> barrier_;
-  std::chrono::time_point<std::chrono::system_clock> submission_time_;
 };
 
 class ExecutorsIntegrationTest : public ::testing::Test {
@@ -71,24 +59,23 @@ class ExecutorsIntegrationTest : public ::testing::Test {
 TEST_F(ExecutorsIntegrationTest, TasksCanBeExecutedWithFullParallelismInOrder) {
   auto s1 = std::make_unique<TaskSubmitter>(&executors_);
   auto s2 = std::make_unique<TaskSubmitter>(&executors_);
+  EXPECT_EQ(kTotalParallelism, s1->runner_->GetParallelism());
+  EXPECT_EQ(0, s2->runner_->GetParallelism());
+
   auto t2 = std::thread([&]() {
     s2->SubmitTaskBatch();
   });
   std::this_thread::sleep_for(kSleepTime);
-  auto t1 = std::thread([&]() {
-    s1->SubmitTaskBatch();
-  });
-  s1->WaitUntilAllTasksCompleted(kTaskBatches);
-
   // No task submitted by s2 should be completed before recycling s1.
   EXPECT_EQ(0, s2->GetCounter());
-  s1.reset();
-  s2->WaitUntilAllTasksCompleted(2 * kTaskBatches + 1);
-  s2.reset();
+
+  s1->SubmitTaskBatch();
+
+  EXPECT_EQ(kTotalParallelism * kTaskBatches, s1->GetCounter());
+  t2.join();
+  EXPECT_EQ(kTotalParallelism * kTaskBatches, s2->GetCounter());
 
   // Cleanup.
-  t1.join();
-  t2.join();
   executors_.Stop();
 }
 

@@ -10,11 +10,18 @@ namespace executors {
 ScheduledExecutor::ThreadPool::ThreadPool(unsigned int num_threads) :
     internal_pool_(num_threads) {}
 
-void ScheduledExecutor::ThreadPool::Run(Task&& task) {
-  internal_pool_.add(task);
+void ScheduledExecutor::ThreadPool::Run(Task&& task, bool /*flag*/) {
+  internal_pool_.add(std::move(task));
 }
 
-size_t ScheduledExecutor::ThreadPool::RunParallelism() {
+void ScheduledExecutor::ThreadPool::Run(
+    const std::vector<Task>& tasks, bool /*release_resource*/) {
+  for (const auto& t : tasks) {
+    internal_pool_.add(t);
+  }
+}
+
+size_t ScheduledExecutor::ThreadPool::GetParallelism() const {
   return internal_pool_.numThreads();
 }
 
@@ -24,9 +31,9 @@ void ScheduledExecutor::ThreadPool::StopAndJoin() {
 }
 
 ScheduledExecutor::ScheduledExecutor(unsigned int num_threads) :
+    scheduler_(std::make_unique<CPUScheduler>(num_threads)),
     thread_pool_(num_threads),
-    factory_(&thread_pool_),
-    scheduler_(std::make_unique<CPUScheduler>(num_threads)) {
+    factory_(scheduler_.get(), &thread_pool_) {
   throttles_.lock()->reserve(128);
 }
 
@@ -56,10 +63,10 @@ void ScheduledExecutor::RecycleTaskRunner(void* user_ptr, TaskRunner* runner) {
     throttles->at(user_ptr).swap(throttle);
     throttles->erase(user_ptr);
   }
-  scheduler_->Remove(throttle.get());
   if (runner != (TaskRunner*) throttle.get()) {
     LOG_ERROR("user_ptr does not match with the provided runner.");
   }
+  // throttle will destruct here, and get removed from Scheduler automatically.
 }
 
 void ScheduledExecutor::Stop() {

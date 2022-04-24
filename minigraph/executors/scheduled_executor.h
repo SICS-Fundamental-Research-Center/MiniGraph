@@ -17,17 +17,32 @@ class ScheduledExecutor {
  protected:
   // A wrapper of folly::CPUThreadPoolExecutor.
   // It adapts to the TaskRunner interface.
-  class ThreadPool : public TaskRunner {
+  class ThreadPool final : public TaskRunner {
    public:
     // Parameter `num_threads` determines the number of threads in the pool.
     explicit ThreadPool(unsigned int num_threads);
     ~ThreadPool() = default;
 
-    // Submit a task to the thread pool. Implement the TaskRunner interface.
-    void Run(Task&& task) override;
+    // Submit a task to the thread pool and return *immediately*.
+    // The call will *not* block. Just put a task in the task queue, waiting
+    // for execution in `internal_pool_`.
+    //
+    // `release_resource` does not make a difference here.
+    [[deprecated("Superseded by the overloads with a release_resource option.")]]
+    void Run(Task&& task) override {
+      Run(std::move(task), false);
+    }
+    void Run(Task&& task, bool release_resource) override;
+
+    // Submit a batch of tasks to the thread pool and return *immediately*.
+    // The call will *not* block. Just put the tasks in the task queue, waiting
+    // for execution in `internal_pool_`.
+    //
+    // `release_resource` does not make a difference here.
+    void Run(const std::vector<Task>& tasks, bool release_resource) override;
 
     // Get the total number of threads within the thread pool.
-    size_t RunParallelism() override;
+    size_t GetParallelism() const override;
 
     // Stop the thread pool and join all threads.
     void StopAndJoin();
@@ -66,11 +81,11 @@ class ScheduledExecutor {
   // A convenient alias. Its use is restricted to internal implementation use.
   using ThrottlePtr = std::unique_ptr<Throttle>;
 
+  std::unique_ptr<ThrottleScheduler> scheduler_;
+
   ThreadPool thread_pool_;
 
   ThrottleFactory factory_;
-
-  std::unique_ptr<ThrottleScheduler> scheduler_;
 
   // A hash map for managing all active Throttles.
   // The key is the user provided identifier (typically, the caller `this`),

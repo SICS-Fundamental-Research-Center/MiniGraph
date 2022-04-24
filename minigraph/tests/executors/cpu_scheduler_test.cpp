@@ -13,26 +13,57 @@ namespace executors {
 
 class DummyTaskRunner : public TaskRunner {
  public:
-  DummyTaskRunner() = default;
+  DummyTaskRunner() : counter_(0) {}
+  ~DummyTaskRunner() {
+    for (auto& t : ts_) {
+      t.join();
+    }
+  }
 
   void Run(Task&& task) override {
-    // Do nothing.
+    ts_.emplace_back(std::thread([t = std::move(task), this]{
+      t();
+      counter_++;
+    }));
   }
-  size_t RunParallelism() override {
+  void Run(Task&& task, bool /*flag*/) override {
+    Run(std::move(task));
+  }
+
+  void Run(const std::vector<Task>& tasks, bool /*flag*/) override {
+    ts_.emplace_back(std::thread([&, this]{
+      for (const auto& t : tasks) {
+        t();
+      }
+      counter_++;
+    }));
+  }
+
+  size_t GetParallelism() const override {
     // Do nothing.
     return 0;
   }
+
+  int CompletedTasks() {
+    return counter_.load();
+  }
+
+ private:
+  std::atomic_int counter_;
+  std::list<std::thread> ts_;
 };
 
-constexpr unsigned int parallelism = 6;
+// Test cases require parallelism >= 5
+constexpr size_t parallelism = 6;
 
 class CPUSchedulerTest : public ::testing::Test {
  protected:
-  CPUSchedulerTest() : factory_(&downstream_), scheduler_(parallelism) {}
+  CPUSchedulerTest() : scheduler_(parallelism),
+                       factory_(&scheduler_, &downstream_) {}
 
+  CPUScheduler scheduler_;
   DummyTaskRunner downstream_;
   ThrottleFactory factory_;
-  CPUScheduler scheduler_;
 };
 
 TEST_F(CPUSchedulerTest, SchedulerAllocateThreadsPreemptively) {
@@ -41,49 +72,58 @@ TEST_F(CPUSchedulerTest, SchedulerAllocateThreadsPreemptively) {
   auto t1 = scheduler_.AllocateNew(&factory_, {});
   auto t2 = scheduler_.AllocateNew(&factory_, {});
   auto t3 = scheduler_.AllocateNew(&factory_, {});
-  EXPECT_EQ((size_t) parallelism, t1->RunParallelism());
-  EXPECT_EQ(0, t2->RunParallelism());
-  EXPECT_EQ(0, t3->RunParallelism());
+  EXPECT_EQ(parallelism, t1->GetParallelism());
+  EXPECT_EQ(0, t2->GetParallelism());
+  EXPECT_EQ(0, t3->GetParallelism());
 
-  // Now remove t1.
-  scheduler_.Remove(t1.get());
-  EXPECT_EQ(0, t1->RunParallelism());
-  EXPECT_EQ((size_t) parallelism, t2->RunParallelism());
-  EXPECT_EQ(0, t3->RunParallelism());
+  t1->Run([]{}, true);
+  EXPECT_EQ(parallelism - 1, t1->GetParallelism());
+  EXPECT_EQ(1, t2->GetParallelism());
+  EXPECT_EQ(0, t3->GetParallelism());
 
-  // Now remove t2.
-  scheduler_.Remove(t2.get());
-  EXPECT_EQ(0, t1->RunParallelism());
-  EXPECT_EQ(0, t2->RunParallelism());
-  EXPECT_EQ((size_t) parallelism, t3->RunParallelism());
+  t1->Run([]{}, true);
+  EXPECT_EQ(parallelism - 2, t1->GetParallelism());
+  EXPECT_EQ(2, t2->GetParallelism());
+  EXPECT_EQ(0, t3->GetParallelism());
+
+  t1->Run([]{}, true);
+  t2->Run([]{}, true);
+  EXPECT_EQ(parallelism - 3, t1->GetParallelism());
+  EXPECT_EQ(2, t2->GetParallelism());
+  EXPECT_EQ(1, t3->GetParallelism());
+
+  t1->Run([]{}, true);
+  EXPECT_EQ(parallelism - 4, t1->GetParallelism());
+  EXPECT_EQ(2, t2->GetParallelism());
+  EXPECT_EQ(2, t3->GetParallelism());
+
+  t3->Run([]{}, true);
+  t1->Run([]{}, true);
+  t2->Run([]{}, true);
+  EXPECT_EQ(parallelism - 5, t1->GetParallelism());
+  EXPECT_EQ(1, t2->GetParallelism());
+  EXPECT_EQ(1, t3->GetParallelism());
 
   // Now allocate t4.
   auto t4 = scheduler_.AllocateNew(&factory_, {});
-  EXPECT_EQ(0, t1->RunParallelism());
-  EXPECT_EQ(0, t2->RunParallelism());
-  EXPECT_EQ((size_t) parallelism, t3->RunParallelism());
-  EXPECT_EQ(0, t4->RunParallelism());
-  // Reschedule prints a warning.
-  scheduler_.RescheduleAll();
+  EXPECT_EQ(parallelism - 5, t1->GetParallelism());
+  EXPECT_EQ(1, t2->GetParallelism());
+  EXPECT_EQ(1, t3->GetParallelism());
+  EXPECT_EQ(3, t4->GetParallelism());
 
-  // Now remove t3.
-  scheduler_.Remove(t3.get());
-  EXPECT_EQ(0, t1->RunParallelism());
-  EXPECT_EQ(0, t2->RunParallelism());
-  EXPECT_EQ(0, t3->RunParallelism());
-  EXPECT_EQ((size_t) parallelism, t4->RunParallelism());
-
-  // Now remove t4.
-  scheduler_.Remove(t4.get());
-  EXPECT_EQ(0, t1->RunParallelism());
-  EXPECT_EQ(0, t2->RunParallelism());
-  EXPECT_EQ(0, t3->RunParallelism());
-  EXPECT_EQ(0, t4->RunParallelism());
-  // Reschedule prints a warning.
-  scheduler_.RescheduleAll();
+  t2.reset();
+  EXPECT_EQ(4, t4->GetParallelism());
+  t4->Run([]{}, true);
+  EXPECT_EQ(3, t4->GetParallelism());
+  t3.reset();
+  EXPECT_EQ(parallelism - 5, t1->GetParallelism());
+  EXPECT_EQ(3, t4->GetParallelism());
+  t1.reset();
+  EXPECT_EQ(3, t4->GetParallelism());
+  t4.reset();
 }
 
-TEST_F(CPUSchedulerTest, RemovingAThrottleNotAtTheFrontTriggersErrorLogging) {
+TEST_F(CPUSchedulerTest, RemovingAThrottleNotManagedTriggersErrorLogging) {
   using ::testing::internal::CaptureStderr;
   using ::testing::internal::GetCapturedStderr;
   using ::testing::StartsWith;
@@ -91,28 +131,17 @@ TEST_F(CPUSchedulerTest, RemovingAThrottleNotAtTheFrontTriggersErrorLogging) {
 
   // Allocate 3 Throttle instances.
   auto t1 = scheduler_.AllocateNew(&factory_, {});
-  auto t2 = scheduler_.AllocateNew(&factory_, {});
-  auto t3 = scheduler_.AllocateNew(&factory_, {});
-  EXPECT_EQ((size_t) parallelism, t1->AllocatedParallelism());
-  EXPECT_EQ(0, t2->AllocatedParallelism());
-  EXPECT_EQ(0, t3->AllocatedParallelism());
+  EXPECT_EQ(parallelism, t1->AllocatedParallelism());
   // Initiate an illegally created t4.
-  auto t4 = factory_.New(3, {});
-
-  // Trying to remove t2 will trigger an error message.
-  CaptureStderr();
-  scheduler_.Remove(t2.get());
-  auto e_message = folly::rtrimWhitespace(GetCapturedStderr()).toString();
-  EXPECT_THAT(e_message, StartsWith("E"));
-  LOG_INFO(e_message);
-  // t2 should be removed from queue regardless of the error.
-  scheduler_.Remove(t1.get());
-  EXPECT_EQ(0, t2->AllocatedParallelism());
-  EXPECT_EQ((size_t) parallelism, t3->AllocatedParallelism());
+  auto t2 = factory_.New(3, {});
 
   // Trying to remove t4 results in a fatal error.
-  EXPECT_DEATH(scheduler_.Remove(t4.get()),
-               HasSubstr("illegal operation"));
+  CaptureStderr();
+  t2.reset();
+  auto e_message = folly::rtrimWhitespace(GetCapturedStderr()).toString();
+  EXPECT_THAT(e_message, StartsWith("E"));
+  EXPECT_THAT(e_message, HasSubstr("non-existent throttle"));
+  EXPECT_THAT(e_message, HasSubstr("illegal operation"));
 }
 
 } // namespace executors

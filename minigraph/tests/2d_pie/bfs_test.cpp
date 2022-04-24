@@ -7,8 +7,6 @@
 #include "portability/sys_types.h"
 #include "utility/logging.h"
 #include <folly/concurrency/DynamicBoundedQueue.h>
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
 #include <condition_variable>
 
 namespace minigraph {

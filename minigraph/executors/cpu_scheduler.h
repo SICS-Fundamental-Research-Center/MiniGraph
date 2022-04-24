@@ -8,8 +8,6 @@
 #include "executors/scheduler.h"
 #include "executors/throttle.h"
 
-#include <folly/Synchronized.h>
-
 
 namespace minigraph {
 namespace executors {
@@ -19,7 +17,7 @@ namespace executors {
 // It assigns CPU resources to allocated Throttle instances *preemptively*:
 // If there is resource available, it assigns *all* idle threads to the first
 // Throttle waiting in line.
-class CPUScheduler : public Scheduler<Throttle> {
+class CPUScheduler final : public Scheduler<Throttle> {
  public:
   // Default constructor.
   // `num_threads` indicates the total number of available threads. If its value
@@ -33,19 +31,42 @@ class CPUScheduler : public Scheduler<Throttle> {
       const SchedulableFactory<Throttle>* factory,
       Schedulable::Metadata&& metadata) override;
 
-  // Remove a throttle and recycle its assigned resources.
+  // Recycle one thread from `recycler`, and allocated it to the next Throttle
+  // waiting for more threads.
+  void RecycleOneThread(Throttle* recycler) override;
+
+  // Recycle all threads from `recycler`, and allocated them to the next
+  // Throttle waiting for more threads.
+  void RecycleAllThreads(Throttle* recycler) override;
+
+ protected:
+  // Remove throttle from being managed by this Scheduler. Callable from the
+  // destructor of a throttle only, which is a friend function.
+  //
+  // Before the call, it is recommended that all threads allocated to throttle
+  // be recycled; otherwise, a WARNING message will be logged and the threads
+  // are recycled automatically.
   void Remove(Throttle* throttle) override;
 
-  // Re-allocate threads among existing Throttle instances.
-  // For this preemptive implementation, Rescheduling is *never* useful.
-  // Calling this function will result in a warning log message with no other
-  // side effects.
-  void RescheduleAll() override;
-
  private:
+  // A helper function for implementing `RecycleOneThread()` and
+  // `RecycleAllThreads()`.
+  void RecycleNThreads(Throttle* recycler, size_t num_threads);
+
+  // Total available threads for scheduling.
   const size_t total_threads_;
 
-  folly::Synchronized<std::deque<Throttle*>, std::mutex> q_;
+  // Mutex to synchronize access to the following three data fields.
+  std::mutex mtx_;
+
+  // Next throttle that demands more resources.
+  // Once a throttle starts recycling threads, it no longer qualifies for more
+  // resource allocation.
+  Throttle* next_in_queue_;
+
+  size_t num_free_threads_;
+
+  std::deque<Throttle*> q_;
 };
 
 } // namespace executors

@@ -7,6 +7,9 @@
 #include <list>
 #include <chrono>
 
+#include "executors/scheduler.h"
+#include "utility/logging.h"
+
 
 namespace minigraph {
 namespace executors {
@@ -36,8 +39,20 @@ class DummyTaskRunner : public TaskRunner {
       counter_++;
     }));
   }
+  void Run(Task&& task, bool /*flag*/) override {
+    Run(std::move(task));
+  }
 
-  size_t RunParallelism() override {
+  void Run(const std::vector<Task>& tasks, bool /*flag*/) override {
+    ts_.emplace_back(std::thread([&, this]{
+      for (const auto& t : tasks) {
+        t();
+      }
+      counter_++;
+    }));
+  }
+
+  size_t GetParallelism() const override {
     // Do nothing.
     return 0;
   }
@@ -51,208 +66,194 @@ class DummyTaskRunner : public TaskRunner {
   std::list<std::thread> ts_;
 };
 
-class ThrottleTest : public ::testing::Test {
- protected:
-  ThrottleTest() : factory_(&dummy_) {
+class DummyScheduler : public Scheduler<Throttle> {
+ public:
+  std::unique_ptr<Throttle> AllocateNew(
+      const SchedulableFactory<Throttle>* factory,
+      Schedulable::Metadata&& metadata) override {
+    return nullptr;
+  }
+  void RecycleOneThread(Throttle* recycler) override {
+    recycler->DecrementParallelism();
+    recycled_threads_++;
+  }
+  void RecycleAllThreads(Throttle* recycler) override {
+    int parallelism = (int) recycler->GetParallelism();
+    for (int i = 0; i < parallelism; i++) {
+      recycler->DecrementParallelism();
+    }
+    recycled_threads_ += parallelism;
   }
 
+  std::atomic_int recycled_threads_{0};
+
+ protected:
+  void Remove(Throttle* throttle) override {
+    LOG_INFO("DummyScheduler::Remove() called.");
+  }
+};
+
+class ThrottleTest : public ::testing::Test {
+ protected:
+  ThrottleTest() : factory_(&scheduler_, &dummy_) {
+  }
+
+  DummyScheduler scheduler_;
   DummyTaskRunner dummy_;
   ThrottleFactory factory_;
 };
 
-TEST_F(ThrottleTest, ThrottleCanLimitMaxParallelism) {
-  std::atomic_int running_tasks(0);
-  std::mutex mtx;
-  std::condition_variable cv;
+TEST_F(ThrottleTest, ThrottleRunCanRecycleThread) {
+  auto throttle = factory_.New(3, {});
 
+  throttle->Run([&] {
+    std::this_thread::sleep_for(10ms);
+  }, true);
+  EXPECT_EQ(1, scheduler_.recycled_threads_.load());
+  EXPECT_EQ(2, throttle->GetParallelism());
+
+  throttle->Run([&] {
+    std::this_thread::sleep_for(10ms);
+  }, true);
+  EXPECT_EQ(2, scheduler_.recycled_threads_.load());
+  EXPECT_EQ(1, throttle->GetParallelism());
+
+  throttle->Run([&] {
+    std::this_thread::sleep_for(10ms);
+  }, true);
+  EXPECT_EQ(3, scheduler_.recycled_threads_.load());
+  EXPECT_EQ(0, throttle->GetParallelism());
+}
+
+TEST_F(ThrottleTest, ThrottleRunLimitMaxParallelism) {
+  std::atomic_int running_tasks(0);
   auto throttle = factory_.New(MAX_PARALLELISM, {});
 
-  for (int i = 0; i < MAX_PARALLELISM; i++) {
-    throttle->Run([&] {
-      running_tasks++;
-      std::unique_lock<std::mutex> lck(mtx);
-      cv.wait(lck);
-      running_tasks--;
-    });
-  }
-
-  // Execution should reach here without being blocked.
-  // Now launch more task enqueue operations in parallel. We expect
-  // them to block execution because the parallelism is saturated.
   std::vector<std::thread> enqueue_threads;
   enqueue_threads.reserve(TOTAL_TASKS);
-  for (int i = 0; i < TOTAL_TASKS - MAX_PARALLELISM; i++) {
+  for (int i = 0; i < TOTAL_TASKS; i++) {
     enqueue_threads.emplace_back(std::thread([&] {
       throttle->Run([&] {
-        running_tasks++;
-        std::unique_lock<std::mutex> lck(mtx);
-        cv.wait(lck);
-        running_tasks--;
-      });
+        int prev_running = running_tasks.fetch_add(1);
+        EXPECT_LT(prev_running, MAX_PARALLELISM);
+        std::this_thread::sleep_for(10ms);
+        prev_running = running_tasks.fetch_sub(1);
+        EXPECT_LE(prev_running, MAX_PARALLELISM);
+      }, false);
     }));
   }
-  std::this_thread::sleep_for(10ms);
-  EXPECT_EQ(MAX_PARALLELISM, running_tasks.load());
-  EXPECT_EQ(0, dummy_.CompletedTasks());
 
-  for (int i = 0; i < TOTAL_TASKS - MAX_PARALLELISM; i++) {
-    // Now, use `cv.notify_one()` to unblock one thread.
-    cv.notify_one();
-    std::this_thread::sleep_for(10ms);
-    EXPECT_EQ(
-        MAX_PARALLELISM < TOTAL_TASKS-i-1 ? MAX_PARALLELISM : TOTAL_TASKS-i-1 ,
-        running_tasks.load());
-    EXPECT_EQ(i + 1, dummy_.CompletedTasks());
-  }
-
-  // Cleanup.
-  while (dummy_.CompletedTasks() < TOTAL_TASKS) {
-    cv.notify_all();
-    std::this_thread::sleep_for(10ms);
-  }
   for (auto& t : enqueue_threads) {
     t.join();
   }
+  // No thread is recycled.
+  EXPECT_EQ(0, scheduler_.recycled_threads_.load());
+}
+
+TEST_F(ThrottleTest, ThrottleRunVectorTasksCanRecycleThreads) {
+  auto throttle = factory_.New(10, {});
+
+  std::vector<Task> tasks(30, []{
+    std::this_thread::sleep_for(10ms);
+  });
+
+  throttle->Run(tasks, true);
+  EXPECT_EQ(10, scheduler_.recycled_threads_.load());
+  EXPECT_EQ(0, throttle->GetParallelism());
+  // #Tasks < 4 * #Parallelism, did not partition the vector.
+  EXPECT_EQ(dummy_.CompletedTasks(), 30);
+}
+
+TEST_F(ThrottleTest, ThrottleRunVectorTasksCanRecycleAllThreads) {
+  auto throttle = factory_.New(10, {});
+
+  std::vector<Task> tasks(2, []{
+    std::this_thread::sleep_for(10ms);
+  });
+
+  throttle->Run(tasks, true);
+  EXPECT_EQ(10, scheduler_.recycled_threads_.load());
+  EXPECT_EQ(0, throttle->GetParallelism());
+  EXPECT_EQ(dummy_.CompletedTasks(), 2);
+}
+
+TEST_F(ThrottleTest, ThrottleRunVectorTasksLimitMaxParallelism) {
+  std::atomic_int running_tasks(0);
+  std::atomic_int counter(0);
+  auto throttle = factory_.New(MAX_PARALLELISM, {});
+
+  std::vector<Task> tasks(
+      TOTAL_TASKS,
+      [&] {
+        int prev_running = running_tasks.fetch_add(1);
+        EXPECT_LT(prev_running, MAX_PARALLELISM);
+        if (prev_running == MAX_PARALLELISM - 1) {
+          counter++;
+        }
+        std::this_thread::sleep_for(10ms);
+        prev_running = running_tasks.fetch_sub(1);
+        EXPECT_LE(prev_running, MAX_PARALLELISM);
+      });
+  throttle->Run(tasks, false);
+  // No thread is recycled.
+  EXPECT_EQ(0, scheduler_.recycled_threads_.load());
+  EXPECT_EQ(MAX_PARALLELISM * 4, dummy_.CompletedTasks());
+
+  LOGF_INFO("{} tasks are run at max parallelism.", counter.load());
+  EXPECT_LT(0, counter.load());
 }
 
 TEST_F(ThrottleTest, IncreaseParallelismCanBeAchievedImmediately) {
   std::atomic_int running_tasks(0);
-  std::mutex mtx;
-  std::condition_variable cv;
-
+  std::atomic_int counter(0);
   auto throttle = factory_.New(MAX_PARALLELISM, {});
 
-  for (int i = 0; i < MAX_PARALLELISM; i++) {
-    throttle->Run([&] {
-      running_tasks++;
-      std::unique_lock<std::mutex> lck(mtx);
-      cv.wait(lck);
-      running_tasks--;
-    });
-  }
+  std::vector<Task> tasks(TOTAL_TASKS, [&] {
+    int prev_running = running_tasks.fetch_add(1);
+    EXPECT_LT(prev_running, MAX_PARALLELISM + 10);
+    if (prev_running >= MAX_PARALLELISM) {
+      counter++;
+    }
+    std::this_thread::sleep_for(10ms);
+    prev_running = running_tasks.fetch_sub(1);
+    EXPECT_LE(prev_running, MAX_PARALLELISM + 10);
+  });
+  auto t = std::thread([&] {
+    throttle->Run(tasks, true);
+  });
 
-  // Execution should reach here without being blocked.
-  // Now launch more task enqueue operations in parallel. We expect
-  // them to block execution because the parallelism is saturated.
-  std::vector<std::thread> enqueue_threads;
-  enqueue_threads.reserve(TOTAL_TASKS);
-  for (int i = 0; i < TOTAL_TASKS - MAX_PARALLELISM; i++) {
-    enqueue_threads.emplace_back(std::thread([&] {
-      throttle->Run([&] {
-        running_tasks++;
-        std::unique_lock<std::mutex> lck(mtx);
-        cv.wait(lck);
-        running_tasks--;
-      });
-    }));
-  }
-  std::this_thread::sleep_for(10ms);
-  EXPECT_EQ(MAX_PARALLELISM, running_tasks.load());
-  EXPECT_EQ(0, dummy_.CompletedTasks());
-
-  // Now improve parallelism and check the number of running tasks.
-  throttle->IncreaseParallelism(DELTA_PARALLELISM);
-  std::this_thread::sleep_for(10ms);
-  EXPECT_EQ(MAX_PARALLELISM + DELTA_PARALLELISM, running_tasks.load());
-  EXPECT_EQ(0, dummy_.CompletedTasks());
-
-  const size_t current_p = MAX_PARALLELISM + DELTA_PARALLELISM;
-  while (dummy_.CompletedTasks() < TOTAL_TASKS) {
-    // Now, use `cv.notify_all()` to unblock remaining threads.
-    cv.notify_all();
-    std::this_thread::sleep_for(1ms);
-    EXPECT_GE(current_p, running_tasks.load());
-  }
-
-  for (auto& t : enqueue_threads) {
-    t.join();
-  }
+  throttle->IncreaseParallelism(10);
+  t.join();
+  LOGF_INFO("After increased parallelism, {} tasks are run using additional"
+      " threads.", counter.load());
+  EXPECT_LT(0, counter.load());
 }
 
 TEST_F(ThrottleTest, DecreaseParallelismIsInEffectAfterReturn) {
   std::atomic_int running_tasks(0);
-  std::mutex mtx;
-  std::condition_variable cv;
-
   auto throttle = factory_.New(MAX_PARALLELISM, {});
 
-  for (int i = 0; i < MAX_PARALLELISM; i++) {
-    throttle->Run([&] {
-      running_tasks++;
-      std::unique_lock<std::mutex> lck(mtx);
-      cv.wait(lck);
-      running_tasks--;
-    });
-  }
+  std::vector<Task> tasks(TOTAL_TASKS, [&] {
+    int prev_running = running_tasks.fetch_add(1);
+    EXPECT_LT(prev_running, MAX_PARALLELISM);
+    std::this_thread::sleep_for(10ms);
+    prev_running = running_tasks.fetch_sub(1);
+    EXPECT_LE(prev_running, MAX_PARALLELISM);
+  });
+  throttle->Run(tasks, false);
 
-  // Execution should reach here without being blocked.
-  // Now launch more task enqueue operations in parallel. We expect
-  // them to block execution because the parallelism is saturated.
-  std::vector<std::thread> enqueue_threads;
-  enqueue_threads.reserve(TOTAL_TASKS);
-  for (int i = 0; i < MAX_PARALLELISM * 2; i++) {
-    enqueue_threads.emplace_back(std::thread([&] {
-      throttle->Run([&] {
-        running_tasks++;
-        std::unique_lock<std::mutex> lck(mtx);
-        cv.wait(lck);
-        running_tasks--;
-      });
-    }));
-  }
-  std::this_thread::sleep_for(10ms);
-  EXPECT_EQ(MAX_PARALLELISM, running_tasks.load());
-  EXPECT_EQ(0, dummy_.CompletedTasks());
-
-  // Now improve parallelism and check the number of running tasks.
   for (int i = 0; i < DELTA_PARALLELISM; i++) {
-    std::atomic_bool success(false);
-    auto t = std::thread([&] {
-      int remaining = throttle->DecrementParallelism();
-      EXPECT_EQ(MAX_PARALLELISM - i - 1, remaining);
-      success.store(true);
-    });
-    int notify_count = 0;
-    while (!success.load()) {
-      cv.notify_one();
-      notify_count++;
-      std::this_thread::sleep_for(1ms);
-    }
-    t.join();
-  }
-  std::this_thread::sleep_for(10ms);
-
-  for (int i = MAX_PARALLELISM * 3; i < TOTAL_TASKS; i++) {
-    enqueue_threads.emplace_back(std::thread([&] {
-      throttle->Run([&] {
-        running_tasks++;
-        std::unique_lock<std::mutex> lck(mtx);
-        cv.wait(lck);
-        running_tasks--;
-      });
-    }));
-  }
-  std::this_thread::sleep_for(10ms);
-  EXPECT_EQ(MAX_PARALLELISM - DELTA_PARALLELISM, running_tasks.load());
-
-  while (dummy_.CompletedTasks() < TOTAL_TASKS) {
-    std::vector<std::thread> notifying_threads;
-    notifying_threads.reserve(MAX_PARALLELISM);
-    for (int i = 0; i < MAX_PARALLELISM; i++) {
-      notifying_threads.emplace_back(std::thread([&cv] {
-        cv.notify_one();
-      }));
-    }
-    for (auto& t : notifying_threads) {
-      t.join();
-    }
-    EXPECT_GE(MAX_PARALLELISM - DELTA_PARALLELISM, running_tasks.load());
+    throttle->DecrementParallelism();
   }
 
-  // Cleanup.
-  for (auto& t : enqueue_threads) {
-    t.join();
-  }
+  std::vector<Task> tasks2(TOTAL_TASKS, [&] {
+    int prev_running = running_tasks.fetch_add(1);
+    EXPECT_LT(prev_running, MAX_PARALLELISM - DELTA_PARALLELISM);
+    std::this_thread::sleep_for(10ms);
+    prev_running = running_tasks.fetch_sub(1);
+    EXPECT_LE(prev_running, MAX_PARALLELISM - DELTA_PARALLELISM);
+  });
+  throttle->Run(tasks, true);
 }
 
 TEST_F(ThrottleTest, ThrottleWithZeroParallelismBlockExecution) {
@@ -263,7 +264,7 @@ TEST_F(ThrottleTest, ThrottleWithZeroParallelismBlockExecution) {
   auto t = std::thread([&] {
     blocking_throttle->Run([&] {
       completed_tasks++;
-    });
+    }, false);
   });
   // t should be blocking execution because Run() is blocked.
 
