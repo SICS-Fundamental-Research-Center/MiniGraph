@@ -47,10 +47,9 @@ class DischargeComponent : public ComponentBase<GID_T> {
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
       }
-      LOG_INFO("DC: ", gid);
       ProcessPartialResult(gid, data_mngr_, read_trigger_, pt_by_gid_,
                            this->state_machine_);
-      // TrySync();
+      TrySync();
     }
   }
 
@@ -62,11 +61,12 @@ class DischargeComponent : public ComponentBase<GID_T> {
       folly::ProducerConsumerQueue<GID_T>* read_trigger,
       folly::AtomicHashMap<GID_T, CSRPt>* pt_by_gid,
       utility::StateMachine<GID_T>* state_machine) {
-    (CSR_T*)data_mngr->GetGraph(gid);
+    (GRAPH_T*)data_mngr->GetGraph(gid);
     CSRPt& csr_pt = pt_by_gid->find(gid)->second;
-    data_mngr->WriteGraph(gid, csr_pt);
+    data_mngr->WriteGraph(gid, csr_pt, csr_bin);
     data_mngr->EraseGraph(gid);
     if (state_machine->GraphIs(gid, RC)) {
+      state_machine->ShowGraphState(gid);
       state_machine->ProcessEvent(gid, AGGREGATE);
       std::vector<GID_T>&& evoked_gid = state_machine->Evoke();
       read_trigger->write(gid);

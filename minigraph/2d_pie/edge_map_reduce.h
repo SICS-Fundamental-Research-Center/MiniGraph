@@ -1,27 +1,18 @@
 #ifndef MINIGRAPH_2D_PIE_EDGE_MAP_REDUCE_H
 #define MINIGRAPH_2D_PIE_EDGE_MAP_REDUCE_H
 
-#include <condition_variable>
-#include <vector>
-
-#include <folly/MPMCQueue.h>
-#include <folly/concurrency/DynamicBoundedQueue.h>
-#include <folly/executors/ThreadPoolExecutor.h>
-
 #include "executors/task_runner.h"
 #include "graphs/graph.h"
 #include "graphs/immutable_csr.h"
 #include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
 #include "utility/thread_pool.h"
-
-#define SWAP(a, b)           \
-  {                          \
-    Frontier* tmp = nullptr; \
-    tmp = a;                 \
-    a = b;                   \
-    b = tmp;                 \
-  }
+#include <folly/MPMCQueue.h>
+#include <folly/ProducerConsumerQueue.h>
+#include <folly/concurrency/DynamicBoundedQueue.h>
+#include <folly/executors/ThreadPoolExecutor.h>
+#include <condition_variable>
+#include <vector>
 
 namespace minigraph {
 
@@ -57,22 +48,22 @@ class EdgeMapBase {
     std::vector<std::function<void()>> tasks;
     while (!frontier_in->empty()) {
       frontier_in->dequeue(vertex_info);
-      vertex_info.ShowVertexInfo();
       task_count.fetch_add(1);
       auto task = std::bind(&EdgeMapBase<GRAPH_T, CONTEXT_T>::EdgeReduce, this,
                             vertex_info, &graph, frontier_out, visited,
                             &num_finished_tasks, &task_count, &cv, &lck);
       tasks.push_back(task);
     }
-    size_t i = 0;
-    for (; i < tasks.size(); i++) {
+    for (size_t i = 0; i < tasks.size(); i++) {
       task_runner->Run(std::forward<std::function<void()>&&>(tasks.at(i)));
     }
-    while (num_finished_tasks.load(std::memory_order_acquire) <
-           task_count.load(std::memory_order_acquire)) {
-      cv.wait(lck);
-    }
-
+    LOG_INFO("Wait: ", task_count.load());
+    cv.wait(lck, [&num_finished_tasks, &task_count]() {
+      return (num_finished_tasks.load(std::memory_order_acquire) ==
+              task_count.load(std::memory_order_acquire))
+                 ? true
+                 : false;
+    });
     delete frontier_in;
     return frontier_out;
   };
@@ -86,33 +77,26 @@ class EdgeMapBase {
                   std::atomic<size_t>* num_finished_tasks,
                   std::atomic<size_t>* task_count, std::condition_variable* cv,
                   std::unique_lock<std::mutex>* lck) {
-    LOG_INFO("Processing local VID: ", vertex_info.vid);
-    vertex_info.ShowVertexInfo();
     for (size_t i = 0; i < vertex_info.outdegree; i++) {
       auto local_id = graph->globalid2localid(vertex_info.out_edges[i]);
       if (local_id == VID_MAX) {
         continue;
       }
-      LOG_INFO("ngh local_id: ", local_id,
-               " global_id: ", vertex_info.out_edges[i]);
-      VertexInfo&& ngh_vertex_info = graph->GetVertex(local_id);
+      VertexInfo&& ngh_vertex_info = graph->GetVertexByIndex(local_id);
       if (C(ngh_vertex_info)) {
         if (F(ngh_vertex_info)) {
           frontier_out->enqueue(ngh_vertex_info);
-          if (!visited[local_id]) visited[local_id] = true;
+          if (!visited[local_id]) {
+            visited[local_id] = true;
+          }
         }
       }
     }
     num_finished_tasks->fetch_add(1);
-
-    LOG_INFO(num_finished_tasks->load(std::memory_order_seq_cst), " / ",
-             task_count->load(std::memory_order_seq_cst));
-
     if (task_count->load(std::memory_order_acquire) ==
         num_finished_tasks->load(std::memory_order_acquire)) {
-      if (lck->owns_lock()) {
-        cv->notify_one();
-      }
+      LOG_INFO("finished", task_count->load());
+      cv->notify_one();
     }
   };
 

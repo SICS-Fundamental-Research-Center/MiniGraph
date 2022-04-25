@@ -46,31 +46,32 @@ class AutoAppBase {
   // invoked directly, not via virtual functions.
   //
   // @param graph
-  virtual bool PEval(GRAPH_T& graph, PARTIAL_RESULT_T& partial_result) = 0;
+  virtual bool PEval(GRAPH_T& graph, PARTIAL_RESULT_T* partial_result) = 0;
 
   // @brief Incremental evaluation to implement.
   // @note: This pure virtual function works as an interface, instructing users
   // to implement in the specific app. The IncEval in the inherited apps would
   // be invoked directly, not via virtual functions.
   // @param graph
-  virtual bool IncEval(GRAPH_T& graph, PARTIAL_RESULT_T& partial_result) = 0;
+  virtual bool IncEval(GRAPH_T& graph, PARTIAL_RESULT_T* partial_result) = 0;
 
   // @brief Incremental evaluation to implement.
   // @note: This pure virtual function works as an interface, instructing users
   // to implement in the specific app. The MsgAggr in the inherited apps would
   // be invoked directly, not via virtual functions.
   // @param Message
-  virtual void MsgAggr(std::unordered_map<typename GRAPH_T::vid_t, VertexInfo*>&
+  virtual bool MsgAggr(std::unordered_map<typename GRAPH_T::vid_t, VertexInfo*>*
                            partial_border_vertexes_info) = 0;
 
   void Bind(executors::TaskRunner* task_runner) { task_runner_ = task_runner; }
 
-  void Bind(folly::AtomicHashMap<typename GRAPH_T::vid_t, VertexInfo*>*
-                global_border_vertexes_info,
-            folly::AtomicHashMap<typename GRAPH_T::vid_t,
-                                 typename GRAPH_T::gid_t>* border_vertexes) {
+  void Bind(
+      folly::AtomicHashMap<typename GRAPH_T::vid_t, VertexInfo*>*
+          global_border_vertexes_info,
+      folly::AtomicHashMap<typename GRAPH_T::vid_t, typename GRAPH_T::gid_t>*
+          global_border_vertexes) {
     global_border_vertexes_info_ = global_border_vertexes_info;
-    global_border_vertexes_ = border_vertexes;
+    global_border_vertexes_ = global_border_vertexes;
   }
 
   EdgeMap_T* edge_map_ = nullptr;
@@ -87,28 +88,17 @@ class AutoAppBase {
 
  protected:
   bool GetPartialBorderResult(GRAPH_T& graph, bool* visited,
-                              PARTIAL_RESULT_T& partial_result) {
+                              PARTIAL_RESULT_T* partial_result) {
     assert(visited != nullptr);
     bool tag = false;
     for (size_t i = 0; i < graph.get_num_vertexes(); i++) {
       if (visited[i] == true) {
-        auto globalid = graph.localid2globalid(i);
+        tag == false ? tag = true : 0;
+        auto globalid = graph.Index2Globalid(i);
         if (global_border_vertexes_->find(globalid) !=
             global_border_vertexes_->end()) {
-          auto iter = global_border_vertexes_info_->find(globalid);
-          if (iter == global_border_vertexes_info_->end()) {
-            tag == false ? tag = true : 0;
-            VertexInfo* vertex_info = graph.CopyVertex(i);
-            partial_result.insert(std::make_pair(globalid, vertex_info));
-          } else {
-            if (iter->second->get_vdata() == graph.GetVertex(i).get_vdata()) {
-              continue;
-            } else {
-              tag == false ? tag = true : 0;
-              VertexInfo* vertex_info = graph.CopyVertex(i);
-              partial_result.insert(std::make_pair(globalid, vertex_info));
-            }
-          }
+          partial_result->insert(
+              std::make_pair(globalid, graph.GetPVertexByIndex(i)));
         }
       }
     }
