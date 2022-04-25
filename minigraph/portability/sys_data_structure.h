@@ -1,6 +1,3 @@
-//
-// Created by hsiaoko on 2022/3/18.
-//
 #pragma once
 
 #include <condition_variable>
@@ -13,15 +10,11 @@
 #include "utility/thread_pool.h"
 
 struct CSRPt {
-  std::string vertex_pt;
-  std::string meta_in_pt;
-  std::string meta_out_pt;
-  std::string vdata_pt;
-  std::string localid2globalid_pt;
-  std::string msg_pt;
+  std::string meta_pt;
+  std::string data_pt;
 };
 
-template <typename AutoApp, typename VID_T, typename GID_T, typename VDATA_T,
+template <typename AutoApp, typename GID_T, typename VID_T, typename VDATA_T,
           typename EDATA_T>
 class AppWrapper {
   using VertexInfo = minigraph::graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>;
@@ -31,13 +24,15 @@ class AppWrapper {
   AppWrapper() = default;
 
   void InitBorderVertexes(
-      std::unordered_map<VID_T, std::vector<GID_T>*>* global_border_vertexes) {
-    auto_app_->global_border_vertexes_info_ = new std::unordered_map<VID_T, VertexInfo*>();
+      std::unordered_map<VID_T, std::vector<GID_T>*>* global_border_vertexes,
+      std::unordered_map<VID_T, VertexInfo*> *global_border_vertexes_info
+      ) {
     auto_app_->global_border_vertexes_ = global_border_vertexes;
+    auto_app_->global_border_vertexes_info_ = global_border_vertexes_info;
   }
 
   AutoApp* auto_app_ = nullptr;
 };
 
 // reference http://www.cs.cmu.edu/~pbbs/benchmarks/graphIO.html
-enum GraphFormat { edge_graph_csv, weight_edge_graph_csv, csr_bin };
+enum GraphFormat { edge_graph_csv, weight_edge_graph_csv, csr_bin, immutable_csr_bin };

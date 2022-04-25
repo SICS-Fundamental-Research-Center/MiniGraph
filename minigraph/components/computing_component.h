@@ -48,7 +48,8 @@ class ComputingComponent : public ComponentBase<GID_T> {
     app_wrapper_ = app_wrapper;
     scheduled_executor_ =
         std::make_unique<executors::ScheduledExecutor>(kTotalParallelism);
-    XLOG(INFO, "Init ComputingComponent: Finish.");
+    XLOG(INFO, "Init ComputingComponent: Finish. TotalParallelism: ",
+         kTotalParallelism);
   };
 
   void Run() override {
@@ -93,10 +94,11 @@ class ComputingComponent : public ComponentBase<GID_T> {
       APP_WARP* app_wrapper, utility::StateMachine<GID_T>* state_machine) {
     executors::TaskRunner* task_runner =
         scheduled_executor_->RequestTaskRunner(this, {});
-
+    LOG_INFO("ProcessGraph: ", gid);
     app_wrapper->auto_app_->Bind(task_runner);
     GRAPH_T* graph = (GRAPH_T*)data_mngr->GetGraph(gid);
-    PARTIAL_RESULT_T partial_result;
+    graph->ShowGraph(5);
+    PARTIAL_RESULT_T *partial_result = new PARTIAL_RESULT_T;
     if (this->get_superstep_via_gid(gid) == 0) {
       app_wrapper->auto_app_->PEval(*graph, partial_result)
           ? state_machine->ProcessEvent(gid, CHANGED)
@@ -107,7 +109,6 @@ class ComputingComponent : public ComponentBase<GID_T> {
           : state_machine->ProcessEvent(gid, NOTHINGCHANGED);
     }
     this->add_superstep_via_gid(gid);
-    app_wrapper->auto_app_->MsgAggr(partial_result);
     if (state_machine->GraphIs(gid, RC)) {
       partial_result_queue->write(gid);
     }

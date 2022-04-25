@@ -34,10 +34,6 @@ namespace partitioner {
 template <typename GID_T, typename VID_T, typename VDATA_T, typename EDATA_T>
 class EdgeCutPartitioner {
  public:
-  // folly::AtomicHashMap<VID_T, std::vector<GID_T>*>* global_border_vertexes_ =
-  //     nullptr;
-  // folly::AtomicHashMap<VID_T, std::vector<GID_T>*>*
-
   EdgeCutPartitioner(const std::string& graph_pt, const std::string& root_pt) {
     graph_pt_ = graph_pt;
     root_pt_ = root_pt;
@@ -48,6 +44,7 @@ class EdgeCutPartitioner {
   bool RunPartition(const size_t& number_partitions) {
     XLOG(INFO, "RunPartition");
     if (!SplitImmutableCSR(number_partitions, graph_pt_)) {
+      LOG_INFO("SplitFailure()");
       return false;
     };
     auto count = 0;
@@ -55,20 +52,15 @@ class EdgeCutPartitioner {
     for (auto& iter_fragments : *fragments_) {
       auto fragment =
           (graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>*)iter_fragments;
-      fragment->Serialize();
-      fragment->ShowGraph();
-      std::string vertex_pt =
-          root_pt_ + "/vertex/" + std::to_string(count) + ".v";
-      std::string meta_out_pt =
-          root_pt_ + "/meta/out/" + std::to_string(count) + ".meta";
-      std::string meta_in_pt =
-          root_pt_ + "/meta/in/" + std::to_string(count) + ".meta";
-      std::string vdata_pt =
-          root_pt_ + "/vdata/" + std::to_string(count) + ".vdata";
-      std::string localid2globalid_pt =
-          root_pt_ + "/localid2globalid/" + std::to_string(count) + ".idmap";
-      csr_io_adapter_->Write(*fragment, csr_bin, vertex_pt, meta_in_pt,
-                             meta_out_pt, vdata_pt, localid2globalid_pt);
+
+      std::string meta_pt =
+          root_pt_ + "/meta/" + std::to_string(count) + ".meta";
+      std::string data_pt =
+          root_pt_ + "/data/" + std::to_string(count) + ".data";
+      fragment->Serialize2();
+      fragment->ShowGraph(10);
+
+      csr_io_adapter_->Write(*fragment, immutable_csr_bin, meta_pt, data_pt);
       auto border_vertexes = fragment->GetBorderVertexes();
       MergeBorderVertexes(border_vertexes);
       count++;

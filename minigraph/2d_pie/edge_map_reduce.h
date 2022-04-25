@@ -48,7 +48,6 @@ class EdgeMapBase {
     std::vector<std::function<void()>> tasks;
     while (!frontier_in->empty()) {
       frontier_in->dequeue(vertex_info);
-      // vertex_info.ShowVertexAbs();
       task_count.fetch_add(1);
       auto task = std::bind(&EdgeMapBase<GRAPH_T, CONTEXT_T>::EdgeReduce, this,
                             vertex_info, &graph, frontier_out, visited,
@@ -58,7 +57,7 @@ class EdgeMapBase {
     for (size_t i = 0; i < tasks.size(); i++) {
       task_runner->Run(std::forward<std::function<void()>&&>(tasks.at(i)));
     }
-
+    LOG_INFO("Wait: ", task_count.load());
     cv.wait(lck, [&num_finished_tasks, &task_count]() {
       return (num_finished_tasks.load(std::memory_order_acquire) ==
               task_count.load(std::memory_order_acquire))
@@ -83,21 +82,20 @@ class EdgeMapBase {
       if (local_id == VID_MAX) {
         continue;
       }
-      VertexInfo&& ngh_vertex_info = graph->GetVertex(local_id);
+      VertexInfo&& ngh_vertex_info = graph->GetVertexByIndex(local_id);
       if (C(ngh_vertex_info)) {
         if (F(ngh_vertex_info)) {
           frontier_out->enqueue(ngh_vertex_info);
-          if (!visited[local_id]) visited[local_id] = true;
+          if (!visited[local_id]) {
+            visited[local_id] = true;
+          }
         }
       }
     }
     num_finished_tasks->fetch_add(1);
-    // LOG_INFO(task_count->load(std::memory_order_acquire), "/",
-    //         num_finished_tasks->load(std::memory_order_acquire));
     if (task_count->load(std::memory_order_acquire) ==
         num_finished_tasks->load(std::memory_order_acquire)) {
-      LOG_INFO("notify", task_count->load(std::memory_order_acquire), ", ",
-               num_finished_tasks->load(std::memory_order_acquire));
+      LOG_INFO("finished", task_count->load());
       cv->notify_one();
     }
   };
