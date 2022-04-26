@@ -85,7 +85,7 @@ void Throttle::Run(const std::vector<Task>& tasks,
   }
 
   std::unique_lock<std::mutex> lck(mtx);
-  while (true) {
+  while (pending_packages > 0) {
     finish_cv.wait(lck);
     // Here, cv is waked up after all task packages have been pushed downstream.
     if (release_resource) {
@@ -93,9 +93,10 @@ void Throttle::Run(const std::vector<Task>& tasks,
         scheduler_->RecycleOneThread(this);
       }
     }
-    if (pending_packages == 0) {
-      return;
-    }
+  }
+  // Final cleaning.
+  if (release_resource && GetParallelism() > 0) {
+    scheduler_->RecycleAllThreads(this);
   }
 }
 
