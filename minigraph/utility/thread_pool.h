@@ -21,7 +21,7 @@ class ThreadPool {
  public:
   using Task = std::function<void()>;
   ThreadPool(std::size_t num_thread) { num_threads_ = num_thread; };
-  ~ThreadPool(){};
+  ~ThreadPool() = default;
   std::atomic<bool> run_{true};
   virtual void stop() const = 0;
   std::size_t get_num_threads() const { return num_threads_; }
@@ -51,7 +51,7 @@ class CPUThreadPool : virtual public ThreadPool {
   void Commit(Task task) { cpu_executor_->add(task); };
   void CommitWithPriority(Task task, uint8_t priority);
 
-  void stop() const {};
+  void stop() const override{};
 
  private:
   std::unique_ptr<folly::CPUThreadPoolExecutor> cpu_executor_;
@@ -66,7 +66,7 @@ class CPUThreadPool : virtual public ThreadPool {
 class IOThreadPool : virtual public ThreadPool {
  public:
   IOThreadPool(std::size_t max_threads, std::size_t min_threads);
-  ~IOThreadPool(){};
+  ~IOThreadPool() = default;
   size_t get_max_threads() const;
   size_t get_min_threads() const;
   template <class F, class... Args>
@@ -75,7 +75,7 @@ class IOThreadPool : virtual public ThreadPool {
     io_executor_->add(task);
   }
   void Commit(Task task) { io_executor_->add(task); };
-  void stop() const {};
+  void stop() const override{};
   folly::EventBase* GetEventBase();
 
  private:

@@ -67,7 +67,8 @@ class BFSPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
       return false;
     }
     LOG_INFO("PEval() - Processing gid: ", graph.gid_);
-    bool visited[graph.get_num_vertexes()] = {0};
+    bool* visited = (bool*)malloc(graph.get_num_vertexes());
+    memset(visited, 0, sizeof(bool) * graph.get_num_vertexes());
     Frontier* frontier_in = new Frontier(graph.get_num_vertexes() + 1);
     VertexInfo&& vertex_info = graph.GetVertexByVid(local_id);
     vertex_info.vdata[0] = 1;
@@ -79,6 +80,7 @@ class BFSPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     }
     bool tag = this->GetPartialBorderResult(graph, visited, partial_result);
     MsgAggr(partial_result);
+    free(visited);
     return tag;
   }
 
@@ -94,13 +96,15 @@ class BFSPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     for (auto& iter : *this->global_border_vertexes_info_) {
       frontier_in->enqueue(*iter.second);
     }
-    bool visited[graph.get_num_vertexes()] = {0};
+    bool* visited = (bool*)malloc(graph.get_num_vertexes());
+    memset(visited, 0, sizeof(bool) * graph.get_num_vertexes());
     while (!frontier_in->empty()) {
       frontier_in = this->edge_map_->EdgeMap(frontier_in, visited, graph,
                                              this->task_runner_);
     }
     auto tag = this->GetPartialBorderResult(graph, visited, partial_result);
     MsgAggr(partial_result);
+    free(visited);
     return tag;
   }
 
