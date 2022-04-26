@@ -54,16 +54,18 @@ class EdgeMapBase {
                             &num_finished_tasks, &task_count, &cv, &lck);
       tasks.push_back(task);
     }
+    LOG_INFO("X");
     for (size_t i = 0; i < tasks.size(); i++) {
-      task_runner->Run(std::forward<std::function<void()>&&>(tasks.at(i)));
+     // task_runner->Run(std::forward<std::function<void()>&&>(tasks.at(i)));
     }
     LOG_INFO("Wait: ", task_count.load());
-    cv.wait(lck, [&num_finished_tasks, &task_count]() {
-      return (num_finished_tasks.load(std::memory_order_acquire) ==
-              task_count.load(std::memory_order_acquire))
-                 ? true
-                 : false;
-    });
+     task_runner->Run(tasks, true);
+    //cv.wait(lck, [&num_finished_tasks, &task_count]() {
+    //  return (num_finished_tasks.load(std::memory_order_acquire) ==
+    //          task_count.load(std::memory_order_acquire))
+    //             ? true
+    //             : false;
+    //});
     delete frontier_in;
     return frontier_out;
   };
@@ -92,11 +94,12 @@ class EdgeMapBase {
         }
       }
     }
+
     num_finished_tasks->fetch_add(1);
     if (task_count->load(std::memory_order_acquire) ==
         num_finished_tasks->load(std::memory_order_acquire)) {
       LOG_INFO("finished", task_count->load());
-      cv->notify_one();
+       //cv->notify_one();
     }
   };
 

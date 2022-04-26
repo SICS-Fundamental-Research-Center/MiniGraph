@@ -35,7 +35,7 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
   CSRIOAdapter(const std::string& pt)
       : IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T>(pt){};
   CSRIOAdapter(){};
-  ~CSRIOAdapter(){};
+  ~CSRIOAdapter() = default;
 
   template <class... Args>
   bool Read(graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>* graph,
