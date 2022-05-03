@@ -37,6 +37,8 @@ class DischargeComponent : public ComponentBase<GID_T> {
     XLOG(INFO, "Init DischargeComponent: Finish.");
   }
 
+  ~DischargeComponent() = default;
+
   void Run() override {
     while (this->switch_.load(std::memory_order_relaxed)) {
       GID_T gid;
@@ -61,14 +63,14 @@ class DischargeComponent : public ComponentBase<GID_T> {
       folly::ProducerConsumerQueue<GID_T>* read_trigger,
       folly::AtomicHashMap<GID_T, CSRPt>* pt_by_gid,
       utility::StateMachine<GID_T>* state_machine) {
-    (GRAPH_T*)data_mngr->GetGraph(gid);
+    data_mngr->GetGraph(gid);
     CSRPt& csr_pt = pt_by_gid->find(gid)->second;
     data_mngr->WriteGraph(gid, csr_pt, csr_bin);
     data_mngr->EraseGraph(gid);
     if (state_machine->GraphIs(gid, RC)) {
       state_machine->ShowGraphState(gid);
       state_machine->ProcessEvent(gid, AGGREGATE);
-      std::vector<GID_T>&& evoked_gid = state_machine->Evoke();
+      std::vector<GID_T> evoked_gid = state_machine->Evoke();
       read_trigger->write(gid);
       for (auto iter : evoked_gid) {
         read_trigger->write(iter);

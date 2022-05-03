@@ -2,8 +2,6 @@
 #define MINIGRAPH_MINIGRAPH_SYS_H
 
 #include <dirent.h>
-
-#include <folly/AtomicHashMap.h>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -21,6 +19,7 @@
 #include "utility/io/data_mngr.h"
 #include "utility/paritioner/edge_cut_partitioner.h"
 #include "utility/state_machine.h"
+#include <folly/AtomicHashMap.h>
 
 namespace fs = std::filesystem;
 
@@ -183,6 +182,7 @@ class MiniGraphSys {
   }
 
   void ShowResult() {
+    LOG_INFO("**************Show Result****************");
     for (auto& iter : *pt_by_gid_) {
       GID_T gid = iter.first;
       CSRPt csr_pt = iter.second;
@@ -258,29 +258,6 @@ class MiniGraphSys {
     std::string global_border_vertesxes_root = work_space + "/border_vertexes/";
     std::string meta_root = work_space + "/meta/";
     std::string data_root = work_space + "/data/";
-    // if (!data_mngr_->IsExist(vertex_root)) {
-    //   data_mngr_->MakeDirectory(vertex_root);
-    // }
-    //  if (!data_mngr_->IsExist(meta_root)) {
-    //    data_mngr_->MakeDirectory(meta_root);
-    //    data_mngr_->MakeDirectory(meta_out_root);
-    //    data_mngr_->MakeDirectory(meta_in_root);
-    // }
-    //  if (!data_mngr_->IsExist(meta_out_root)) {
-    //    data_mngr_->MakeDirectory(meta_out_root);
-    //  }
-    //  if (!data_mngr_->IsExist(meta_in_root)) {
-    //    data_mngr_->MakeDirectory(meta_in_root);
-    //  }
-    //  if (!data_mngr_->IsExist(vdata_root)) {
-    //    data_mngr_->MakeDirectory(vdata_root);
-    //  }
-    //  if (!data_mngr_->IsExist(localid2globalid_root)) {
-    //    data_mngr_->MakeDirectory(localid2globalid_root);
-    //  }
-    //  if (!data_mngr_->IsExist(msg_root)) {
-    //    data_mngr_->MakeDirectory(msg_root);
-    //  }
     if (!data_mngr_->IsExist(global_border_vertesxes_root)) {
       data_mngr_->MakeDirectory(global_border_vertesxes_root);
     }
@@ -303,114 +280,6 @@ class MiniGraphSys {
     std::string data_root = work_space + "/data/";
 
     std::vector<std::string> files;
-    // for (const auto& entry :
-    //      std::filesystem::directory_iterator(meta_out_root)) {
-    //   std::string path = entry.path();
-    //   size_t pos = path.find("/out/");
-    //   size_t pos2 = path.find(".meta");
-    //   int type_length = std::string("/out/").length();
-    //   std::string gid_str =
-    //       path.substr(pos + type_length, pos2 - pos - type_length);
-    //   GID_T gid = (GID_T)std::stoi(gid_str);
-    //   auto iter = pt_by_gid_->find(gid);
-    //   if (iter == pt_by_gid_->end()) {
-    //     CSRPt csr_pt;
-    //     csr_pt.meta_out_pt = path;
-    //     pt_by_gid_->insert(gid, csr_pt);
-    //   } else {
-    //     iter->second.meta_out_pt = path;
-    //   }
-    // }
-    // for (const auto& entry :
-    // std::filesystem::directory_iterator(vertex_root))
-    // {
-    //   std::string path = entry.path();
-    //   size_t pos = path.find("/vertex/");
-    //   size_t pos2 = path.find(".v");
-    //   int type_length = std::string("/vertex/").length();
-    //   std::string gid_str =
-    //       path.substr(pos + type_length, pos2 - pos - type_length);
-    //   GID_T gid = (GID_T)std::stoi(gid_str);
-    //   auto iter = pt_by_gid_->find(gid);
-    //   if (iter == pt_by_gid_->end()) {
-    //     CSRPt csr_pt;
-    //     csr_pt.vertex_pt = path;
-    //     pt_by_gid_->insert(gid, csr_pt);
-    //   } else {
-    //     iter->second.vertex_pt = path;
-    //   }
-    // }
-    // for (const auto& entry :
-    //      std::filesystem::directory_iterator(meta_in_root)) {
-    //   std::string path = entry.path();
-    //   size_t pos = path.find("/in/");
-    //   size_t pos2 = path.find(".meta");
-    //   int type_length = std::string("/in/").length();
-    //   std::string gid_str =
-    //       path.substr(pos + type_length, pos2 - pos - type_length);
-    //   GID_T gid = (GID_T)std::stoi(gid_str);
-    //   auto iter = pt_by_gid_->find(gid);
-    //   if (iter == pt_by_gid_->end()) {
-    //     CSRPt csr_pt;
-    //     csr_pt.meta_in_pt = path;
-    //     pt_by_gid_->insert(gid, csr_pt);
-    //   } else {
-    //     iter->second.meta_in_pt = path;
-    //   }
-    // }
-    // for (const auto& entry : std::filesystem::directory_iterator(msg_root)) {
-    //   std::string path = entry.path();
-    //   size_t pos = path.find("/msg/");
-    //   size_t pos2 = path.find(".msg");
-    //   int type_length = std::string("/msg/").length();
-    //   std::string gid_str =
-    //       path.substr(pos + type_length, pos2 - pos - type_length);
-    //   GID_T gid = (GID_T)std::stoi(gid_str);
-    //   auto iter = pt_by_gid_->find(gid);
-    //   if (iter == pt_by_gid_->end()) {
-    //     CSRPt csr_pt;
-    //     csr_pt.msg_pt = path;
-    //     pt_by_gid_->insert(gid, csr_pt);
-    //   } else {
-    //     iter->second.msg_pt = path;
-    //   }
-    // }
-    // for (const auto& entry : std::filesystem::directory_iterator(vdata_root))
-    // {
-    //   std::string path = entry.path();
-    //   size_t pos = path.find("/vdata/");
-    //   size_t pos2 = path.find(".vdata");
-    //   int type_length = std::string("/vdata/").length();
-    //   std::string gid_str =
-    //       path.substr(pos + type_length, pos2 - pos - type_length);
-    //   GID_T gid = (GID_T)std::stoi(gid_str);
-    //   auto iter = pt_by_gid_->find(gid);
-    //   if (iter == pt_by_gid_->end()) {
-    //     CSRPt csr_pt;
-    //     csr_pt.vdata_pt = path;
-    //     pt_by_gid_->insert(gid, csr_pt);
-    //   } else {
-    //     iter->second.vdata_pt = path;
-    //   }
-    // }
-    // for (const auto& entry :
-    //      std::filesystem::directory_iterator(localid2globalid_root)) {
-    //   std::string path = entry.path();
-    //   size_t pos = path.find("/localid2globalid/");
-    //   size_t pos2 = path.find(".map");
-    //   int type_length = std::string("/localid2globalid/").length();
-    //   std::string gid_str =
-    //       path.substr(pos + type_length, pos2 - pos - type_length);
-    //   GID_T gid = (GID_T)std::stoi(gid_str);
-    //   auto iter = pt_by_gid_->find(gid);
-    //   if (iter == pt_by_gid_->end()) {
-    //     CSRPt csr_pt;
-    //     csr_pt.localid2globalid_pt = path;
-    //     pt_by_gid_->insert(gid, csr_pt);
-    //   } else {
-    //     iter->second.localid2globalid_pt = path;
-    //   }
-    // }
     for (const auto& entry : std::filesystem::directory_iterator(meta_root)) {
       std::string path = entry.path();
       size_t pos = path.find("/meta/");

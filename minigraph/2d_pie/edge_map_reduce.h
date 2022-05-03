@@ -1,18 +1,20 @@
 #ifndef MINIGRAPH_2D_PIE_EDGE_MAP_REDUCE_H
 #define MINIGRAPH_2D_PIE_EDGE_MAP_REDUCE_H
 
+#include <condition_variable>
+#include <vector>
+
+#include <folly/MPMCQueue.h>
+#include <folly/ProducerConsumerQueue.h>
+#include <folly/concurrency/DynamicBoundedQueue.h>
+#include <folly/executors/ThreadPoolExecutor.h>
+
 #include "executors/task_runner.h"
 #include "graphs/graph.h"
 #include "graphs/immutable_csr.h"
 #include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
 #include "utility/thread_pool.h"
-#include <folly/MPMCQueue.h>
-#include <folly/ProducerConsumerQueue.h>
-#include <folly/concurrency/DynamicBoundedQueue.h>
-#include <folly/executors/ThreadPoolExecutor.h>
-#include <condition_variable>
-#include <vector>
 
 namespace minigraph {
 
@@ -46,6 +48,7 @@ class EdgeMapBase {
 
     VertexInfo vertex_info;
     std::vector<std::function<void()>> tasks;
+    tasks.reserve(1024);
     while (!frontier_in->empty()) {
       frontier_in->dequeue(vertex_info);
       task_count.fetch_add(1);
@@ -54,18 +57,7 @@ class EdgeMapBase {
                             &num_finished_tasks, &task_count, &cv, &lck);
       tasks.push_back(task);
     }
-    LOG_INFO("X");
-    for (size_t i = 0; i < tasks.size(); i++) {
-     // task_runner->Run(std::forward<std::function<void()>&&>(tasks.at(i)));
-    }
-    LOG_INFO("Wait: ", task_count.load());
-     task_runner->Run(tasks, true);
-    //cv.wait(lck, [&num_finished_tasks, &task_count]() {
-    //  return (num_finished_tasks.load(std::memory_order_acquire) ==
-    //          task_count.load(std::memory_order_acquire))
-    //             ? true
-    //             : false;
-    //});
+    task_runner->Run(tasks, false);
     delete frontier_in;
     return frontier_out;
   };
@@ -84,7 +76,7 @@ class EdgeMapBase {
       if (local_id == VID_MAX) {
         continue;
       }
-      VertexInfo&& ngh_vertex_info = graph->GetVertexByIndex(local_id);
+      VertexInfo&& ngh_vertex_info = graph->GetVertexByVid(local_id);
       if (C(ngh_vertex_info)) {
         if (F(ngh_vertex_info)) {
           frontier_out->enqueue(ngh_vertex_info);
@@ -93,13 +85,6 @@ class EdgeMapBase {
           }
         }
       }
-    }
-
-    num_finished_tasks->fetch_add(1);
-    if (task_count->load(std::memory_order_acquire) ==
-        num_finished_tasks->load(std::memory_order_acquire)) {
-      LOG_INFO("finished", task_count->load());
-       //cv->notify_one();
     }
   };
 

@@ -13,7 +13,7 @@
 #include "utility/state_machine.h"
 #include "utility/thread_pool.h"
 
-#define MAX_THREAD 10;
+
 namespace minigraph::components {
 
 template <typename GID_T, typename VID_T, typename VDATA_T, typename EDATA_T,
@@ -71,8 +71,8 @@ class LoadComponent : public ComponentBase<GID_T> {
       folly::ProducerConsumerQueue<GID_T>* task_queue,
       utility::StateMachine<GID_T>* state_machine) {
     if (data_mngr->ReadGraph(gid, csr_pt, csr_bin)) {
-      //GRAPH_T* graph = (GRAPH_T*)data_mngr->GetGraph(gid);
-      //graph->ShowGraph();
+      // GRAPH_T* graph = (GRAPH_T*)data_mngr->GetGraph(gid);
+      // graph->ShowGraph();
       state_machine->ProcessEvent(gid, LOAD);
       while (!task_queue->write(gid)) {
         std::this_thread::sleep_for(std::chrono::milliseconds(50));

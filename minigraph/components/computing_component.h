@@ -14,6 +14,7 @@
 #include "utility/io/data_mngr.h"
 #include "utility/thread_pool.h"
 
+
 namespace minigraph {
 namespace components {
 
@@ -51,6 +52,8 @@ class ComputingComponent : public ComponentBase<GID_T> {
     XLOG(INFO, "Init ComputingComponent: Finish. TotalParallelism: ",
          kTotalParallelism);
   };
+
+  ~ComputingComponent() = default;
 
   void Run() override {
     while (this->switch_.load(std::memory_order_relaxed)) {
@@ -94,11 +97,10 @@ class ComputingComponent : public ComponentBase<GID_T> {
       APP_WARP* app_wrapper, utility::StateMachine<GID_T>* state_machine) {
     executors::TaskRunner* task_runner =
         scheduled_executor_->RequestTaskRunner(this, {});
-    LOG_INFO("ProcessGraph: ", gid);
+    LOG_INFO("ComputingComponent: Process ", gid, "-th graph.");
     app_wrapper->auto_app_->Bind(task_runner);
     GRAPH_T* graph = (GRAPH_T*)data_mngr->GetGraph(gid);
-    graph->ShowGraph(5);
-    PARTIAL_RESULT_T *partial_result = new PARTIAL_RESULT_T;
+    PARTIAL_RESULT_T* partial_result = new PARTIAL_RESULT_T;
     if (this->get_superstep_via_gid(gid) == 0) {
       app_wrapper->auto_app_->PEval(*graph, partial_result)
           ? state_machine->ProcessEvent(gid, CHANGED)

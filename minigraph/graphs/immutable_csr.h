@@ -27,6 +27,7 @@
 using std::cout;
 using std::endl;
 
+
 namespace minigraph {
 namespace graphs {
 
@@ -75,30 +76,27 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     }
   };
 
-  void ShowGraph(const size_t count = 5) {
+  void ShowGraph(const size_t count = 2) {
     cout << "\n\n##### ImmutableCSRGraph GID: " << gid_
          << ", num_verteses: " << num_vertexes_
          << ", sum_in_degree:" << sum_in_edges_
          << ", sum_out_degree: " << sum_out_edges_ << " #####" << endl;
+    size_t count_ = 0;
     for (size_t i = 0; i < this->get_num_vertexes(); i++) {
-      if (i > count) {
+      if (count_++ > count) {
         cout << "############################" << endl;
         return;
       }
       VertexInfo&& vertex_info = GetVertexByIndex(i);
       VID_T global_id = globalid_by_index_[i];
-      //          this->localid2globalid(vid_by_index_[i]);
       vertex_info.ShowVertexInfo(global_id);
-      // vertex_info.ShowVertexAbs(global_id);
     }
-    cout << "############################" << endl;
   }
 
-  bool Serialize2() {
+  bool Serialize() {
     if (vertexes_info_ == nullptr) {
       return false;
     }
-    // CleanUp();
     size_t size_localid = sizeof(VID_T) * num_vertexes_;
     size_t size_globalid = sizeof(VID_T) * num_vertexes_;
     size_t size_index_by_vid = sizeof(size_t) * num_vertexes_;
@@ -126,21 +124,14 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
 
     buf_graph_ = malloc(total_size);
     memset(buf_graph_, 0, total_size);
-    if (map_localid2globalid_ != nullptr) {
-      size_t i = 0;
-      for (auto& iter : *map_localid2globalid_) {
-        ((VID_T*)((char*)buf_graph_ + start_localid))[i] = iter.first;
-        ((VID_T*)((char*)buf_graph_ + start_globalid))[i] = iter.second;
-        ((size_t*)((char*)buf_graph_ + start_index_by_vid))[iter.first] = i;
-        ++i;
-      }
-    }
-    vid_by_index_ = ((VID_T*)((char*)buf_graph_ + start_localid));
-    index_by_vid_ = ((size_t*)((char*)buf_graph_ + start_index_by_vid));
-    globalid_by_index_ = (VID_T*)((char*)buf_graph_ + start_globalid);
-    vdata_ = (VDATA_T*)((char*)buf_graph_ + start_vdata);
     size_t i = 0;
     for (auto& iter_vertex : *vertexes_info_) {
+      ((VID_T*)((char*)buf_graph_ + start_localid))[i] =
+          iter_vertex.second->vid;
+      ((VID_T*)((char*)buf_graph_ + start_globalid))[i] =
+          this->localid2globalid(iter_vertex.second->vid);
+      ((size_t*)((char*)buf_graph_ +
+                 start_index_by_vid))[iter_vertex.second->vid] = i;
       ((size_t*)((char*)buf_graph_ + start_indegree))[i] =
           iter_vertex.second->indegree;
       ((size_t*)((char*)buf_graph_ + start_outdegree))[i] =
@@ -181,7 +172,10 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       }
       ++i;
     }
-
+    vid_by_index_ = ((VID_T*)((char*)buf_graph_ + start_localid));
+    index_by_vid_ = ((size_t*)((char*)buf_graph_ + start_index_by_vid));
+    globalid_by_index_ = (VID_T*)((char*)buf_graph_ + start_globalid);
+    vdata_ = (VDATA_T*)((char*)buf_graph_ + start_vdata);
     out_offset_ = (size_t*)((char*)buf_graph_ + start_out_offset);
     in_offset_ = (size_t*)((char*)buf_graph_ + start_in_offset);
     indegree_ = (size_t*)((char*)buf_graph_ + start_indegree);
@@ -194,7 +188,7 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
 
   bool Deserialized() {
     if (vertexes_info_ == nullptr) {
-      XLOG(INFO, "Deserialized fault: ", "vertex_info_ is nullptr.");
+      XLOG(INFO, "segmentation fault: ", "vertex_info_ is nullptr.");
       return false;
     }
     if (vertexes_info_->size() > 0) {
@@ -341,7 +335,6 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
   }
 
   VID_T localid2globalid(const VID_T vid) const {
-    // return buf_localid2globalid_[vid];
     if (globalid_by_index_ != nullptr && index_by_vid_ != nullptr) {
       return globalid_by_index_[index_by_vid_[vid]];
     } else {

@@ -2,14 +2,12 @@
 #ifndef MINIGRAPH_COMPONENT_BASE_H
 #define MINIGRAPH_COMPONENT_BASE_H
 
-#include <atomic>
-#include <memory>
-
-#include <folly/AtomicHashMap.h>
-
 #include "utility/logging.h"
 #include "utility/state_machine.h"
 #include "utility/thread_pool.h"
+#include <folly/AtomicHashMap.h>
+#include <atomic>
+#include <memory>
 
 namespace minigraph {
 namespace components {
@@ -28,6 +26,7 @@ class ComponentBase {
     state_machine_ = state_machine;
     // switch_ = std::atomic<bool>(true);
   }
+  ~ComponentBase() = default;
 
   virtual void Run() = 0;
   virtual void Stop() = 0;

@@ -14,6 +14,7 @@
 #include "utility/io/csr_io_adapter.h"
 #include "utility/io/io_adapter_base.h"
 
+
 namespace minigraph {
 namespace utility {
 namespace partitioner {
@@ -48,18 +49,15 @@ class EdgeCutPartitioner {
       return false;
     };
     auto count = 0;
-
     for (auto& iter_fragments : *fragments_) {
       auto fragment =
           (graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>*)iter_fragments;
-
       std::string meta_pt =
           root_pt_ + "/meta/" + std::to_string(count) + ".meta";
       std::string data_pt =
           root_pt_ + "/data/" + std::to_string(count) + ".data";
-      fragment->Serialize2();
-      fragment->ShowGraph(10);
-
+      fragment->Serialize();
+      fragment->ShowGraph();
       csr_io_adapter_->Write(*fragment, immutable_csr_bin, meta_pt, data_pt);
       auto border_vertexes = fragment->GetBorderVertexes();
       MergeBorderVertexes(border_vertexes);

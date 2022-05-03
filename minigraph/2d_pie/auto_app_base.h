@@ -1,12 +1,6 @@
 #ifndef MINIGRAPH_2D_PIE_AUTO_APP_BASE_H
 #define MINIGRAPH_2D_PIE_AUTO_APP_BASE_H
 
-#include <memory>
-#include <unordered_map>
-
-#include <folly/MPMCQueue.h>
-#include <folly/concurrency/DynamicBoundedQueue.h>
-
 #include "2d_pie/edge_map_reduce.h"
 #include "2d_pie/vertex_map_reduce.h"
 #include "executors/scheduled_executor.h"
@@ -16,6 +10,10 @@
 #include "graphs/graph.h"
 #include "graphs/immutable_csr.h"
 #include "utility/thread_pool.h"
+#include <folly/MPMCQueue.h>
+#include <folly/concurrency/DynamicBoundedQueue.h>
+#include <memory>
+#include <unordered_map>
 
 namespace minigraph {
 
@@ -30,14 +28,12 @@ class AutoAppBase {
       std::unordered_map<typename GRAPH_T::vid_t, VertexInfo*>;
 
  public:
-  // AutoAppBase() = default;
   AutoAppBase(VertexMap_T* vertex_map, EdgeMap_T* edge_map,
               const CONTEXT_T& context) {
     edge_map_ = edge_map;
     vertex_map_ = vertex_map;
     context_ = context;
   }
-  virtual ~AutoAppBase() { free(visited_); };
 
   //
   // @brief Partial evaluation to implement.
@@ -91,6 +87,9 @@ class AutoAppBase {
                               PARTIAL_RESULT_T* partial_result) {
     assert(visited != nullptr);
     bool tag = false;
+    if (global_border_vertexes_->size() == 0) {
+      return true;
+    }
     for (size_t i = 0; i < graph.get_num_vertexes(); i++) {
       if (visited[i] == true) {
         tag == false ? tag = true : 0;

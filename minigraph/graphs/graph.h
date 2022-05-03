@@ -23,9 +23,9 @@ class VertexInfo {
   VID_T* out_edges = nullptr;
   VDATA_T* vdata = nullptr;
   EDATA_T* edata = nullptr;
-  ~VertexInfo() = default;
-  VertexInfo() = default;
 
+  VertexInfo() = default;
+  ~VertexInfo() = default;
   VertexInfo(VertexInfo* vertex_info) {
     vid = vertex_info->vid;
     outdegree = vertex_info->outdegree;
@@ -38,15 +38,21 @@ class VertexInfo {
     memcpy(vdata, vertex_info->vdata, sizeof(VDATA_T));
   };
 
-  void ShowVertexAbs(const VID_T& globalid = -1) {
+  void ShowVertexAbs(const VID_T& globalid = -1) const {
     std::cout << " localid: " << vid << ", globalid: " << globalid
               << ", label: " << vdata[0] << ", outdegree: " << outdegree
               << ", indegree: " << indegree << std::endl;
   }
-  void ShowVertexInfo(const VID_T& globalid = -1) {
-    std::cout << " localid: " << vid << ", globalid: " << globalid
-              << ", label: " << vdata[0] << ", outdegree: " << outdegree
-              << ", indegree: " << indegree << std::endl;
+  void ShowVertexInfo(const VID_T& globalid = -1) const {
+    if (vdata == nullptr) {
+      std::cout << " localid: " << vid << ", globalid: " << globalid
+                << ", outdegree: " << outdegree << ", indegree: " << indegree
+                << std::endl;
+    } else {
+      std::cout << " localid: " << vid << ", globalid: " << globalid
+                << ", label: " << vdata[0] << ", outdegree: " << outdegree
+                << ", indegree: " << indegree << std::endl;
+    }
     if (indegree > 0) {
       std::cout << "in_edges: ";
       for (size_t i = 0; i < indegree; i++) std::cout << in_edges[i] << ", ";
