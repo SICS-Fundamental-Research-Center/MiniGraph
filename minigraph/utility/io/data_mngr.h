@@ -6,6 +6,7 @@
 #include <folly/AtomicHashMap.h>
 
 #include "utility/io/csr_io_adapter.h"
+#include "utility/io/edge_list_io_adapter.h"
 
 namespace minigraph {
 namespace utility {
@@ -15,6 +16,7 @@ template <typename GID_T, typename VID_T, typename VDATA_T, typename EDATA_T>
 class DataMgnr {
   using GRAPH_BASE_T = graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>;
   using CSR_T = graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>;
+  using EDGE_LIST_T = graphs::EdgeList<GID_T, VID_T, VDATA_T, EDATA_T>;
   using MSG_T = graphs::Message<VID_T, VDATA_T, EDATA_T>;
   using VertexInfo = graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>;
 

@@ -11,7 +11,7 @@
 // using vdata_t = unsigned;
 // using edata_t = unsigned;
 using gid_t = unsigned;
-using vid_t = size_t;
+using vid_t = unsigned;
 using vdata_t = size_t;
 using edata_t = size_t;
 

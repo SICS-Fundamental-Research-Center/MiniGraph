@@ -11,21 +11,18 @@
 #include <string>
 #include <unordered_map>
 
-#include <folly/AtomicHashArray.h>
-#include <folly/AtomicHashMap.h>
-#include <folly/FileUtil.h>
-
-#include "rapidcsv.h"
-
 #include "graphs/immutable_csr.h"
 #include "io_adapter_base.h"
 #include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
+#include "rapidcsv.h"
 #include "utility/logging.h"
+#include <folly/AtomicHashArray.h>
+#include <folly/AtomicHashMap.h>
+#include <folly/FileUtil.h>
 
 using std::cout;
 using std::endl;
-
 
 namespace minigraph {
 namespace utility {
@@ -39,7 +36,7 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
  public:
   CSRIOAdapter(const std::string& pt)
       : IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T>(pt){};
-  CSRIOAdapter(){};
+  CSRIOAdapter() = default;
   ~CSRIOAdapter() = default;
 
   template <class... Args>
@@ -47,16 +44,18 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
             const GraphFormat& graph_format, const GID_T& gid, Args&&... args) {
     std::string pt[] = {(args)...};
     switch (graph_format) {
-      case edge_graph_csv:
-        return this->ReadCSV2ImmutableCSR(graph, pt[0]);
+      case edge_list_csv:
+        return this->ReadCSRFromEdgeListCSV(graph, pt[0]);
       case csr_bin:
-        return this->ReadBIN2ImmutableCSR(graph, gid, pt[0], pt[1]);
-      case weight_edge_graph_csv:
+        return this->ReadCSRFromCSRBin(graph, gid, pt[0], pt[1]);
+      case weight_edge_list_csv:
         // not supported now.
-        return false;
+        break;
       case immutable_csr_bin:
         // TO DO
         return false;
+      default:
+        break;
     }
     return false;
   }
@@ -68,60 +67,31 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
 
     bool tag = false;
     switch (graph_format) {
-      case edge_graph_csv:
+      case edge_list_csv:
         tag = false;
         break;
       case csr_bin:
-        tag = this->WriteCSR2Bin(
+        tag = this->WriteCSR2CSRBin(
             (graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>&)graph, pt[0],
             pt[1]);
         break;
-      case weight_edge_graph_csv:
+      case weight_edge_list_csv:
         tag = false;
         break;
         // not supported now.
         // TO DO: load graph in weight edge csv format.
       case immutable_csr_bin:
-        tag = this->WriteCSR2Bin(
+        tag = this->WriteCSR2CSRBin(
             (graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>&)graph, pt[0],
             pt[1]);
         break;
+      case edge_list_bin:
+        break;
       default:
-        LOG_INFO("X");
         break;
     }
     return tag;
   }
-
-  void MakeDirectory(const std::string& pt) override {
-    std::string dir = pt;
-    int len = dir.size();
-    if (dir[len - 1] != '/') {
-      dir[len] = '/';
-      len++;
-    }
-    std::string temp;
-    for (int i = 1; i < len; i++) {
-      if (dir[i] == '/') {
-        temp = dir.substr(0, i);
-        if (access(temp.c_str(), 0) != 0) {
-          if (mkdir(temp.c_str(), 0777) != 0) {
-            VLOG(1) << "failed operaiton.";
-          }
-        }
-      }
-    }
-  }
-
-  bool IsExist(const std::string& pt) const override {
-    struct stat buffer;
-    return (stat(pt.c_str(), &buffer) == 0);
-  }
-
-  void Touch(const std::string& pt) override {
-    std::ofstream file(pt, std::ios::binary);
-    file.close();
-  };
 
   bool ReadGlobalBorderVertexes(
       folly::AtomicHashMap<VID_T, std::pair<size_t, GID_T*>>*
@@ -161,10 +131,10 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
   }
 
  private:
-  bool ReadCSV2ImmutableCSR(
+  bool ReadCSRFromEdgeListCSV(
       graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>* graph,
       const std::string& pt) {
-    if (!IsExist(pt)) {
+    if (!this->IsExist(pt)) {
       XLOG(ERR, "Read file fault: ", pt);
       return false;
     }
@@ -245,14 +215,14 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     return true;
   }
 
-  bool ReadBIN2ImmutableCSR(GRAPH_BASE_T* graph_base, const GID_T& gid,
+  bool ReadCSRFromCSRBin(GRAPH_BASE_T* graph_base, const GID_T& gid,
                             const std::string& meta_pt,
                             const std::string& data_pt) {
-    if (!IsExist(meta_pt)) {
+    if (!this->IsExist(meta_pt)) {
       XLOG(ERR, "Read file fault: meta_pt, ", meta_pt, ", not exist");
       return false;
     }
-    if (!IsExist(data_pt)) {
+    if (!this->IsExist(data_pt)) {
       XLOG(ERR, "Read file fault: data_pt, ", data_pt, ", not exist");
       return false;
     }
@@ -331,7 +301,7 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     return true;
   }
 
-  bool WriteCSR2Bin(
+  bool WriteCSR2CSRBin(
       const graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>& graph,
       const std::string& meta_pt, const std::string& data_pt) {
     if (graph.is_serialized_ == false) {
@@ -342,10 +312,10 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       XLOG(ERR, "Segmentation fault: buf_graph is nullptr");
       return false;
     }
-    if (IsExist(meta_pt)) {
+    if (this->IsExist(meta_pt)) {
       remove(meta_pt.c_str());
     }
-    if (IsExist(data_pt)) {
+    if (this->IsExist(data_pt)) {
       remove(data_pt.c_str());
     }
     std::ofstream meta_file(meta_pt, std::ios::binary | std::ios::app);

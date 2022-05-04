@@ -43,7 +43,7 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     map_localid2globalid_ = new std::unordered_map<VID_T, VID_T>();
   };
 
-  ImmutableCSR(GID_T gid) : Graph<GID_T, VID_T, VDATA_T, EDATA_T>(gid){};
+  ImmutableCSR(const GID_T gid) : Graph<GID_T, VID_T, VDATA_T, EDATA_T>(gid){};
 
   ~ImmutableCSR() {
     if (this->vertexes_info_ != nullptr) {

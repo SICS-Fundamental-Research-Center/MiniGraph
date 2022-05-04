@@ -57,6 +57,7 @@ class EdgeMapBase {
                             &num_finished_tasks, &task_count, &cv, &lck);
       tasks.push_back(task);
     }
+    LOG_INFO("Run: ", tasks.size());
     task_runner->Run(tasks, false);
     delete frontier_in;
     return frontier_out;

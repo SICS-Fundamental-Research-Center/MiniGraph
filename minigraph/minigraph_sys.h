@@ -57,7 +57,7 @@ class MiniGraphSys {
     if (is_partition) {
       edge_cut_partitioner_ =
           std::make_unique<minigraph::utility::partitioner::EdgeCutPartitioner<
-              GID_T, VDATA_T, VDATA_T, EDATA_T>>(raw_data, work_space);
+              GID_T, VID_T, VDATA_T, EDATA_T>>(raw_data, work_space);
       edge_cut_partitioner_->RunPartition(num_partitions);
       data_mngr_->global_border_vertexes_.reset(
           edge_cut_partitioner_->GetGlobalBorderVertexes());
@@ -202,7 +202,7 @@ class MiniGraphSys {
 
   // partitioner
   std::unique_ptr<minigraph::utility::partitioner::EdgeCutPartitioner<
-      GID_T, VDATA_T, VDATA_T, EDATA_T>>
+      GID_T, VID_T, VDATA_T, EDATA_T>>
       edge_cut_partitioner_ = nullptr;
 
   // thread pool.

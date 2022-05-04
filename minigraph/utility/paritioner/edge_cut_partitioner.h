@@ -74,7 +74,7 @@ class EdgeCutPartitioner {
         new graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>;
     if (!csr_io_adapter_->Read(
             (graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>*)immutable_csr,
-            edge_graph_csv, 0, graph_pt)) {
+            edge_list_csv, 0, graph_pt)) {
       return false;
     }
     fragments_ =

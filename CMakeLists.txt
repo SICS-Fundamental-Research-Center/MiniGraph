@@ -6,6 +6,8 @@ set(MINIGRAPH_COPYRIGHT_YEAR "2022")
 ###### Cmake options ######
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -Wall")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0")
 
 # Set default cmake type to Debug
 if(NOT CMAKE_BUILD_TYPE)
@@ -79,7 +81,12 @@ include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/minigraph
 )
 
-add_executable(minigraph_exec apps/main.cpp)
-target_link_libraries (minigraph_exec
+add_executable(bfs_exec apps/BFS.cpp)
+target_link_libraries (bfs_exec
+    minigraph
+)
+
+add_executable(preprocess_exec tools/preprocess.cpp)
+target_link_libraries (preprocess_exec
     minigraph
 )
