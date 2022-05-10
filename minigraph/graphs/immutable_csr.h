@@ -1,12 +1,9 @@
 #ifndef MINIGRAPH_GRAPHS_IMMUTABLECSR_H
 #define MINIGRAPH_GRAPHS_IMMUTABLECSR_H
 
-#include <fstream>
-#include <iostream>
-#include <map>
-#include <memory>
-#include <unordered_map>
-
+#include "graphs/graph.h"
+#include "portability/sys_types.h"
+#include "utility/logging.h"
 #include <folly/AtomicHashArray.h>
 #include <folly/AtomicHashMap.h>
 #include <folly/AtomicUnorderedMap.h>
@@ -19,14 +16,14 @@
 #include <folly/portability/Atomic.h>
 #include <folly/portability/SysTime.h>
 #include <jemalloc/jemalloc.h>
-
-#include "graphs/graph.h"
-#include "portability/sys_types.h"
-#include "utility/logging.h"
+#include <fstream>
+#include <iostream>
+#include <map>
+#include <memory>
+#include <unordered_map>
 
 using std::cout;
 using std::endl;
-
 
 namespace minigraph {
 namespace graphs {
@@ -89,7 +86,24 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       }
       VertexInfo&& vertex_info = GetVertexByIndex(i);
       VID_T global_id = globalid_by_index_[i];
-      vertex_info.ShowVertexInfo(global_id);
+      vertex_info.ShowVertexAbs(global_id);
+    }
+  }
+
+  void ShowGraphAbs(const size_t count = 2) {
+    cout << "\n\n##### ImmutableCSRGraph GID: " << gid_
+         << ", num_verteses: " << num_vertexes_
+         << ", sum_in_degree:" << sum_in_edges_
+         << ", sum_out_degree: " << sum_out_edges_ << " #####" << endl;
+    size_t count_ = 0;
+    for (size_t i = 0; i < this->get_num_vertexes(); i++) {
+      if (count_++ > count) {
+        cout << "############################" << endl;
+        return;
+      }
+      VertexInfo&& vertex_info = GetVertexByIndex(i);
+      VID_T global_id = globalid_by_index_[i];
+      vertex_info.ShowVertexAbs(global_id);
     }
   }
 

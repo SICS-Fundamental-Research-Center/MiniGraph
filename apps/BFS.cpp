@@ -1,6 +1,3 @@
-#include <folly/concurrency/DynamicBoundedQueue.h>
-#include <condition_variable>
-
 #include "2d_pie/auto_app_base.h"
 #include "2d_pie/edge_map_reduce.h"
 #include "2d_pie/vertex_map_reduce.h"
@@ -9,6 +6,8 @@
 #include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
 #include "utility/logging.h"
+#include <folly/concurrency/DynamicBoundedQueue.h>
+#include <condition_variable>
 
 template <typename GRAPH_T, typename CONTEXT_T>
 class BFSVertexMap : public minigraph::VertexMapBase<GRAPH_T, CONTEXT_T> {
@@ -29,17 +28,19 @@ class BFSEdgeMap : public minigraph::EdgeMapBase<GRAPH_T, CONTEXT_T> {
  public:
   BFSEdgeMap(const CONTEXT_T& context)
       : minigraph::EdgeMapBase<GRAPH_T, CONTEXT_T>(context) {}
+  bool F(const VertexInfo& u, VertexInfo& v) override { return true; }
+  bool C(const VertexInfo& u, const VertexInfo& v) override { return true; }
 
-  bool C(const VertexInfo& vertex_info) override {
-    if (vertex_info.vdata[0] == 1) {
+  bool C(const VertexInfo& u) override {
+    if (u.vdata[0] == 1) {
       return false;
     } else {
       return true;
     }
   }
 
-  bool F(VertexInfo& vertex_info) override {
-    *vertex_info.vdata = 1;
+  bool F(VertexInfo& u) override {
+    *u.vdata = 1;
     return true;
   }
 };
@@ -134,31 +135,16 @@ struct Context {
   size_t root_id = 0;
 };
 
+using CSR_T = minigraph::graphs::ImmutableCSR<gid_t, vid_t, vdata_t, edata_t>;
+using BFSPIE_T = BFSPIE<CSR_T, Context>;
+
 int main(int argc, char* argv[]) {
-  using CSR_T = minigraph::graphs::ImmutableCSR<gid_t, vid_t, vdata_t, edata_t>;
-  using BFSPIE_T = BFSPIE<CSR_T, Context>;
-  std::string row_data = "../inputs/edge_graph_csv/test.csv";
-  std::string work_space = "../inputs/tmp";
-  size_t num_workers_lc = 1;
-  size_t num_workers_cc = 3;
-  size_t num_workers_dc = 1;
-  size_t num_thread_cpu = 4;
-  if (argc > 8) {
-    // XLOG(ERR, "input Error");
-    row_data = std::string(argv[1]);
-    work_space = std::string(argv[2]);
-    num_workers_lc = atoi(argv[3]);
-    num_workers_cc = atoi(argv[4]);
-    num_workers_dc = atoi(argv[5]);
-    num_thread_cpu = atoi(argv[6]);
-  }
-  bool is_partition = false;
-  if (atoi(argv[7]) == 0) {
-    is_partition = false;
-  } else {
-    is_partition = true;
-  }
-  size_t num_partitions = atoi(argv[8]);
+  gflags::ParseCommandLineFlags(&argc, &argv, true);
+  std::string work_space = FLAGS_i;
+  size_t num_workers_lc = FLAGS_lc;
+  size_t num_workers_cc = FLAGS_cc;
+  size_t num_workers_dc = FLAGS_dc;
+  size_t num_thread_cpu = FLAGS_threads;
   Context context;
   auto bfs_edge_map = new BFSEdgeMap<CSR_T, Context>(context);
   auto bfs_vertex_map = new BFSVertexMap<CSR_T, Context>(context);
@@ -169,10 +155,9 @@ int main(int argc, char* argv[]) {
           bfs_pie);
 
   minigraph::MiniGraphSys<CSR_T, BFSPIE_T> minigraph_sys(
-      row_data, work_space, num_workers_lc, num_workers_cc, num_workers_dc,
-      num_thread_cpu, is_partition, num_partitions, app_wrapper);
-  if (!is_partition) {
-    minigraph_sys.RunSys();
-    minigraph_sys.ShowResult();
-  }
+      work_space, num_workers_lc, num_workers_cc, num_workers_dc,
+      num_thread_cpu, app_wrapper);
+  minigraph_sys.RunSys();
+  minigraph_sys.ShowResult();
+  gflags::ShutDownCommandLineFlags();
 }

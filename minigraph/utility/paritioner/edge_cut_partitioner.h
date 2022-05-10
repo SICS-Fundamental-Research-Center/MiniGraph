@@ -5,15 +5,13 @@
 #ifndef MINIGRAPH_UTILITY_EDGE_CUT_PARTITIONER_H
 #define MINIGRAPH_UTILITY_EDGE_CUT_PARTITIONER_H
 
-#include <vector>
-
-#include <folly/AtomicHashMap.h>
-#include <folly/FBVector.h>
-
 #include "portability/sys_types.h"
 #include "utility/io/csr_io_adapter.h"
+#include "utility/io/data_mngr.h"
 #include "utility/io/io_adapter_base.h"
-
+#include <folly/AtomicHashMap.h>
+#include <folly/FBVector.h>
+#include <vector>
 
 namespace minigraph {
 namespace utility {
@@ -48,6 +46,15 @@ class EdgeCutPartitioner {
       LOG_INFO("SplitFailure()");
       return false;
     };
+    if (!data_mgnr_.IsExist(root_pt_ + "/meta/")) {
+      data_mgnr_.MakeDirectory(root_pt_ + "/meta/");
+    }
+    if (!data_mgnr_.IsExist(root_pt_ + "/data/")) {
+      data_mgnr_.MakeDirectory(root_pt_ + "/data/");
+    }
+    if (!data_mgnr_.IsExist(root_pt_ + "/border_vertexes/")) {
+      data_mgnr_.MakeDirectory(root_pt_ + "/border_vertexes/");
+    }
     auto count = 0;
     for (auto& iter_fragments : *fragments_) {
       auto fragment =
@@ -57,8 +64,9 @@ class EdgeCutPartitioner {
       std::string data_pt =
           root_pt_ + "/data/" + std::to_string(count) + ".data";
       fragment->Serialize();
-      fragment->ShowGraph();
-      csr_io_adapter_->Write(*fragment, immutable_csr_bin, meta_pt, data_pt);
+      fragment->ShowGraphAbs();
+      data_mgnr_.csr_io_adapter_->Write(*fragment, immutable_csr_bin, meta_pt,
+                                        data_pt);
       auto border_vertexes = fragment->GetBorderVertexes();
       MergeBorderVertexes(border_vertexes);
       count++;
@@ -151,6 +159,9 @@ class EdgeCutPartitioner {
 
   std::vector<graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>*>* fragments_ =
       nullptr;
+
+  utility::io::DataMgnr<GID_T, VID_T, VDATA_T, EDATA_T> data_mgnr_;
+
   std::unique_ptr<io::CSRIOAdapter<GID_T, VID_T, VDATA_T, EDATA_T>>
       csr_io_adapter_ = nullptr;
 

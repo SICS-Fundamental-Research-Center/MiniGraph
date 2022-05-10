@@ -11,9 +11,9 @@
 #include "utility/logging.h"
 
 template <typename GRAPH_T, typename CONTEXT_T>
-class BFSVertexMap : public minigraph::VertexMapBase<GRAPH_T, CONTEXT_T> {
+class SSSPVertexMap : public minigraph::VertexMapBase<GRAPH_T, CONTEXT_T> {
  public:
-  BFSVertexMap(const CONTEXT_T& context)
+  SSSPVertexMap(const CONTEXT_T& context)
       : minigraph::VertexMapBase<GRAPH_T, CONTEXT_T>(context) {}
   void VertexReduce(const CONTEXT_T& context) {
     XLOG(INFO, "In VertexReduce()");
@@ -21,37 +21,37 @@ class BFSVertexMap : public minigraph::VertexMapBase<GRAPH_T, CONTEXT_T> {
 };
 
 template <typename GRAPH_T, typename CONTEXT_T>
-class BFSEdgeMap : public minigraph::EdgeMapBase<GRAPH_T, CONTEXT_T> {
+class SSSPEdgeMap : public minigraph::EdgeMapBase<GRAPH_T, CONTEXT_T> {
   using VertexInfo = minigraph::graphs::VertexInfo<typename GRAPH_T::vid_t,
                                                    typename GRAPH_T::vdata_t,
                                                    typename GRAPH_T::edata_t>;
 
  public:
-  BFSEdgeMap(const CONTEXT_T& context)
+  SSSPEdgeMap(const CONTEXT_T& context)
       : minigraph::EdgeMapBase<GRAPH_T, CONTEXT_T>(context) {}
 
-  bool C(const VertexInfo& vertex_info) override {
-    if (vertex_info.vdata[0] == 1) {
-      return false;
-    } else {
+  bool C(const VertexInfo& vertex_info, const VDATA_T val) override {
+    if (vertex_info.vdata[0] < val) {
       return true;
+    } else {
+      return false;
     }
   }
 
-  bool F(VertexInfo& vertex_info) override {
-    *vertex_info.vdata = 1;
+  bool F(VertexInfo& vertex_info, const VDATA_T val) override {
+    *vertex_info.vdata = val + 1;
     return true;
   }
 };
 
 template <typename GRAPH_T, typename CONTEXT_T>
-class BFSPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
+class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
   using VertexInfo = minigraph::graphs::VertexInfo<typename GRAPH_T::vid_t,
                                                    typename GRAPH_T::vdata_t,
                                                    typename GRAPH_T::edata_t>;
 
  public:
-  BFSPIE(minigraph::VertexMapBase<GRAPH_T, CONTEXT_T>* vertex_map,
+  SSSPPIE(minigraph::VertexMapBase<GRAPH_T, CONTEXT_T>* vertex_map,
          minigraph::EdgeMapBase<GRAPH_T, CONTEXT_T>* edge_map,
          const CONTEXT_T& context)
       : minigraph::AutoAppBase<GRAPH_T, CONTEXT_T>(vertex_map, edge_map,
@@ -72,7 +72,7 @@ class BFSPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     memset(visited, 0, sizeof(bool) * graph.get_num_vertexes());
     Frontier* frontier_in = new Frontier(graph.get_num_vertexes() + 1000);
     VertexInfo&& vertex_info = graph.GetVertexByVid(local_id);
-    vertex_info.vdata[0] = 1;
+    vertex_info.vdata[0] = 0;
     visited[local_id] = true;
     frontier_in->enqueue(vertex_info);
     while (!frontier_in->empty()) {

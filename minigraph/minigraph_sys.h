@@ -1,15 +1,6 @@
 #ifndef MINIGRAPH_MINIGRAPH_SYS_H
 #define MINIGRAPH_MINIGRAPH_SYS_H
 
-#include <dirent.h>
-#include <filesystem>
-#include <fstream>
-#include <iostream>
-#include <memory>
-#include <sstream>
-#include <string>
-#include <vector>
-
 #include "2d_pie/auto_app_base.h"
 #include "2d_pie/edge_map_reduce.h"
 #include "2d_pie/vertex_map_reduce.h"
@@ -20,6 +11,14 @@
 #include "utility/paritioner/edge_cut_partitioner.h"
 #include "utility/state_machine.h"
 #include <folly/AtomicHashMap.h>
+#include <dirent.h>
+#include <filesystem>
+#include <fstream>
+#include <iostream>
+#include <memory>
+#include <sstream>
+#include <string>
+#include <vector>
 
 namespace fs = std::filesystem;
 
@@ -35,18 +34,17 @@ class MiniGraphSys {
   using VertexInfo = graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>;
 
  public:
-  MiniGraphSys(const std::string& raw_data, const std::string& work_space,
-               const size_t& num_workers_lc, const size_t& num_workers_cc,
-               const size_t& num_workers_dc, const size_t& num_threads_cpu,
-               const bool is_partition = true, const size_t& num_partitions = 3,
+  MiniGraphSys(const std::string& work_space, const size_t& num_workers_lc,
+               const size_t& num_workers_cc, const size_t& num_workers_dc,
+               const size_t& num_threads_cpu,
                AppWrapper<AUTOAPP_T, GID_T, VID_T, VDATA_T, EDATA_T>*
                    app_wrapper = nullptr) {
     // configure sys.
     LOG_INFO("WorkSpace: ", work_space, " num_workers_lc: ", num_workers_lc,
              ", num_workers_cc: ", num_workers_cc,
              ", num_worker_dc: ", num_workers_dc,
-             ", num_threads_cpu: ", num_threads_cpu,
-             ", is_partition: ", is_partition);
+             ", num_threads_cpu: ", num_threads_cpu
+             );
     InitWorkList(work_space);
 
     // init Data Manager.
@@ -54,21 +52,21 @@ class MiniGraphSys {
         utility::io::DataMgnr<GID_T, VID_T, VDATA_T, EDATA_T>>();
 
     // init partitioner
-    if (is_partition) {
-      edge_cut_partitioner_ =
-          std::make_unique<minigraph::utility::partitioner::EdgeCutPartitioner<
-              GID_T, VID_T, VDATA_T, EDATA_T>>(raw_data, work_space);
-      edge_cut_partitioner_->RunPartition(num_partitions);
-      data_mngr_->global_border_vertexes_.reset(
-          edge_cut_partitioner_->GetGlobalBorderVertexes());
-      data_mngr_->WriteBorderVertexes(
-          *(data_mngr_->global_border_vertexes_.get()),
-          work_space + "/border_vertexes/global.bv");
-      return;
-    } else {
+    //if (is_partition) {
+    //  edge_cut_partitioner_ =
+    //      std::make_unique<minigraph::utility::partitioner::EdgeCutPartitioner<
+    //          GID_T, VID_T, VDATA_T, EDATA_T>>(raw_data, work_space);
+    //  edge_cut_partitioner_->RunPartition(num_partitions);
+    //  data_mngr_->global_border_vertexes_.reset(
+    //      edge_cut_partitioner_->GetGlobalBorderVertexes());
+    //  data_mngr_->WriteBorderVertexes(
+    //      *(data_mngr_->global_border_vertexes_.get()),
+    //      work_space + "/border_vertexes/global.bv");
+    //  return;
+    //} else {
       data_mngr_->global_border_vertexes_.reset(data_mngr_->ReadBorderVertexes(
           work_space + "/border_vertexes/global.bv"));
-    }
+    //}
     // find all files.
     pt_by_gid_ = new folly::AtomicHashMap<GID_T, CSRPt>(64);
     InitPtByGid(work_space);
@@ -189,7 +187,7 @@ class MiniGraphSys {
       auto graph = new GRAPH_T;
       data_mngr_->csr_io_adapter_->Read((GRAPH_BASE_T*)graph, csr_bin, gid,
                                         csr_pt.meta_pt, csr_pt.data_pt);
-      graph->ShowGraph();
+      graph->ShowGraphAbs();
     }
   }
 

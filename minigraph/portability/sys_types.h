@@ -1,6 +1,7 @@
 #pragma once
 
 #include <sys/types.h>
+#include <gflags/gflags.h>
 
 #ifdef _WIN32
 #include <basetsd.h>  // @manual
@@ -40,3 +41,14 @@ using edata_t = size_t;
 #define RT 'R'
 #define RC 'C'
 #define TERMINATE 'X'
+
+DEFINE_string(i, "", "input path");
+DEFINE_string(o, "", "output path");
+DEFINE_bool(tobin, false, "convert the graph to binary format");
+DEFINE_bool(p, false, "partition input graph");
+DEFINE_string(t, "edgelist", "type");
+DEFINE_uint64(n, 1, "the number of fragments");
+DEFINE_uint64(lc, 1, "the number of executors in LoadComponent");
+DEFINE_uint64(cc, 1, "the number of executors in ComputingComponent");
+DEFINE_uint64(dc, 1, "the number of executors in DischargeComponent");
+DEFINE_uint64(threads, 4, "the sizeof CPUThreadPool");
