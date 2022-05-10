@@ -20,16 +20,16 @@ $cd build
 $cmake ..
 $make
 ```
-#Running Galois Applications
+# Running Galois Applications
 
 
-##Partition input.
+## Partition input.
 ```shell
 $cd bin
 $./preprocess_exec  -p -n 1 -i [input in csv format] -o [output path]
 ```
 
-##Executing MiniGraph
+## Executing MiniGraph
 
 ```shell
 $cd bin
