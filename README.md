@@ -20,7 +20,7 @@ $cd build
 $cmake ..
 $make
 ```
-# Running Galois Applications
+# Running MiniGraph Applications
 
 
 ## Partition input.
@@ -29,9 +29,9 @@ $cd bin
 $./preprocess_exec  -p -n 1 -i [input in csv format] -o [output path]
 ```
 
-## Executing MiniGraph
+## Executing BFS
 
 ```shell
 $cd bin
-$[App] -i [workspace] -lc [The number of LoadComponent] -cc [The number of ComputingComponent] -dc [The number of DischargeComponent] -threads [Size of CPUThreadsPool]
+$./bfs_exec -i [workspace] -lc [The number of LoadComponent] -cc [The number of ComputingComponent] -dc [The number of DischargeComponent]
 ```
