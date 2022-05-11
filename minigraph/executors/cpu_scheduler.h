@@ -1,13 +1,11 @@
 #ifndef MINIGRAPH_CPU_SCHEDULER_H_
 #define MINIGRAPH_CPU_SCHEDULER_H_
 
-#include <thread>
-#include <deque>
-#include <mutex>
-
 #include "executors/scheduler.h"
 #include "executors/throttle.h"
-
+#include <deque>
+#include <mutex>
+#include <thread>
 
 namespace minigraph {
 namespace executors {
@@ -69,7 +67,7 @@ class CPUScheduler final : public Scheduler<Throttle> {
   std::deque<Throttle*> q_;
 };
 
-} // namespace executors
-} // namespace minigraph
+}  // namespace executors
+}  // namespace minigraph
 
-#endif //MINIGRAPH_CPU_SCHEDULER_H_
+#endif  // MINIGRAPH_CPU_SCHEDULER_H_
