@@ -32,17 +32,24 @@ namespace partitioner {
 // v1), (v3, v4), (v4, v1), (v4, v2)}
 template <typename GID_T, typename VID_T, typename VDATA_T, typename EDATA_T>
 class EdgeCutPartitioner {
+  using GRAPH_BASE_T = graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>;
+  using CSR_T = graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>;
+
  public:
   EdgeCutPartitioner(const std::string& graph_pt, const std::string& root_pt) {
     graph_pt_ = graph_pt;
     root_pt_ = root_pt;
     global_border_vertexes_ =
         new std::unordered_map<VID_T, std::vector<GID_T>*>();
+    csr_io_adapter_ =
+        std::make_unique<io::CSRIOAdapter<GID_T, VID_T, VDATA_T, EDATA_T>>();
   };
 
-  bool RunPartition(const size_t& number_partitions) {
+  bool RunPartition(const size_t number_partitions, const VDATA_T init_vdata) {
     XLOG(INFO, "RunPartition");
-    if (!SplitImmutableCSR(number_partitions, graph_pt_)) {
+    auto graph = new graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>;
+    csr_io_adapter_->Read((GRAPH_BASE_T*)graph, edge_list_csv, 0, graph_pt_);
+    if (!SplitImmutableCSR(number_partitions, graph)) {
       LOG_INFO("SplitFailure()");
       return false;
     };
@@ -57,13 +64,13 @@ class EdgeCutPartitioner {
     }
     auto count = 0;
     for (auto& iter_fragments : *fragments_) {
-      auto fragment =
-          (graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>*)iter_fragments;
+      auto fragment = (CSR_T*)iter_fragments;
       std::string meta_pt =
           root_pt_ + "/meta/" + std::to_string(count) + ".meta";
       std::string data_pt =
           root_pt_ + "/data/" + std::to_string(count) + ".data";
       fragment->Serialize();
+      fragment->InitVdata(init_vdata);
       fragment->ShowGraphAbs();
       data_mgnr_.csr_io_adapter_->Write(*fragment, immutable_csr_bin, meta_pt,
                                         data_pt);
@@ -74,28 +81,17 @@ class EdgeCutPartitioner {
     return true;
   }
 
-  bool SplitImmutableCSR(const size_t& num_partitions,
-                         const std::string& graph_pt) {
-    csr_io_adapter_ =
-        std::make_unique<io::CSRIOAdapter<GID_T, VID_T, VDATA_T, EDATA_T>>();
-    auto immutable_csr =
-        new graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>;
-    if (!csr_io_adapter_->Read(
-            (graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>*)immutable_csr,
-            edge_list_csv, 0, graph_pt)) {
-      return false;
-    }
-    fragments_ =
-        new std::vector<graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>*>();
+  bool SplitImmutableCSR(const size_t& num_partitions, CSR_T* graph) {
+    fragments_ = new std::vector<GRAPH_BASE_T*>();
     const size_t num_vertex_per_fragments =
-        immutable_csr->get_num_vertexes() / num_partitions;
+        graph->get_num_vertexes() / num_partitions;
     VID_T localid = 0;
     GID_T gid = 0;
     size_t count = 0;
     graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>* csr_fragment =
         nullptr;
-    auto iter_vertexes = immutable_csr->vertexes_info_->cbegin();
-    while (iter_vertexes != immutable_csr->vertexes_info_->cend()) {
+    auto iter_vertexes = graph->vertexes_info_->cbegin();
+    while (iter_vertexes != graph->vertexes_info_->cend()) {
       if (csr_fragment == nullptr || count > num_vertex_per_fragments) {
         if (csr_fragment != nullptr) {
           csr_fragment->gid_ = gid++;
@@ -105,8 +101,7 @@ class EdgeCutPartitioner {
           count = 0;
           localid = 0;
         }
-        csr_fragment =
-            new graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>();
+        csr_fragment = new CSR_T();
         csr_fragment->map_localid2globalid_->emplace(
             std::make_pair(localid, iter_vertexes->second->vid));
         csr_fragment->map_globalid2localid_->emplace(

@@ -107,6 +107,14 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     }
   }
 
+  bool InitVdata(const VDATA_T init_vdata) {
+    assert(vdata_ != nullptr);
+    for (size_t i = 0; i < num_vertexes_; i++) {
+      vdata_[i] = init_vdata;
+    }
+    return true;
+  }
+
   bool Serialize() {
     if (vertexes_info_ == nullptr) {
       return false;
@@ -196,6 +204,7 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     outdegree_ = (size_t*)((char*)buf_graph_ + start_outdegree);
     in_edges_ = (VID_T*)((char*)buf_graph_ + start_in_edges);
     out_edges_ = (VID_T*)((char*)buf_graph_ + start_out_edges);
+
     is_serialized_ = true;
     return true;
   }

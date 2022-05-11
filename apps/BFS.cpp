@@ -144,7 +144,7 @@ int main(int argc, char* argv[]) {
   size_t num_workers_lc = FLAGS_lc;
   size_t num_workers_cc = FLAGS_cc;
   size_t num_workers_dc = FLAGS_dc;
-  size_t num_thread_cpu = FLAGS_threads;
+  size_t num_thread_cpu = num_workers_lc + num_workers_cc + num_workers_dc;
   Context context;
   auto bfs_edge_map = new BFSEdgeMap<CSR_T, Context>(context);
   auto bfs_vertex_map = new BFSVertexMap<CSR_T, Context>(context);
