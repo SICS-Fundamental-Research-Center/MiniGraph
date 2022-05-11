@@ -4,13 +4,6 @@
 #ifndef MINIGRAPH_UTILITY_IO_CSR_IO_ADAPTER_H
 #define MINIGRAPH_UTILITY_IO_CSR_IO_ADAPTER_H
 
-#include <sys/stat.h>
-
-#include <fstream>
-#include <iostream>
-#include <string>
-#include <unordered_map>
-
 #include "graphs/immutable_csr.h"
 #include "io_adapter_base.h"
 #include "portability/sys_data_structure.h"
@@ -20,6 +13,11 @@
 #include <folly/AtomicHashArray.h>
 #include <folly/AtomicHashMap.h>
 #include <folly/FileUtil.h>
+#include <sys/stat.h>
+#include <fstream>
+#include <iostream>
+#include <string>
+#include <unordered_map>
 
 using std::cout;
 using std::endl;
@@ -142,8 +140,7 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       XLOG(ERR, "segmentation fault: graph is nullptr");
       return false;
     }
-    graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>* immutable_csr =
-        (graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>*)graph;
+    auto immutable_csr = (CSR_T*)graph;
 
     rapidcsv::Document doc(pt, rapidcsv::LabelParams(),
                            rapidcsv::SeparatorParams(','));
@@ -210,14 +207,12 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       }
     }
     immutable_csr->num_vertexes_ = immutable_csr->vertexes_info_->size();
-    immutable_csr->vdata_ =
-        (VDATA_T*)malloc(sizeof(VDATA_T) * immutable_csr->num_vertexes_);
     return true;
   }
 
   bool ReadCSRFromCSRBin(GRAPH_BASE_T* graph_base, const GID_T& gid,
-                            const std::string& meta_pt,
-                            const std::string& data_pt) {
+                         const std::string& meta_pt,
+                         const std::string& data_pt) {
     if (!this->IsExist(meta_pt)) {
       XLOG(ERR, "Read file fault: meta_pt, ", meta_pt, ", not exist");
       return false;

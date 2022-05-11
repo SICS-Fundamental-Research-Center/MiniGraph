@@ -13,7 +13,6 @@
 #include <string>
 #include <unordered_map>
 
-
 using CSR_T = minigraph::graphs::ImmutableCSR<gid_t, vid_t, vdata_t, edata_t>;
 using GRAPH_BASE_T = minigraph::graphs::Graph<gid_t, vid_t, vdata_t, edata_t>;
 using EDGE_LIST_T = minigraph::graphs::EdgeList<gid_t, vid_t, vdata_t, edata_t>;
@@ -46,7 +45,7 @@ int main(int argc, char* argv[]) {
     minigraph::utility::partitioner::EdgeCutPartitioner<gid_t, vid_t, vdata_t,
                                                         edata_t>
         edge_cut_partitioner(src_pt, dst_pt);
-    edge_cut_partitioner.RunPartition(FLAGS_n);
+    edge_cut_partitioner.RunPartition(FLAGS_n, UINT_MAX);
     edge_cut_partitioner.GetGlobalBorderVertexes();
     data_mngr.global_border_vertexes_.reset(
         edge_cut_partitioner.GetGlobalBorderVertexes());
