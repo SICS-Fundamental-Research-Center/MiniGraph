@@ -19,8 +19,8 @@ namespace minigraph {
 
 template <typename GRAPH_T, typename CONTEXT_T>
 class AutoAppBase {
-  using VertexMap_T = VertexMapBase<GRAPH_T, CONTEXT_T>;
-  using EdgeMap_T = EdgeMapBase<GRAPH_T, CONTEXT_T>;
+  using VMap_T = VMapBase<GRAPH_T, CONTEXT_T>;
+  using EMap_T = EMapBase<GRAPH_T, CONTEXT_T>;
   using VertexInfo =
       graphs::VertexInfo<typename GRAPH_T::vid_t, typename GRAPH_T::vdata_t,
                          typename GRAPH_T::edata_t>;
@@ -28,10 +28,9 @@ class AutoAppBase {
       std::unordered_map<typename GRAPH_T::vid_t, VertexInfo*>;
 
  public:
-  AutoAppBase(VertexMap_T* vertex_map, EdgeMap_T* edge_map,
-              const CONTEXT_T& context) {
-    edge_map_ = edge_map;
-    vertex_map_ = vertex_map;
+  AutoAppBase(VMap_T* vmap, EMap_T* emap, const CONTEXT_T& context) {
+    emap_ = emap;
+    vmap_ = vmap;
     context_ = context;
   }
 
@@ -70,8 +69,8 @@ class AutoAppBase {
     global_border_vertexes_ = global_border_vertexes;
   }
 
-  EdgeMap_T* edge_map_ = nullptr;
-  VertexMap_T* vertex_map_ = nullptr;
+  EMap_T* emap_ = nullptr;
+  VMap_T* vmap_ = nullptr;
 
   CONTEXT_T context_;
   std::unordered_map<typename GRAPH_T::vid_t, VertexInfo*>*

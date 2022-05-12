@@ -107,14 +107,36 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     }
   }
 
-  bool InitVdata(const VDATA_T init_vdata) {
+  bool InitVdata2AllX(const VDATA_T init_vdata) {
     assert(vdata_ != nullptr);
-    for (size_t i = 0; i < num_vertexes_; i++) {
-      vdata_[i] = init_vdata;
+    assert(is_serialized_);
+    if (init_vdata == 0) {
+      memset(vdata_, 0, sizeof(VDATA_T) * num_vertexes_);
+    } else {
+      for (size_t i = 0; i < num_vertexes_; i++) {
+        vdata_[i] = init_vdata;
+      }
     }
     return true;
   }
 
+  bool InitVdataByVid() {
+    assert(vdata_ != nullptr);
+    assert(is_serialized_);
+    for (size_t i = 0; i < num_vertexes_; i++) {
+      auto u = GetVertexByIndex(i);
+      u.vdata[0] = localid2globalid(u.vid);
+    }
+  }
+
+  bool InitVdata2AllMax() {
+    assert(vdata_ != nullptr);
+    assert(is_serialized_);
+    for (size_t i = 0; i < num_vertexes_; i++) {
+      auto u = GetVertexByIndex(i);
+      u.vdata[0] = num_vertexes_;
+    }
+  }
   bool Serialize() {
     if (vertexes_info_ == nullptr) {
       return false;
@@ -298,10 +320,6 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       vertex_info.vdata = (vdata_ + index);
     }
     return vertex_info;
-  }
-
-  VDATA_T GetVdataByIndex(const size_t index) const {
-    return *(vdata_ + index);
   }
 
   graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>* CopyVertexByIndex(

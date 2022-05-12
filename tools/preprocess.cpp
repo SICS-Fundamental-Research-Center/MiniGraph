@@ -38,14 +38,18 @@ int main(int argc, char* argv[]) {
   if (FLAGS_p) {
     assert(FLAGS_i != "" && FLAGS_o != "");
     cout << " #Partitioning: "
-         << " input: " << FLAGS_i << " output: " << FLAGS_o << endl;
+         << " input: " << FLAGS_i << " output: " << FLAGS_o
+         << " init_model: " << FLAGS_init_model << endl;
     std::string src_pt = FLAGS_i;
     std::string dst_pt = FLAGS_o;
+    std::string init_model = FLAGS_init_model;
+    unsigned init_val = FLAGS_init_val;
+
     minigraph::utility::io::DataMgnr<gid_t, vid_t, vdata_t, edata_t> data_mngr;
     minigraph::utility::partitioner::EdgeCutPartitioner<gid_t, vid_t, vdata_t,
                                                         edata_t>
         edge_cut_partitioner(src_pt, dst_pt);
-    edge_cut_partitioner.RunPartition(FLAGS_n, UINT_MAX);
+    edge_cut_partitioner.RunPartition(FLAGS_n, init_model, init_val);
     edge_cut_partitioner.GetGlobalBorderVertexes();
     data_mngr.global_border_vertexes_.reset(
         edge_cut_partitioner.GetGlobalBorderVertexes());

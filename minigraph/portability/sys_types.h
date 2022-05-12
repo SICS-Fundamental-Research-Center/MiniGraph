@@ -1,7 +1,7 @@
 #pragma once
 
-#include <sys/types.h>
 #include <gflags/gflags.h>
+#include <sys/types.h>
 
 #ifdef _WIN32
 #include <basetsd.h>  // @manual
@@ -13,7 +13,7 @@
 // using edata_t = unsigned;
 using gid_t = unsigned;
 using vid_t = unsigned;
-using vdata_t = size_t;
+using vdata_t = float;
 using edata_t = size_t;
 
 #define VID_MAX (((unsigned)(-1)) >> 1)
@@ -52,3 +52,6 @@ DEFINE_uint64(lc, 1, "the number of executors in LoadComponent");
 DEFINE_uint64(cc, 1, "the number of executors in ComputingComponent");
 DEFINE_uint64(dc, 1, "the number of executors in DischargeComponent");
 DEFINE_uint64(threads, 4, "the sizeof CPUThreadPool");
+DEFINE_uint64(iter, 4, "number of iterations for inner while loop");
+DEFINE_string(init_model, "val", "init model for vdata of all vertexes");
+DEFINE_uint64(init_val, 0, "init value for vdata of all vertexes");

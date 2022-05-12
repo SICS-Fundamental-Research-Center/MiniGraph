@@ -1,12 +1,8 @@
 #include "executors/scheduled_executor.h"
-
+#include "utility/logging.h"
 #include <gtest/gtest.h>
-
 #include <chrono>
 #include <vector>
-
-#include "utility/logging.h"
-
 
 namespace minigraph {
 namespace executors {
@@ -19,14 +15,12 @@ static const auto kTotalParallelism = std::thread::hardware_concurrency();
 
 class TaskSubmitter {
  public:
-  explicit TaskSubmitter(ScheduledExecutor* executors) :
-      executors_(executors),
-      runner_(executors->RequestTaskRunner(this, {})),
-      counter_(0) {}
+  explicit TaskSubmitter(ScheduledExecutor* executors)
+      : executors_(executors),
+        runner_(executors->RequestTaskRunner(this, {})),
+        counter_(0) {}
 
-  ~TaskSubmitter() {
-    executors_->RecycleTaskRunner(this, runner_);
-  }
+  ~TaskSubmitter() { executors_->RecycleTaskRunner(this, runner_); }
 
   void SubmitTaskBatch() {
     std::vector<Task> tasks(kTotalParallelism * kTaskBatches, [this] {
@@ -37,12 +31,10 @@ class TaskSubmitter {
     auto submission_time = std::chrono::system_clock::now();
     runner_->Run(tasks, true);
     auto run_duration = std::chrono::system_clock::now() - submission_time;
-    LOGF_INFO("Run time: {} ms.", (float) run_duration.count() / 1e3);
+    LOGF_INFO("Run time: {} ms.", (float)run_duration.count() / 1e3);
   }
 
-  int GetCounter() {
-    return counter_.load(std::memory_order_acquire);
-  }
+  int GetCounter() { return counter_.load(std::memory_order_acquire); }
 
   ScheduledExecutor* executors_;
   TaskRunner* runner_;
@@ -62,9 +54,7 @@ TEST_F(ExecutorsIntegrationTest, TasksCanBeExecutedWithFullParallelismInOrder) {
   EXPECT_EQ(kTotalParallelism, s1->runner_->GetParallelism());
   EXPECT_EQ(0, s2->runner_->GetParallelism());
 
-  auto t2 = std::thread([&]() {
-    s2->SubmitTaskBatch();
-  });
+  auto t2 = std::thread([&]() { s2->SubmitTaskBatch(); });
   std::this_thread::sleep_for(kSleepTime);
   // No task submitted by s2 should be completed before recycling s1.
   EXPECT_EQ(0, s2->GetCounter());
@@ -79,5 +69,5 @@ TEST_F(ExecutorsIntegrationTest, TasksCanBeExecutedWithFullParallelismInOrder) {
   executors_.Stop();
 }
 
-} // namespace executors
-} // namespace minigraph
+}  // namespace executors
+}  // namespace minigraph

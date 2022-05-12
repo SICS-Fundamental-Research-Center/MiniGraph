@@ -43,31 +43,16 @@ class MiniGraphSys {
     LOG_INFO("WorkSpace: ", work_space, " num_workers_lc: ", num_workers_lc,
              ", num_workers_cc: ", num_workers_cc,
              ", num_worker_dc: ", num_workers_dc,
-             ", num_threads_cpu: ", num_threads_cpu
-             );
+             ", num_threads_cpu: ", num_threads_cpu);
     InitWorkList(work_space);
 
     // init Data Manager.
     data_mngr_ = std::make_unique<
         utility::io::DataMgnr<GID_T, VID_T, VDATA_T, EDATA_T>>();
 
-    // init partitioner
-    //if (is_partition) {
-    //  edge_cut_partitioner_ =
-    //      std::make_unique<minigraph::utility::partitioner::EdgeCutPartitioner<
-    //          GID_T, VID_T, VDATA_T, EDATA_T>>(raw_data, work_space);
-    //  edge_cut_partitioner_->RunPartition(num_partitions);
-    //  data_mngr_->global_border_vertexes_.reset(
-    //      edge_cut_partitioner_->GetGlobalBorderVertexes());
-    //  data_mngr_->WriteBorderVertexes(
-    //      *(data_mngr_->global_border_vertexes_.get()),
-    //      work_space + "/border_vertexes/global.bv");
-    //  return;
-    //} else {
-      data_mngr_->global_border_vertexes_.reset(data_mngr_->ReadBorderVertexes(
-          work_space + "/border_vertexes/global.bv"));
-    //}
-    // find all files.
+    data_mngr_->global_border_vertexes_.reset(data_mngr_->ReadBorderVertexes(
+        work_space + "/border_vertexes/global.bv"));
+
     pt_by_gid_ = new folly::AtomicHashMap<GID_T, CSRPt>(64);
     InitPtByGid(work_space);
 
@@ -187,7 +172,7 @@ class MiniGraphSys {
       auto graph = new GRAPH_T;
       data_mngr_->csr_io_adapter_->Read((GRAPH_BASE_T*)graph, csr_bin, gid,
                                         csr_pt.meta_pt, csr_pt.data_pt);
-      graph->ShowGraphAbs();
+      graph->ShowGraphAbs(100);
     }
   }
 

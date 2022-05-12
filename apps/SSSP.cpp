@@ -10,27 +10,27 @@
 #include <condition_variable>
 
 template <typename GRAPH_T, typename CONTEXT_T>
-class SSSPVertexMap : public minigraph::VertexMapBase<GRAPH_T, CONTEXT_T> {
- public:
-  SSSPVertexMap(const CONTEXT_T& context)
-      : minigraph::VertexMapBase<GRAPH_T, CONTEXT_T>(context) {}
-  void VertexReduce(const CONTEXT_T& context) {
-    XLOG(INFO, "In VertexReduce()");
-  }
-};
-
-template <typename GRAPH_T, typename CONTEXT_T>
-class SSSPEdgeMap : public minigraph::EdgeMapBase<GRAPH_T, CONTEXT_T> {
+class SSSPVMap : public minigraph::VMapBase<GRAPH_T, CONTEXT_T> {
   using VertexInfo = minigraph::graphs::VertexInfo<typename GRAPH_T::vid_t,
                                                    typename GRAPH_T::vdata_t,
                                                    typename GRAPH_T::edata_t>;
 
  public:
-  SSSPEdgeMap(const CONTEXT_T& context)
-      : minigraph::EdgeMapBase<GRAPH_T, CONTEXT_T>(context) {}
-  bool C(const VertexInfo& u) override { return true; }
-  bool F(VertexInfo& u) override { return true; }
+  SSSPVMap(const CONTEXT_T& context)
+      : minigraph::VMapBase<GRAPH_T, CONTEXT_T>(context) {}
+  bool C(const VertexInfo& u) override { return false; }
+  bool F(VertexInfo& u, GRAPH_T* graph = nullptr) override { return false; }
+};
 
+template <typename GRAPH_T, typename CONTEXT_T>
+class SSSPEMap : public minigraph::EMapBase<GRAPH_T, CONTEXT_T> {
+  using VertexInfo = minigraph::graphs::VertexInfo<typename GRAPH_T::vid_t,
+                                                   typename GRAPH_T::vdata_t,
+                                                   typename GRAPH_T::edata_t>;
+
+ public:
+  SSSPEMap(const CONTEXT_T& context)
+      : minigraph::EMapBase<GRAPH_T, CONTEXT_T>(context) {}
   bool F(const VertexInfo& u, VertexInfo& v) override {
     v.vdata[0] = u.vdata[0] + 1;
     return true;
@@ -52,11 +52,10 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
                                                    typename GRAPH_T::edata_t>;
 
  public:
-  SSSPPIE(minigraph::VertexMapBase<GRAPH_T, CONTEXT_T>* vertex_map,
-          minigraph::EdgeMapBase<GRAPH_T, CONTEXT_T>* edge_map,
+  SSSPPIE(minigraph::VMapBase<GRAPH_T, CONTEXT_T>* vmap,
+          minigraph::EMapBase<GRAPH_T, CONTEXT_T>* emap,
           const CONTEXT_T& context)
-      : minigraph::AutoAppBase<GRAPH_T, CONTEXT_T>(vertex_map, edge_map,
-                                                   context) {}
+      : minigraph::AutoAppBase<GRAPH_T, CONTEXT_T>(vmap, emap, context) {}
 
   using Frontier = folly::DMPMCQueue<VertexInfo, false>;
   using PARTIAL_RESULT_T =
@@ -77,8 +76,8 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     visited[local_id] = true;
     frontier_in->enqueue(vertex_info);
     while (!frontier_in->empty()) {
-      frontier_in = this->edge_map_->EdgeMap(frontier_in, visited, graph,
-                                             this->task_runner_);
+      frontier_in =
+          this->emap_->Map(frontier_in, visited, graph, this->task_runner_);
     }
     bool tag = this->GetPartialBorderResult(graph, visited, partial_result);
     MsgAggr(partial_result);
@@ -101,8 +100,8 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     bool* visited = (bool*)malloc(graph.get_num_vertexes());
     memset(visited, 0, sizeof(bool) * graph.get_num_vertexes());
     while (!frontier_in->empty()) {
-      frontier_in = this->edge_map_->EdgeMap(frontier_in, visited, graph,
-                                             this->task_runner_);
+      frontier_in =
+          this->emap_->Map(frontier_in, visited, graph, this->task_runner_);
     }
     auto tag = this->GetPartialBorderResult(graph, visited, partial_result);
     MsgAggr(partial_result);
@@ -146,8 +145,8 @@ int main(int argc, char* argv[]) {
   size_t num_workers_dc = FLAGS_dc;
   size_t num_thread_cpu = num_workers_lc + num_workers_cc + num_workers_dc;
   Context context;
-  auto sssp_edge_map = new SSSPEdgeMap<CSR_T, Context>(context);
-  auto sssp_vertex_map = new SSSPVertexMap<CSR_T, Context>(context);
+  auto sssp_edge_map = new SSSPEMap<CSR_T, Context>(context);
+  auto sssp_vertex_map = new SSSPVMap<CSR_T, Context>(context);
   auto sssp_pie =
       new SSSPPIE<CSR_T, Context>(sssp_vertex_map, sssp_edge_map, context);
   auto app_wrapper =

@@ -45,7 +45,9 @@ class EdgeCutPartitioner {
         std::make_unique<io::CSRIOAdapter<GID_T, VID_T, VDATA_T, EDATA_T>>();
   };
 
-  bool RunPartition(const size_t number_partitions, const VDATA_T init_vdata) {
+  bool RunPartition(const size_t number_partitions,
+                    const std::string init_model = "val",
+                    const VDATA_T init_vdata = 0) {
     XLOG(INFO, "RunPartition");
     auto graph = new graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>;
     csr_io_adapter_->Read((GRAPH_BASE_T*)graph, edge_list_csv, 0, graph_pt_);
@@ -70,7 +72,14 @@ class EdgeCutPartitioner {
       std::string data_pt =
           root_pt_ + "/data/" + std::to_string(count) + ".data";
       fragment->Serialize();
-      fragment->InitVdata(init_vdata);
+      if (init_model == "val") {
+        fragment->InitVdata2AllX(init_vdata);
+      } else if (init_model == "max") {
+        fragment->InitVdata2AllMax();
+      } else if (init_model == "vid") {
+        fragment->InitVdataByVid();
+      }
+
       fragment->ShowGraphAbs();
       data_mgnr_.csr_io_adapter_->Write(*fragment, immutable_csr_bin, meta_pt,
                                         data_pt);

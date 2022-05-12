@@ -1,16 +1,13 @@
 #ifndef MINIGRAPH_MINIGRAPH_EXECUTORS_THROTTLE_H_
 #define MINIGRAPH_MINIGRAPH_EXECUTORS_THROTTLE_H_
 
-#include <mutex>
-#include <stdexcept>
-#include <atomic>
-#include <condition_variable>
-
-#include <folly/synchronization/NativeSemaphore.h>
-
 #include "executors/schedulable.h"
 #include "executors/task_runner.h"
-
+#include <folly/synchronization/NativeSemaphore.h>
+#include <atomic>
+#include <condition_variable>
+#include <mutex>
+#include <stdexcept>
 
 namespace minigraph {
 namespace executors {
@@ -33,8 +30,7 @@ class Throttle final : public TaskRunner, public Schedulable {
  public:
   // As an intermediate TaskRunner, it must be constructed by providing
   // a downstream TaskRunner.
-  explicit Throttle(Scheduler<Throttle>* scheduler,
-                    TaskRunner* downstream,
+  explicit Throttle(Scheduler<Throttle>* scheduler, TaskRunner* downstream,
                     size_t max_parallelism);
 
   // A non-default destructor is required to restore semaphore to its original
@@ -58,8 +54,9 @@ class Throttle final : public TaskRunner, public Schedulable {
   // Note: if multiple Run() is called from different threads, it will result
   // in undefined behaviour.
   //
-  [[deprecated("Superseded by the overloads with a release_resource option.")]]
-  void Run(Task&& task) override {
+  [[deprecated(
+      "Superseded by the overloads with a release_resource option.")]] void
+  Run(Task&& task) override {
     Run(std::move(task), false);
   }
   void Run(Task&& task, bool release_resource) override;
@@ -79,8 +76,7 @@ class Throttle final : public TaskRunner, public Schedulable {
   //
   // Note: if multiple Run() is called from different threads, it will result
   // in undefined behaviour.
-  void Run(const std::vector<Task>& tasks,
-           bool release_resource) override;
+  void Run(const std::vector<Task>& tasks, bool release_resource) override;
 
   // Get the current parallelism limit.
   size_t GetParallelism() const override;
