@@ -132,11 +132,10 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
   bool InitVdata2AllMax() {
     assert(vdata_ != nullptr);
     assert(is_serialized_);
-    memset(vdata_, 1, sizeof(VDATA_T) * num_vertexes_);
-    // for (size_t i = 0; i < num_vertexes_; i++) {
-    //   auto u = GetVertexByIndex(i);
-    //   u.vdata[0] = 1 >> 2;
-    // }
+    for (size_t i = 0; i < num_vertexes_; i++) {
+      auto u = GetVertexByIndex(i);
+      u.vdata[0] = num_vertexes_;
+    }
   }
   bool Serialize() {
     if (vertexes_info_ == nullptr) {
