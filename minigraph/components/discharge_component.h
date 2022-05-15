@@ -20,7 +20,7 @@ class DischargeComponent : public ComponentBase<GID_T> {
 
  public:
   DischargeComponent(
-      utility::CPUThreadPool* cpu_thread_pool,
+      utility::EDFThreadPool* thread_pool,
       folly::AtomicHashMap<GID_T, std::atomic<size_t>*>* superstep_by_gid,
       std::atomic<size_t>* global_superstep,
       utility::StateMachine<GID_T>* state_machine,
@@ -28,7 +28,7 @@ class DischargeComponent : public ComponentBase<GID_T> {
       folly::AtomicHashMap<GID_T, CSRPt>* pt_by_gid,
       folly::ProducerConsumerQueue<GID_T>* read_trigger,
       utility::io::DataMgnr<GID_T, VID_T, VDATA_T, EDATA_T>* data_mngr)
-      : ComponentBase<GID_T>(cpu_thread_pool, superstep_by_gid,
+      : ComponentBase<GID_T>(thread_pool, superstep_by_gid,
                              global_superstep, state_machine) {
     partial_result_queue_ = partial_result_queue;
     pt_by_gid_ = pt_by_gid;

@@ -50,7 +50,7 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       default:
         break;
     }
-    return false;
+    return tag;
   }
 
   template <class... Args>
@@ -84,7 +84,7 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       XLOG(ERR, "segmentation fault: graph is nullptr");
       return false;
     }
-    auto edge_list = (EDGE_LIST_T*)graph;
+    //auto edge_list = (EDGE_LIST_T*)graph;
     rapidcsv::Document doc(pt, rapidcsv::LabelParams(),
                            rapidcsv::SeparatorParams(','));
     std::vector<VID_T> src = doc.GetColumn<VID_T>("src");

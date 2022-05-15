@@ -1,16 +1,9 @@
 #pragma once
 
-#include <gflags/gflags.h>
 #include <sys/types.h>
 
-#ifdef _WIN32
-#include <basetsd.h>  // @manual
-#endif
+#include <gflags/gflags.h>
 
-// using gid_t = unsigned;
-// using vid_t = unsigned;
-// using vdata_t = unsigned;
-// using edata_t = unsigned;
 using gid_t = unsigned;
 using vid_t = unsigned;
 using vdata_t = float;

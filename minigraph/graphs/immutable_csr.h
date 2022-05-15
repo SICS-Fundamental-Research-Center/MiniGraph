@@ -1,9 +1,12 @@
 #ifndef MINIGRAPH_GRAPHS_IMMUTABLECSR_H
 #define MINIGRAPH_GRAPHS_IMMUTABLECSR_H
 
-#include "graphs/graph.h"
-#include "portability/sys_types.h"
-#include "utility/logging.h"
+#include <fstream>
+#include <iostream>
+#include <map>
+#include <memory>
+#include <unordered_map>
+
 #include <folly/AtomicHashArray.h>
 #include <folly/AtomicHashMap.h>
 #include <folly/AtomicUnorderedMap.h>
@@ -16,11 +19,11 @@
 #include <folly/portability/Atomic.h>
 #include <folly/portability/SysTime.h>
 #include <jemalloc/jemalloc.h>
-#include <fstream>
-#include <iostream>
-#include <map>
-#include <memory>
-#include <unordered_map>
+
+#include "graphs/graph.h"
+#include "portability/sys_types.h"
+#include "utility/logging.h"
+
 
 using std::cout;
 using std::endl;
@@ -120,7 +123,7 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     return true;
   }
 
-  bool InitVdataByVid() {
+  void InitVdataByVid() {
     assert(vdata_ != nullptr);
     assert(is_serialized_);
     for (size_t i = 0; i < num_vertexes_; i++) {
@@ -129,7 +132,7 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     }
   }
 
-  bool InitVdata2AllMax() {
+  void InitVdata2AllMax() {
     assert(vdata_ != nullptr);
     assert(is_serialized_);
     for (size_t i = 0; i < num_vertexes_; i++) {
@@ -137,6 +140,7 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       u.vdata[0] = num_vertexes_;
     }
   }
+
   bool Serialize() {
     if (vertexes_info_ == nullptr) {
       return false;

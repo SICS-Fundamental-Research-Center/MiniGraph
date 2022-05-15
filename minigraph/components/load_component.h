@@ -1,15 +1,18 @@
 #ifndef MINIGRAPH_LOAD_COMPONENT_H
 #define MINIGRAPH_LOAD_COMPONENT_H
 
+#include <memory>
+#include <string>
+
+#include <folly/ProducerConsumerQueue.h>
+
 #include "components/component_base.h"
 #include "portability/sys_data_structure.h"
 #include "utility/io/csr_io_adapter.h"
 #include "utility/io/data_mngr.h"
 #include "utility/state_machine.h"
 #include "utility/thread_pool.h"
-#include <folly/ProducerConsumerQueue.h>
-#include <memory>
-#include <string>
+
 
 namespace minigraph::components {
 
@@ -21,7 +24,7 @@ class LoadComponent : public ComponentBase<GID_T> {
 
  public:
   LoadComponent(
-      utility::CPUThreadPool* cpu_thread_pool,
+      utility::EDFThreadPool* thread_pool,
       folly::AtomicHashMap<GID_T, std::atomic<size_t>*>* superstep_by_gid,
       std::atomic<size_t>* global_superstep,
       utility::StateMachine<GID_T>* state_machine,
@@ -29,8 +32,8 @@ class LoadComponent : public ComponentBase<GID_T> {
       folly::ProducerConsumerQueue<GID_T>* task_queue,
       folly::AtomicHashMap<GID_T, CSRPt>* pt_by_gid,
       utility::io::DataMgnr<GID_T, VID_T, VDATA_T, EDATA_T>* data_mngr)
-      : ComponentBase<GID_T>(cpu_thread_pool, superstep_by_gid,
-                             global_superstep, state_machine) {
+      : ComponentBase<GID_T>(thread_pool, superstep_by_gid, global_superstep,
+                             state_machine) {
     pt_by_gid_ = pt_by_gid;
     data_mngr_ = data_mngr;
     task_queue_ = task_queue;
@@ -68,8 +71,7 @@ class LoadComponent : public ComponentBase<GID_T> {
       folly::ProducerConsumerQueue<GID_T>* task_queue,
       utility::StateMachine<GID_T>* state_machine) {
     if (data_mngr->ReadGraph(gid, csr_pt, csr_bin)) {
-      // GRAPH_T* graph = (GRAPH_T*)data_mngr->GetGraph(gid);
-      // graph->ShowGraph();
+      data_mngr->GetGraph(gid);
       state_machine->ProcessEvent(gid, LOAD);
       while (!task_queue->write(gid)) {
         std::this_thread::sleep_for(std::chrono::milliseconds(50));

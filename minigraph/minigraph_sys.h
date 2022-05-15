@@ -1,6 +1,18 @@
 #ifndef MINIGRAPH_MINIGRAPH_SYS_H
 #define MINIGRAPH_MINIGRAPH_SYS_H
 
+#include <dirent.h>
+
+#include <filesystem>
+#include <fstream>
+#include <iostream>
+#include <memory>
+#include <sstream>
+#include <string>
+#include <vector>
+
+#include <folly/AtomicHashMap.h>
+
 #include "2d_pie/auto_app_base.h"
 #include "2d_pie/edge_map_reduce.h"
 #include "2d_pie/vertex_map_reduce.h"
@@ -10,15 +22,6 @@
 #include "utility/io/data_mngr.h"
 #include "utility/paritioner/edge_cut_partitioner.h"
 #include "utility/state_machine.h"
-#include <folly/AtomicHashMap.h>
-#include <dirent.h>
-#include <filesystem>
-#include <fstream>
-#include <iostream>
-#include <memory>
-#include <sstream>
-#include <string>
-#include <vector>
 
 namespace fs = std::filesystem;
 
@@ -34,16 +37,16 @@ class MiniGraphSys {
   using VertexInfo = graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>;
 
  public:
-  MiniGraphSys(const std::string& work_space, const size_t& num_workers_lc,
-               const size_t& num_workers_cc, const size_t& num_workers_dc,
-               const size_t& num_threads_cpu,
+  MiniGraphSys(const std::string work_space, const size_t num_workers_lc,
+               const size_t num_workers_cc, const size_t num_workers_dc,
+               const size_t num_threads,
                AppWrapper<AUTOAPP_T, GID_T, VID_T, VDATA_T, EDATA_T>*
                    app_wrapper = nullptr) {
     // configure sys.
     LOG_INFO("WorkSpace: ", work_space, " num_workers_lc: ", num_workers_lc,
              ", num_workers_cc: ", num_workers_cc,
              ", num_worker_dc: ", num_workers_dc,
-             ", num_threads_cpu: ", num_threads_cpu);
+             ", num_threads: ", num_threads);
     InitWorkList(work_space);
 
     // init Data Manager.
@@ -76,9 +79,7 @@ class MiniGraphSys {
     }
 
     // init thread pool
-    // cpu_thread_pool has only one priority queue.
-    cpu_thread_pool_ =
-        std::make_unique<utility::CPUThreadPool>(num_threads_cpu, 1);
+    thread_pool_ = std::make_unique<utility::EDFThreadPool>(num_threads);
 
     // init state_machine
     state_machine_ = new utility::StateMachine<GID_T>(vec_gid);
@@ -104,18 +105,18 @@ class MiniGraphSys {
     // init components
     load_component_ = std::make_unique<
         components::LoadComponent<GID_T, VID_T, VDATA_T, EDATA_T, GRAPH_T>>(
-        cpu_thread_pool_.get(), superstep_by_gid_, global_superstep_,
+        thread_pool_.get(), superstep_by_gid_, global_superstep_,
         state_machine_, read_trigger_.get(), task_queue_.get(), pt_by_gid_,
         data_mngr_.get());
     computing_component_ = std::make_unique<components::ComputingComponent<
         GID_T, VID_T, VDATA_T, EDATA_T, GRAPH_T, AUTOAPP_T>>(
-        cpu_thread_pool_.get(), superstep_by_gid_, global_superstep_,
+        thread_pool_.get(), superstep_by_gid_, global_superstep_,
         state_machine_, task_queue_.get(), partial_result_queue_.get(),
         data_mngr_.get(), app_wrapper_.get());
     discharge_component_ =
         std::make_unique<components::DischargeComponent<GID_T, VID_T, VDATA_T,
                                                         EDATA_T, GRAPH_T>>(
-            cpu_thread_pool_.get(), superstep_by_gid_, global_superstep_,
+            thread_pool_.get(), superstep_by_gid_, global_superstep_,
             state_machine_, partial_result_queue_.get(), pt_by_gid_,
             read_trigger_.get(), data_mngr_.get());
     LOG_INFO("Init MiniGraphSys: Finish.");
@@ -135,18 +136,18 @@ class MiniGraphSys {
     auto task_lc = std::bind(&components::LoadComponent<GID_T, VID_T, VDATA_T,
                                                         EDATA_T, GRAPH_T>::Run,
                              load_component_.get());
-    this->cpu_thread_pool_->Commit(task_lc);
+    this->thread_pool_->Commit(task_lc);
     auto task_cc = std::bind(
         &components::ComputingComponent<GID_T, VID_T, VDATA_T, EDATA_T, GRAPH_T,
                                         AUTOAPP_T>::Run,
         computing_component_.get());
-    this->cpu_thread_pool_->Commit(task_cc);
+    this->thread_pool_->Commit(task_cc);
 
     auto task_dc =
         std::bind(&components::DischargeComponent<GID_T, VID_T, VDATA_T,
                                                   EDATA_T, GRAPH_T>::Run,
                   discharge_component_.get());
-    this->cpu_thread_pool_->Commit(task_dc);
+    this->thread_pool_->Commit(task_dc);
     while (!this->state_machine_->IsTerminated()) {
       std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
@@ -189,8 +190,7 @@ class MiniGraphSys {
       edge_cut_partitioner_ = nullptr;
 
   // thread pool.
-  std::unique_ptr<utility::IOThreadPool> io_thread_pool_ = nullptr;
-  std::unique_ptr<utility::CPUThreadPool> cpu_thread_pool_ = nullptr;
+   std::unique_ptr<utility::EDFThreadPool> thread_pool_ = nullptr;
 
   // superstep.
   folly::AtomicHashMap<GID_T, std::atomic<size_t>*>* superstep_by_gid_ =
@@ -225,11 +225,6 @@ class MiniGraphSys {
   // 2D-PIE
   std::unique_ptr<AppWrapper<AUTOAPP_T, GID_T, VID_T, VDATA_T, EDATA_T>>
       app_wrapper_ = nullptr;
-
-  // std::unique_ptr<std::unordered_map<VID_T, std::vector<GID_T>*>>
-  //     global_border_vertexes_ = nullptr;
-  // std::unique_ptr<std::unordered_map<VID_T, VertexInfo*>>
-  //     global_border_vertesxes_info_ = nullptr;
 
   void InitWorkList(const std::string& work_space) {
     std::string vertex_root = work_space + "/vertex/";

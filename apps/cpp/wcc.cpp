@@ -1,6 +1,7 @@
 #include "2d_pie/auto_app_base.h"
 #include "2d_pie/edge_map_reduce.h"
 #include "2d_pie/vertex_map_reduce.h"
+#include "executors/task_runner.h"
 #include "graphs/graph.h"
 #include "minigraph_sys.h"
 #include "portability/sys_data_structure.h"
@@ -9,49 +10,49 @@
 #include <folly/concurrency/DynamicBoundedQueue.h>
 
 template <typename GRAPH_T, typename CONTEXT_T>
-class BFSVMap : public minigraph::VMapBase<GRAPH_T, CONTEXT_T> {
+class WCCVMap : public minigraph::VMapBase<GRAPH_T, CONTEXT_T> {
   using VertexInfo = minigraph::graphs::VertexInfo<typename GRAPH_T::vid_t,
                                                    typename GRAPH_T::vdata_t,
                                                    typename GRAPH_T::edata_t>;
 
  public:
-  BFSVMap(const CONTEXT_T& context)
+  WCCVMap(const CONTEXT_T& context)
       : minigraph::VMapBase<GRAPH_T, CONTEXT_T>(context) {}
   bool C(const VertexInfo& u) override { return false; }
   bool F(VertexInfo& u, GRAPH_T* graph = nullptr) override { return false; }
 };
 
 template <typename GRAPH_T, typename CONTEXT_T>
-class BFSEMap : public minigraph::EMapBase<GRAPH_T, CONTEXT_T> {
+class WCCEMap : public minigraph::EMapBase<GRAPH_T, CONTEXT_T> {
   using VertexInfo = minigraph::graphs::VertexInfo<typename GRAPH_T::vid_t,
                                                    typename GRAPH_T::vdata_t,
                                                    typename GRAPH_T::edata_t>;
 
  public:
-  BFSEMap(const CONTEXT_T& context)
+  WCCEMap(const CONTEXT_T& context)
       : minigraph::EMapBase<GRAPH_T, CONTEXT_T>(context) {}
   bool C(const VertexInfo& u, const VertexInfo& v) override {
-    if (v.vdata[0] == 1) {
-      return false;
-    } else {
+    if (u.vdata[0] < v.vdata[0]) {
       return true;
+    } else {
+      return false;
     }
   }
 
   bool F(const VertexInfo& u, VertexInfo& v) override {
-    v.vdata[0] = 1;
+    v.vdata[0] = u.vdata[0];
     return true;
   }
 };
 
 template <typename GRAPH_T, typename CONTEXT_T>
-class BFSPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
+class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
   using VertexInfo = minigraph::graphs::VertexInfo<typename GRAPH_T::vid_t,
                                                    typename GRAPH_T::vdata_t,
                                                    typename GRAPH_T::edata_t>;
 
  public:
-  BFSPIE(minigraph::VMapBase<GRAPH_T, CONTEXT_T>* vmap,
+  WCCPIE(minigraph::VMapBase<GRAPH_T, CONTEXT_T>* vmap,
          minigraph::EMapBase<GRAPH_T, CONTEXT_T>* emap,
          const CONTEXT_T& context)
       : minigraph::AutoAppBase<GRAPH_T, CONTEXT_T>(vmap, emap, context) {}
@@ -60,23 +61,18 @@ class BFSPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
   using PARTIAL_RESULT_T =
       std::unordered_map<typename GRAPH_T::vid_t, VertexInfo*>;
 
-  bool PEval(GRAPH_T& graph, PARTIAL_RESULT_T* partial_result) override {
-    auto local_id = graph.globalid2localid(this->context_.root_id);
-    if (local_id == VID_MAX) {
-      LOG_INFO("PEval() - Discarding gid: ", graph.gid_);
-      return false;
-    }
+  bool PEval(GRAPH_T& graph, PARTIAL_RESULT_T* partial_result,
+             minigraph::executors::TaskRunner* task_runner) override {
     LOG_INFO("PEval() - Processing gid: ", graph.gid_);
     bool* visited = (bool*)malloc(graph.get_num_vertexes());
     memset(visited, 0, sizeof(bool) * graph.get_num_vertexes());
-    Frontier* frontier_in = new Frontier(graph.get_num_vertexes() + 1000);
-    VertexInfo&& u = graph.GetVertexByVid(local_id);
-    u.vdata[0] = 1;
-    visited[local_id] = true;
-    frontier_in->enqueue(u);
+    Frontier* frontier_in = new Frontier(graph.get_num_vertexes() + 10);
+    for (size_t i = 0; i < graph.get_num_vertexes(); i++) {
+      frontier_in->enqueue(graph.GetVertexByIndex(i));
+    }
     while (!frontier_in->empty()) {
       frontier_in =
-          this->emap_->Map(frontier_in, visited, graph, this->task_runner_);
+          this->emap_->Map(frontier_in, visited, graph, task_runner);
     }
     bool tag = this->GetPartialBorderResult(graph, visited, partial_result);
     MsgAggr(partial_result);
@@ -84,7 +80,8 @@ class BFSPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     return tag;
   }
 
-  bool IncEval(GRAPH_T& graph, PARTIAL_RESULT_T* partial_result) override {
+  bool IncEval(GRAPH_T& graph, PARTIAL_RESULT_T* partial_result,
+               minigraph::executors::TaskRunner* task_runner) override {
     if (this->global_border_vertexes_info_->size() == 0) {
       LOG_INFO("IncEval() - Discarding gid: ", graph.gid_);
       return false;
@@ -100,7 +97,7 @@ class BFSPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     memset(visited, 0, sizeof(bool) * graph.get_num_vertexes());
     while (!frontier_in->empty()) {
       frontier_in =
-          this->emap_->Map(frontier_in, visited, graph, this->task_runner_);
+          this->emap_->Map(frontier_in, visited, graph, task_runner);
     }
     auto tag = this->GetPartialBorderResult(graph, visited, partial_result);
     MsgAggr(partial_result);
@@ -134,7 +131,7 @@ struct Context {
 };
 
 using CSR_T = minigraph::graphs::ImmutableCSR<gid_t, vid_t, vdata_t, edata_t>;
-using BFSPIE_T = BFSPIE<CSR_T, Context>;
+using WCCPIE_T = WCCPIE<CSR_T, Context>;
 
 int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -144,15 +141,14 @@ int main(int argc, char* argv[]) {
   size_t num_workers_dc = FLAGS_dc;
   size_t num_thread_cpu = num_workers_lc + num_workers_cc + num_workers_dc;
   Context context;
-  auto bfs_edge_map = new BFSEMap<CSR_T, Context>(context);
-  auto bfs_vertex_map = new BFSVMap<CSR_T, Context>(context);
-  auto bfs_pie =
-      new BFSPIE<CSR_T, Context>(bfs_vertex_map, bfs_edge_map, context);
+  auto wcc_emap = new WCCEMap<CSR_T, Context>(context);
+  auto wcc_vmap = new WCCVMap<CSR_T, Context>(context);
+  auto bfs_pie = new WCCPIE<CSR_T, Context>(wcc_vmap, wcc_emap, context);
   auto app_wrapper =
-      new AppWrapper<BFSPIE<CSR_T, Context>, gid_t, vid_t, vdata_t, edata_t>(
+      new AppWrapper<WCCPIE<CSR_T, Context>, gid_t, vid_t, vdata_t, edata_t>(
           bfs_pie);
 
-  minigraph::MiniGraphSys<CSR_T, BFSPIE_T> minigraph_sys(
+  minigraph::MiniGraphSys<CSR_T, WCCPIE_T> minigraph_sys(
       work_space, num_workers_lc, num_workers_cc, num_workers_dc,
       num_thread_cpu, app_wrapper);
   minigraph_sys.RunSys();
