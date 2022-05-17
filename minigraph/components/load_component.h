@@ -43,7 +43,7 @@ class LoadComponent : public ComponentBase<GID_T> {
 
   void Run() override {
     while (this->switch_.load(std::memory_order_relaxed) == true) {
-      GID_T gid = GID_MAX;
+      GID_T gid = MINIGRAPH_GID_MAX;
       while (!read_trigger_->read(gid)) {
         if (this->switch_.load(std::memory_order_relaxed) == false) {
           return;

@@ -3,7 +3,9 @@
 
 #include "executors/schedulable.h"
 #include "executors/task_runner.h"
+
 #include <folly/synchronization/NativeSemaphore.h>
+
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
@@ -30,13 +32,15 @@ class Throttle final : public TaskRunner, public Schedulable {
  public:
   // As an intermediate TaskRunner, it must be constructed by providing
   // a downstream TaskRunner.
-  explicit Throttle(Scheduler<Throttle>* scheduler, TaskRunner* downstream,
+  explicit Throttle(ID_Type id,
+                    Scheduler<Throttle>* scheduler,
+                    TaskRunner* downstream,
                     size_t max_parallelism);
 
   // A non-default destructor is required to restore semaphore to its original
   // status before destruction. Otherwise, the destructor might raise a
   // EXC_BAD_INSTRUCTION fault on macOS.
-  virtual ~Throttle();
+  ~Throttle() override;
 
   /*********************************************************
    * Implement TaskRunner interfaces.
@@ -147,6 +151,8 @@ class ThrottleFactory final : public SchedulableFactory<Throttle> {
   Scheduler<Throttle>* scheduler_;
 
   TaskRunner* downstream_;
+
+  mutable std::atomic<Schedulable::ID_Type> next_id_;
 };
 
 }  // namespace executors

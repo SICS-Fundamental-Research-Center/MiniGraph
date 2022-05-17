@@ -1,7 +1,6 @@
 #include "executors/scheduled_executor.h"
 
 #include "utility/logging.h"
-#include <iostream>
 
 #include "executors/cpu_scheduler.h"
 
@@ -32,40 +31,37 @@ void ScheduledExecutor::ThreadPool::StopAndJoin() {
   internal_pool_.join();
 }
 
-ScheduledExecutor::ScheduledExecutor(unsigned int num_threads)
-    : scheduler_(std::make_unique<CPUScheduler>(num_threads)),
-      thread_pool_(num_threads),
-      factory_(scheduler_.get(), &thread_pool_) {
-  throttles_.lock()->reserve(128);
+ScheduledExecutor::ScheduledExecutor(unsigned int num_threads) :
+    scheduler_(std::make_unique<CPUScheduler>(num_threads)),
+    thread_pool_(num_threads),
+    factory_(scheduler_.get(), &thread_pool_) {
+  std::lock_guard<std::mutex> grd(map_mtx_);
+  throttles_.reserve(128);
 }
 
 TaskRunner* ScheduledExecutor::RequestTaskRunner(
-    void* user_ptr, Schedulable::Metadata&& metadata) {
-  if (user_ptr == nullptr) {
-    LOG_ERROR("RequestTaskRunner() called with a nullptr key.");
+    Schedulable::Metadata&& metadata) {
+  std::lock_guard<std::mutex> grd(map_mtx_);
+  ThrottlePtr throttle = scheduler_->AllocateNew(
+      &factory_, std::forward<Schedulable::Metadata>(metadata));
+  Schedulable::ID_Type id = throttle->id();
+  auto result = throttles_.emplace(throttle->id(), std::move(throttle));
+  if (!result.second) {
+    LOGF_ERROR("TaskRunner creation did not happen, with throttle id: {}.", id);
+    return nullptr;
   }
-
-  auto throttles = throttles_.lock();
-  throttles->emplace(
-      user_ptr, scheduler_->AllocateNew(
-                    &factory_, std::forward<Schedulable::Metadata>(metadata)));
-  return throttles->at(user_ptr).get();
+  return result.first->second.get();
 }
 
-void ScheduledExecutor::RecycleTaskRunner(void* user_ptr, TaskRunner* runner) {
+void ScheduledExecutor::RecycleTaskRunner(TaskRunner* runner) {
   ThrottlePtr throttle = nullptr;
-  {
-    auto throttles = throttles_.lock();
-    if (throttles->find(user_ptr) == throttles->end()) {
-      LOG_ERROR("Trying to recycle TaskRunner with an unknown user_ptr.");
-      return;
-    }
-    throttles->at(user_ptr).swap(throttle);
-    throttles->erase(user_ptr);
+  Schedulable::ID_Type id = dynamic_cast<Throttle*>(runner)->id();
+  std::lock_guard<std::mutex> grd(map_mtx_);
+  if (throttles_.find(id) == throttles_.end()) {
+    LOG_ERROR("Trying to recycle TaskRunner whose ID is unknown.");
+    return;
   }
-  if (runner != (TaskRunner*)throttle.get()) {
-    LOG_ERROR("user_ptr does not match with the provided runner.");
-  }
+  throttles_.erase(id);
   // throttle will destruct here, and get removed from Scheduler automatically.
 }
 
