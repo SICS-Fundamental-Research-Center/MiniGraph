@@ -50,7 +50,7 @@ class ScheduledExecutor {
     void StopAndJoin();
 
    private:
-    folly::EDFThreadPoolExecutor internal_pool_;
+    folly::CPUThreadPoolExecutor internal_pool_;
   };
 
  public:
@@ -62,19 +62,11 @@ class ScheduledExecutor {
 
   // Use the ScheduledExecutor to create a Throttle instance such that
   // the client can submit tasks via the returned TaskRunner.
-  //
-  // Typically, `this` can be used as `user_ptr`, because it is just an
-  // identifier for internal indexing of active Throttles.
-  TaskRunner* RequestTaskRunner(
-      void* user_ptr,
-      Schedulable::Metadata&& metadata);
+  TaskRunner* RequestTaskRunner(Schedulable::Metadata&& metadata);
 
   // Release and recycle the previously requested Throttle. Called after
   // all tasks are done with the Throttle.
-  //
-  // Typically, `this` can be used as `user_ptr`, because it is just an
-  // identifier for internal indexing of active Throttles.
-  void RecycleTaskRunner(void* user_ptr, TaskRunner* runner);
+  void RecycleTaskRunner(TaskRunner* runner);
 
   // Stop the Executor.
   void Stop();
@@ -93,12 +85,8 @@ class ScheduledExecutor {
   // The key is the user provided identifier (typically, the caller `this`),
   // the value is the unique_ptr to the Throttle.
   // This indicates full ownership of all active Throttles.
-  //
-  // We use a folly::Synchronized<> container to protect its access, since
-  // contention on this object cannot be too high.
-  folly::Synchronized<
-      std::unordered_map<void*, ThrottlePtr>,
-      std::mutex> throttles_;
+  std::mutex map_mtx_;
+  std::unordered_map<Schedulable::ID_Type, ThrottlePtr> throttles_;
 };
 
 } // executors

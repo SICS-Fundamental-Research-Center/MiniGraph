@@ -12,11 +12,11 @@ class TaskSubmitter {
  public:
   TaskSubmitter(ScheduledExecutor* executors) {
     executors_ = executors;
-    runner_ = executors->RequestTaskRunner(this, {});
+    runner_ = executors->RequestTaskRunner({});
   }
 
   ~TaskSubmitter() {
-    executors_->RecycleTaskRunner(this, runner_);
+    executors_->RecycleTaskRunner(runner_);
   }
 
   ScheduledExecutor* executors_;

@@ -17,10 +17,10 @@ class TaskSubmitter {
  public:
   explicit TaskSubmitter(ScheduledExecutor* executors)
       : executors_(executors),
-        runner_(executors->RequestTaskRunner(this, {})),
+        runner_(executors->RequestTaskRunner({})),
         counter_(0) {}
 
-  ~TaskSubmitter() { executors_->RecycleTaskRunner(this, runner_); }
+  ~TaskSubmitter() { executors_->RecycleTaskRunner(runner_); }
 
   void SubmitTaskBatch() {
     std::vector<Task> tasks(kTotalParallelism * kTaskBatches, [this] {

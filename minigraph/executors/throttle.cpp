@@ -7,9 +7,12 @@
 namespace minigraph {
 namespace executors {
 
-Throttle::Throttle(Scheduler<Throttle>* scheduler, TaskRunner* downstream,
+Throttle::Throttle(ID_Type id,
+                   Scheduler<Throttle>* scheduler,
+                   TaskRunner* downstream,
                    size_t max_parallelism)
-    : scheduler_(scheduler),
+    : Schedulable(id),
+      scheduler_(scheduler),
       downstream_(downstream),
       metadata_(),
       sem_(max_parallelism),
@@ -147,12 +150,12 @@ size_t Throttle::AllocatedParallelism() const {
 
 ThrottleFactory::ThrottleFactory(Scheduler<Throttle>* scheduler,
                                  TaskRunner* downstream)
-    : scheduler_(scheduler), downstream_(downstream) {}
+    : scheduler_(scheduler), downstream_(downstream), next_id_(0) {}
 
 std::unique_ptr<Throttle> ThrottleFactory::New(
     size_t initial_parallelism, Schedulable::Metadata&& metadata) const {
-  auto instance =
-      std::make_unique<Throttle>(scheduler_, downstream_, initial_parallelism);
+  auto instance = std::make_unique<Throttle>(
+      next_id_++, scheduler_, downstream_, initial_parallelism);
   std::swap(*(instance->mutable_metadata()), metadata);
   return instance;
 }

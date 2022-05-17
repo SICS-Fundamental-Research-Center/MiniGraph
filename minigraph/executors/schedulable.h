@@ -13,11 +13,18 @@ namespace executors {
 // at runtime.
 class Schedulable {
  public:
+  // Typedef for its identifier.
+  using ID_Type = int;
+
   // Metadata information for effective scheduling.
   struct Metadata {
     int priority;
     //TODO: add more fields to allow scheduler to do some strategic work.
   };
+
+ public:
+  explicit Schedulable(ID_Type id) : id_(id) {}
+  virtual ~Schedulable() = default;
 
   // Increase the limit on parallelism by `delta`.
   // Return the maximum parallelism after the change.
@@ -35,6 +42,16 @@ class Schedulable {
   // Get the current parallelism limit.
   [[nodiscard]]
   virtual size_t AllocatedParallelism() const = 0;
+
+  // Get identifier associated to the object.
+  [[nodiscard]]
+  ID_Type id() const {
+    return id_;
+  }
+
+ protected:
+  // Identifier.
+  const ID_Type id_;
 };
 
 // A companion factory class for Schedulable.
