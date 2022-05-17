@@ -90,7 +90,6 @@ class DataMgnr {
 
   std::unordered_map<VID_T, std::vector<GID_T>*>* ReadBorderVertexes(
       const std::string& border_vertexes_pt) {
-    LOG_INFO(border_vertexes_pt);
     auto global_border_vertexes =
         new std::unordered_map<VID_T, std::vector<GID_T>*>();
     std::ifstream border_vertexes_file(border_vertexes_pt,
@@ -108,7 +107,7 @@ class DataMgnr {
       global_border_vertexes->insert(
           std::make_pair(buf_global_border_vertexes[i], nullptr));
     }
-    LOG_INFO("LOAD global_border_vertexes", global_border_vertexes->size());
+    LOG_INFO("LOAD global_border_vertexes: ", global_border_vertexes->size());
     return global_border_vertexes;
   }
 

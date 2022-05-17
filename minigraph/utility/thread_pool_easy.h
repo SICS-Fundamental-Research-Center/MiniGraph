@@ -11,14 +11,10 @@
 #include <future>
 #include <iostream>
 #include <memory>
-#include <queue>
 #include <stdexcept>
-#include <vector>
 
 namespace minigraph {
 namespace utility {
-
-#define THREADPOOL_MAX_NUM 16
 
 // Base class for implementing threadpool.
 class ThreadPool {
@@ -27,6 +23,7 @@ class ThreadPool {
   ThreadPool(std::size_t num_thread) { num_threads_ = num_thread; };
   ~ThreadPool() = default;
   std::atomic<bool> run_{true};
+  virtual void stop() const = 0;
   std::size_t get_num_threads() const { return num_threads_; }
 
  protected:
@@ -42,32 +39,23 @@ class ThreadPool {
 // is executed instead of the task itself.
 class CPUThreadPool : virtual public ThreadPool {
  public:
-  CPUThreadPool(const std::size_t num_threads, const uint8_t num_priorities)
-      : ThreadPool(num_threads) {
-    cpu_executor_ =
-        std::make_unique<folly::CPUThreadPoolExecutor>(num_threads_);
-    num_priorities_ = num_priorities;
-  }
-
+  CPUThreadPool(std::size_t num_thread, uint8_t num_priorities);
   ~CPUThreadPool(){};
+  uint8_t get_num_priorities() const;
+  size_t get_task_queue_size() const;
   template <class F, class... Args>
   void Commit(F&& f, Args&&... args) {
     auto task = std::bind(std::forward<F>(f), std::forward<Args>(args)...);
     cpu_executor_->add(task);
   }
-  void Commit(Task task) { cpu_executor_->add(task); };
+  void Commit(Task task) {
+    std::cout << "cpu" << std::endl;
+    cpu_executor_->add(task);
+    std::cout << "~cpu" << std::endl;
+  };
+  void CommitWithPriority(Task task, uint8_t priority);
 
-  void CommitWithPriority(Task task, uint8_t priority) {
-    cpu_executor_->addWithPriority(task, priority);
-  }
-
-  uint8_t get_num_priorities() const {
-    return cpu_executor_->getNumPriorities();
-  }
-
-  size_t get_task_queue_size() const {
-    return cpu_executor_->getTaskQueueSize();
-  }
+  void stop() const override{};
 
  private:
   std::unique_ptr<folly::CPUThreadPoolExecutor> cpu_executor_;
@@ -99,6 +87,7 @@ class IOThreadPool : virtual public ThreadPool {
   void Commit(Task task) {
     io_executor_->add(task, std::chrono::milliseconds(1000));
   };
+  void stop() const override{};
   folly::EventBase* GetEventBase();
 
  private:
@@ -121,93 +110,17 @@ class EDFThreadPool : virtual public ThreadPool {
     edf_executor_->add(task);
   }
   void Commit(Task task) { edf_executor_->add(task); };
+  void stop() const override{};
 
  private:
   size_t num_threads_;
   std::unique_ptr<folly::EDFThreadPoolExecutor> edf_executor_;
 };
 
-class CommonThreadPool : public ThreadPool {
- private:
-  std::vector<std::thread> pool_;
-  using Task = std::function<void()>;
-  std::queue<Task> tasks_;
-  std::mutex lock_;
-  std::condition_variable task_cv_;
-  std::atomic<bool> run_{true};
-  std::atomic<int> idl_thr_num_{0};
-
+class ManualExecutor  {
  public:
-  inline CommonThreadPool(const unsigned short num_threads = 4)
-      : ThreadPool(num_threads) {
-    AddThread(num_threads);
-  }
-  inline ~CommonThreadPool() {
-    run_ = false;
-    task_cv_.notify_all();
-    for (std::thread& thread : pool_) {
-      // thread.detach(); // 让线程“自生自灭”
-      if (thread.joinable()) thread.join();
-    }
-  }
-  int get_idl_num() { return idl_thr_num_; }
-  int get_threads_num() { return pool_.size(); }
 
-  template <class F, class... Args>
-  auto Commit(F&& f, Args&&... args) -> std::future<decltype(f(args...))> {
-    if (!run_) throw std::runtime_error("commit on ThreadPool is stopped.");
-    using RetType = decltype(f(args...));
-    auto task = std::make_shared<std::packaged_task<RetType()>>(
-        bind(std::forward<F>(f), std::forward<Args>(args)...));
-    std::future<RetType> future = task->get_future();
-    {
-      std::lock_guard<std::mutex> lock{lock_};
-      tasks_.emplace([task]() { (*task)(); });
-    }
-    task_cv_.notify_one();
-    return future;
-  }
-
-  template <class F, class... Args>
-  auto add(F&& f, Args&&... args) -> std::future<decltype(f(args...))> {
-    if (!run_) throw std::runtime_error("commit on ThreadPool is stopped.");
-    using RetType = decltype(f(args...));
-    auto task = std::make_shared<std::packaged_task<RetType()>>(
-        bind(std::forward<F>(f), std::forward<Args>(args)...));
-    std::future<RetType> future = task->get_future();
-    {
-      std::lock_guard<std::mutex> lock{lock_};
-      tasks_.emplace([task]() { (*task)(); });
-    }
-    task_cv_.notify_one();
-    return future;
-  }
-
-  void AddThread(unsigned short size) {
-    for (; pool_.size() < THREADPOOL_MAX_NUM && size > 0; --size) {
-      pool_.emplace_back([this] {
-        while (run_) {
-          Task task;
-          {
-            std::unique_lock<std::mutex> lock{lock_};
-            task_cv_.wait(lock, [this] { return !run_ || !tasks_.empty(); });
-            if (!run_ && tasks_.empty()) return;
-            task = move(tasks_.front());
-            tasks_.pop();
-          }
-          --idl_thr_num_;
-          task();
-          ++idl_thr_num_;
-        }
-      });
-      ++idl_thr_num_;
-    }
-  }
-
-  size_t numThreads() const { return num_threads_; };
-  void stop() {}
-  void join() {}
-  void StopAndJoin() {}
+ private:
 };
 
 }  // namespace utility

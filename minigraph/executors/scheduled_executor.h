@@ -2,6 +2,8 @@
 #define MINIGRAPH_EXECUTORS_SCHEDULED_EXECUTOR_H_
 
 #include <folly/executors/CPUThreadPoolExecutor.h>
+#include <folly/executors/EDFThreadPoolExecutor.h>
+#include <folly/executors/IOThreadPoolExecutor.h>
 
 #include "executors/scheduler.h"
 #include "executors/throttle.h"
@@ -48,7 +50,7 @@ class ScheduledExecutor {
     void StopAndJoin();
 
    private:
-    folly::CPUThreadPoolExecutor internal_pool_;
+    folly::EDFThreadPoolExecutor internal_pool_;
   };
 
  public:

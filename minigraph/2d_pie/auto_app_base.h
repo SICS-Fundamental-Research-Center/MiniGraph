@@ -41,14 +41,14 @@ class AutoAppBase {
   // invoked directly, not via virtual functions.
   //
   // @param graph
-  virtual bool PEval(GRAPH_T& graph, PARTIAL_RESULT_T* partial_result) = 0;
+  virtual bool PEval(GRAPH_T& graph, PARTIAL_RESULT_T* partial_result, executors::TaskRunner* task_runner) = 0;
 
   // @brief Incremental evaluation to implement.
   // @note: This pure virtual function works as an interface, instructing users
   // to implement in the specific app. The IncEval in the inherited apps would
   // be invoked directly, not via virtual functions.
   // @param graph
-  virtual bool IncEval(GRAPH_T& graph, PARTIAL_RESULT_T* partial_result) = 0;
+  virtual bool IncEval(GRAPH_T& graph, PARTIAL_RESULT_T* partial_result, executors::TaskRunner* task_runner) = 0;
 
   // @brief Incremental evaluation to implement.
   // @note: This pure virtual function works as an interface, instructing users
@@ -57,8 +57,6 @@ class AutoAppBase {
   // @param Message
   virtual bool MsgAggr(std::unordered_map<typename GRAPH_T::vid_t, VertexInfo*>*
                            partial_border_vertexes_info) = 0;
-
-  void Bind(executors::TaskRunner* task_runner) { task_runner_ = task_runner; }
 
   void Bind(
       folly::AtomicHashMap<typename GRAPH_T::vid_t, VertexInfo*>*
@@ -78,8 +76,6 @@ class AutoAppBase {
   std::unordered_map<typename GRAPH_T::vid_t,
                      std::vector<typename GRAPH_T::gid_t>*>*
       global_border_vertexes_ = nullptr;
-  executors::TaskRunner* task_runner_;
-  bool* visited_ = nullptr;
 
  protected:
   bool GetPartialBorderResult(GRAPH_T& graph, bool* visited,

@@ -1,18 +1,20 @@
 #ifndef MINIGRAPH_2D_PIE_EDGE_MAP_REDUCE_H
 #define MINIGRAPH_2D_PIE_EDGE_MAP_REDUCE_H
 
+#include <condition_variable>
+#include <vector>
+
+#include <folly/MPMCQueue.h>
+#include <folly/ProducerConsumerQueue.h>
+#include <folly/concurrency/DynamicBoundedQueue.h>
+#include <folly/executors/ThreadPoolExecutor.h>
+
 #include "executors/task_runner.h"
 #include "graphs/graph.h"
 #include "graphs/immutable_csr.h"
 #include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
 #include "utility/thread_pool.h"
-#include <folly/MPMCQueue.h>
-#include <folly/ProducerConsumerQueue.h>
-#include <folly/concurrency/DynamicBoundedQueue.h>
-#include <folly/executors/ThreadPoolExecutor.h>
-#include <condition_variable>
-#include <vector>
 
 namespace minigraph {
 
@@ -33,17 +35,14 @@ class EMapBase {
     if (visited == nullptr) {
       LOG_INFO("Segmentation fault: ", "visited is nullptr.");
     }
-    // run vertex centric operations.
-
     Frontier* frontier_out = new Frontier(graph.get_num_vertexes() + 1);
-
-    VertexInfo vertex_info;
+    VertexInfo u;
     std::vector<std::function<void()>> tasks;
     tasks.reserve(65536);
     while (!frontier_in->empty()) {
-      frontier_in->dequeue(vertex_info);
-      auto task = std::bind(&EMapBase<GRAPH_T, CONTEXT_T>::Reduce, this,
-                            vertex_info, &graph, frontier_out, visited);
+      frontier_in->dequeue(u);
+      auto task = std::bind(&EMapBase<GRAPH_T, CONTEXT_T>::Reduce, this, u,
+                            &graph, frontier_out, visited);
       tasks.push_back(task);
     }
     LOG_INFO("EMap Run: ", tasks.size());
