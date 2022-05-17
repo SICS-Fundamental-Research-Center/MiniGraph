@@ -140,7 +140,7 @@ class StateMachine {
   };
 
   GID_T GetXStateOf(const char state) {
-    GID_T gid = GID_MAX;
+    GID_T gid = MINIGRAPH_GID_MAX;
     for (auto& iter : graph_state_) {
       switch (state) {
         case IDLE:

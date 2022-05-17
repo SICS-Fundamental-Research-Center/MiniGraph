@@ -7,8 +7,6 @@
 #include <folly/ProducerConsumerQueue.h>
 
 #include "components/component_base.h"
-#include "cuda/executors/gpu_scheduler.h"
-#include "cuda/executors/gpu_task_runner.h"
 #include "executors/scheduled_executor.h"
 #include "executors/scheduler.h"
 #include "executors/task_runner.h"
@@ -59,7 +57,7 @@ class ComputingComponent : public ComponentBase<GID_T> {
 
   void Run() override {
     while (this->switch_.load(std::memory_order_relaxed)) {
-      GID_T gid = GID_MAX;
+      GID_T gid = MINIGRAPH_GID_MAX;
       while (!task_queue_->read(gid)) {
         // spin until we get a fragment
         if (this->switch_.load(std::memory_order_relaxed) == false) return;
@@ -91,8 +89,6 @@ class ComputingComponent : public ComponentBase<GID_T> {
   APP_WARP* app_wrapper_ = nullptr;
 
   std::unique_ptr<executors::ScheduledExecutor> scheduled_executor_ = nullptr;
-  std::unique_ptr<cuda::executors::GPUScheduler<GRAPH_T, AUTOAPP_T>>
-      gpu_scheduled_executor_ = nullptr;
 
   void ProcessGraph(
       const GID_T& gid,
