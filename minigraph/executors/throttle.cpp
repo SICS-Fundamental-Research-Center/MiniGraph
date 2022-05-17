@@ -1,8 +1,9 @@
 #include "executors/throttle.h"
-#include "executors/scheduler.h"
-#include "utility/logging.h"
+
 #include <thread>
 #include <utility>
+
+#include "executors/scheduler.h"
 
 namespace minigraph {
 namespace executors {
