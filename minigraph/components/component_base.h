@@ -2,12 +2,14 @@
 #ifndef MINIGRAPH_COMPONENT_BASE_H
 #define MINIGRAPH_COMPONENT_BASE_H
 
+#include <atomic>
+#include <memory>
+
+#include <folly/AtomicHashMap.h>
+
 #include "utility/logging.h"
 #include "utility/state_machine.h"
 #include "utility/thread_pool.h"
-#include <folly/AtomicHashMap.h>
-#include <atomic>
-#include <memory>
 
 namespace minigraph {
 namespace components {
@@ -62,7 +64,7 @@ class ComponentBase {
   GID_T get_slowest_gid() {
     this->super_step_by_gid_mtx_->lock();
     size_t step = UINT64_MAX;
-    GID_T gid = GID_MAX;
+    GID_T gid = MINIGRAPH_GID_MAX;
     for (auto& iter : *superstep_by_gid_) {
       auto tmp_step = iter.second->load();
       tmp_step < step ? step = tmp_step, gid = iter.first : 0;

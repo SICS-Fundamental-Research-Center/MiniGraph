@@ -1,15 +1,17 @@
 #ifndef MINIGRAPH_LOAD_COMPONENT_H
 #define MINIGRAPH_LOAD_COMPONENT_H
 
+#include <memory>
+#include <string>
+
+#include <folly/ProducerConsumerQueue.h>
+
 #include "components/component_base.h"
 #include "portability/sys_data_structure.h"
 #include "utility/io/csr_io_adapter.h"
 #include "utility/io/data_mngr.h"
 #include "utility/state_machine.h"
 #include "utility/thread_pool.h"
-#include <folly/ProducerConsumerQueue.h>
-#include <memory>
-#include <string>
 
 namespace minigraph::components {
 
@@ -47,10 +49,8 @@ class LoadComponent : public ComponentBase<GID_T> {
   }
 
   void Run() override {
-<<<<<<< HEAD
-    // std::unique_lock<std::mutex> read_trigger_lck(*read_trigger_mtx_);
     while (this->switch_.load(std::memory_order_relaxed)) {
-      GID_T gid = GID_MAX;
+      GID_T gid = MINIGRAPH_GID_MAX;
       read_trigger_cv_->wait(*read_trigger_lck_, [&] {
         return read_trigger_->read(gid) ||
                !switch_.load(std::memory_order_relaxed) ||
@@ -61,16 +61,9 @@ class LoadComponent : public ComponentBase<GID_T> {
       if (!this->switch_.load(std::memory_order_relaxed)) {
         return;
       } else {
-        if (gid == GID_MAX) {
+        if (gid == MINIGRAPH_GID_MAX) {
           std::this_thread::sleep_for(std::chrono::milliseconds(100));
           continue;
-=======
-    while (this->switch_.load(std::memory_order_relaxed) == true) {
-      GID_T gid = MINIGRAPH_GID_MAX;
-      while (!read_trigger_->read(gid)) {
-        if (this->switch_.load(std::memory_order_relaxed) == false) {
-          return;
->>>>>>> e5ab45c9b1706f2fdb027c78aa913ac666033748
         }
         CSRPt& csr_pt = pt_by_gid_->find(gid)->second;
         this->ProcessGraph(gid, csr_pt, data_mngr_, task_queue_,

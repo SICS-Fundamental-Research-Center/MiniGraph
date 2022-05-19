@@ -1,3 +1,5 @@
+#include <folly/concurrency/DynamicBoundedQueue.h>
+
 #include "2d_pie/auto_app_base.h"
 #include "2d_pie/edge_map_reduce.h"
 #include "2d_pie/vertex_map_reduce.h"
@@ -7,7 +9,6 @@
 #include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
 #include "utility/logging.h"
-#include <folly/concurrency/DynamicBoundedQueue.h>
 
 template <typename GRAPH_T, typename CONTEXT_T>
 class BFSVMap : public minigraph::VMapBase<GRAPH_T, CONTEXT_T> {

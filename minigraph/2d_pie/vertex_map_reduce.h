@@ -1,18 +1,21 @@
 #ifndef MINIGRAPH_2D_PIE_VERTEX_MAP_REDUCE_H
 #define MINIGRAPH_2D_PIE_VERTEX_MAP_REDUCE_H
 
+#include <condition_variable>
+#include <vector>
+
+#include <folly/MPMCQueue.h>
+#include <folly/ProducerConsumerQueue.h>
+#include <folly/concurrency/DynamicBoundedQueue.h>
+
 #include "executors/task_runner.h"
 #include "graphs/graph.h"
 #include "graphs/immutable_csr.h"
 #include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
 #include "utility/thread_pool.h"
-#include <folly/MPMCQueue.h>
-#include <folly/ProducerConsumerQueue.h>
-#include <folly/concurrency/DynamicBoundedQueue.h>
 #include <folly/executors/ThreadPoolExecutor.h>
-#include <condition_variable>
-#include <vector>
+
 
 namespace minigraph {
 

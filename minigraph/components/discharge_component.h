@@ -1,15 +1,19 @@
 #ifndef MINIGRAPH_DISCHARGE_COMPONENT_H
 #define MINIGRAPH_DISCHARGE_COMPONENT_H
 
+#include <string>
+
+#include <folly/ProducerConsumerQueue.h>
+
 #include "components/component_base.h"
 #include "portability/sys_data_structure.h"
 #include "utility/io/csr_io_adapter.h"
 #include "utility/thread_pool.h"
-#include <folly/ProducerConsumerQueue.h>
-#include <string>
+
 
 namespace minigraph {
 namespace components {
+
 template <typename GID_T, typename VID_T, typename VDATA_T, typename EDATA_T,
           typename GRAPH_T>
 class DischargeComponent : public ComponentBase<GID_T> {
@@ -54,7 +58,7 @@ class DischargeComponent : public ComponentBase<GID_T> {
 
   void Run() override {
     while (this->switch_.load(std::memory_order_relaxed)) {
-      GID_T gid = GID_MAX;
+      GID_T gid = MINIGRAPH_GID_MAX;
       partial_result_cv_->wait(*partial_result_lck_, [&] {
         return partial_result_queue_->read(gid) ||
                this->state_machine_->IsTerminated() ||
@@ -69,7 +73,7 @@ class DischargeComponent : public ComponentBase<GID_T> {
         system_switch_cv_->notify_all();
         return;
       } else {
-        if (gid == GID_MAX) {
+        if (gid == MINIGRAPH_GID_MAX) {
           std::this_thread::sleep_for(std::chrono::milliseconds(100));
           continue;
         }
@@ -78,9 +82,7 @@ class DischargeComponent : public ComponentBase<GID_T> {
     }
   }
 
-  void Stop() override {
-    this->switch_.store(false);
-  }
+  void Stop() override { this->switch_.store(false); }
 
   void ProcessPartialResult(
       const GID_T& gid,

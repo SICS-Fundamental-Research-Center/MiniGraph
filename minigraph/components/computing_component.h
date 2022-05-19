@@ -1,6 +1,11 @@
 #ifndef MINIGRAPH_COMPUTING_COMPONENT_H
 #define MINIGRAPH_COMPUTING_COMPONENT_H
 
+#include <condition_variable>
+#include <memory>
+
+#include <folly/ProducerConsumerQueue.h>
+
 #include "components/component_base.h"
 #include "executors/scheduled_executor.h"
 #include "executors/scheduler.h"
@@ -8,9 +13,7 @@
 #include "graphs/immutable_csr.h"
 #include "utility/io/data_mngr.h"
 #include "utility/thread_pool.h"
-#include <folly/ProducerConsumerQueue.h>
-#include <condition_variable>
-#include <memory>
+
 
 namespace minigraph {
 namespace components {
@@ -64,20 +67,17 @@ class ComputingComponent : public ComponentBase<GID_T> {
 
   void Run() override {
     while (this->switch_.load(std::memory_order_relaxed)) {
-<<<<<<< HEAD
-      GID_T gid = GID_MAX;
+      GID_T gid = MINIGRAPH_GID_MAX;
       task_queue_cv_->wait(*task_queue_lck_, [&] {
         return task_queue_->read(gid) ||
                !this->switch_.load(std::memory_order_relaxed) ||
                task_queue_->isEmpty();
       });
       task_queue_cv_->notify_all();
-
-      //if (this->state_machine_->IsTerminated()) {
-        if (!this->switch_.load(std::memory_order_relaxed)) {
+      if (!this->switch_.load(std::memory_order_relaxed)) {
         return;
       } else {
-        if (gid == GID_MAX) {
+        if (gid == MINIGRAPH_GID_MAX) {
           std::this_thread::sleep_for(std::chrono::milliseconds(100));
           continue;
         }
@@ -87,13 +87,6 @@ class ComputingComponent : public ComponentBase<GID_T> {
             this, gid, partial_result_queue_, data_mngr_, app_wrapper_,
             this->state_machine_);
         this->thread_pool_->Commit(task);
-=======
-      GID_T gid = MINIGRAPH_GID_MAX;
-      while (!task_queue_->read(gid)) {
-        // spin until we get a fragment
-        if (this->switch_.load(std::memory_order_relaxed) == false) return;
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
->>>>>>> e5ab45c9b1706f2fdb027c78aa913ac666033748
       }
     }
   }
@@ -106,27 +99,23 @@ class ComputingComponent : public ComponentBase<GID_T> {
  private:
   std::atomic<bool> switch_ = true;
 
-  // task_queue
+  // task_queue.
   folly::ProducerConsumerQueue<GID_T>* task_queue_;
 
   folly::ProducerConsumerQueue<GID_T>* partial_result_queue_;
 
-  // data manager
+  // data manager.
   utility::io::DataMgnr<GID_T, VID_T, VDATA_T, EDATA_T>* data_mngr_ = nullptr;
 
-  // 2D-PIE>
+  // 2D-PIE app wrapper.
   APP_WARP* app_wrapper_ = nullptr;
 
+  // cv && lck.
   std::unique_ptr<executors::ScheduledExecutor> scheduled_executor_ = nullptr;
-<<<<<<< HEAD
-  std::unique_ptr<cuda::executors::GPUScheduler<GRAPH_T, AUTOAPP_T>>
-      gpu_scheduled_executor_ = nullptr;
   std::unique_lock<std::mutex>* partial_result_lck_;
   std::unique_lock<std::mutex>* task_queue_lck_;
   std::condition_variable* partial_result_cv_;
   std::condition_variable* task_queue_cv_;
-=======
->>>>>>> e5ab45c9b1706f2fdb027c78aa913ac666033748
 
   void ProcessGraph(
       const GID_T& gid,
@@ -135,7 +124,7 @@ class ComputingComponent : public ComponentBase<GID_T> {
       APP_WARP* app_wrapper, utility::StateMachine<GID_T>* state_machine) {
     GRAPH_T* graph = (GRAPH_T*)data_mngr->GetGraph(gid);
     executors::TaskRunner* task_runner =
-        scheduled_executor_->RequestTaskRunner((void*)graph, {});
+        scheduled_executor_->RequestTaskRunner({});
     PARTIAL_RESULT_T* partial_result = new PARTIAL_RESULT_T;
     if (this->get_superstep_via_gid(gid) == 0) {
       app_wrapper->auto_app_->PEval(*graph, partial_result, task_runner)
@@ -147,7 +136,7 @@ class ComputingComponent : public ComponentBase<GID_T> {
           : state_machine->ProcessEvent(gid, NOTHINGCHANGED);
     }
 
-    // only graph in state GC need to enque in partial_result_cv_
+    // only graph in state GC need to be pushed in partial_result_cv_
     if (state_machine->GraphIs(gid, RC)) {
       partial_result_cv_->wait(*partial_result_lck_, [&] {
         return partial_result_queue->write(gid) ||
@@ -159,7 +148,7 @@ class ComputingComponent : public ComponentBase<GID_T> {
     }
     this->add_superstep_via_gid(gid);
     delete partial_result;
-    scheduled_executor_->RecycleTaskRunner(graph, task_runner);
+    scheduled_executor_->RecycleTaskRunner(task_runner);
   }
 };
 

@@ -1,6 +1,12 @@
 #ifndef MINIGRAPH_2D_PIE_AUTO_APP_BASE_H
 #define MINIGRAPH_2D_PIE_AUTO_APP_BASE_H
 
+#include <memory>
+#include <unordered_map>
+
+#include <folly/MPMCQueue.h>
+#include <folly/concurrency/DynamicBoundedQueue.h>
+
 #include "2d_pie/edge_map_reduce.h"
 #include "2d_pie/vertex_map_reduce.h"
 #include "executors/scheduled_executor.h"
@@ -10,10 +16,7 @@
 #include "graphs/graph.h"
 #include "graphs/immutable_csr.h"
 #include "utility/thread_pool.h"
-#include <folly/MPMCQueue.h>
-#include <folly/concurrency/DynamicBoundedQueue.h>
-#include <memory>
-#include <unordered_map>
+
 
 namespace minigraph {
 
@@ -41,14 +44,16 @@ class AutoAppBase {
   // invoked directly, not via virtual functions.
   //
   // @param graph
-  virtual bool PEval(GRAPH_T& graph, PARTIAL_RESULT_T* partial_result, executors::TaskRunner* task_runner) = 0;
+  virtual bool PEval(GRAPH_T& graph, PARTIAL_RESULT_T* partial_result,
+                     executors::TaskRunner* task_runner) = 0;
 
   // @brief Incremental evaluation to implement.
   // @note: This pure virtual function works as an interface, instructing users
   // to implement in the specific app. The IncEval in the inherited apps would
   // be invoked directly, not via virtual functions.
   // @param graph
-  virtual bool IncEval(GRAPH_T& graph, PARTIAL_RESULT_T* partial_result, executors::TaskRunner* task_runner) = 0;
+  virtual bool IncEval(GRAPH_T& graph, PARTIAL_RESULT_T* partial_result,
+                       executors::TaskRunner* task_runner) = 0;
 
   // @brief Incremental evaluation to implement.
   // @note: This pure virtual function works as an interface, instructing users
@@ -101,5 +106,4 @@ class AutoAppBase {
 };
 
 }  // namespace minigraph
-
 #endif  // MINIGRAPH_2D_PIE_AUTO_APP_BASE_H
