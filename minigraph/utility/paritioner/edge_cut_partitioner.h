@@ -189,6 +189,10 @@ class EdgeCutPartitioner {
       }
     }
   }
+
+  void GetCommunicationMatrix(CSR_T* graph){
+
+  }
 };
 
 }  // namespace partitioner

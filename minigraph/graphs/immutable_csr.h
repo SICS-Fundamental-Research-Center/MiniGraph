@@ -1,12 +1,9 @@
 #ifndef MINIGRAPH_GRAPHS_IMMUTABLECSR_H
 #define MINIGRAPH_GRAPHS_IMMUTABLECSR_H
 
-#include <fstream>
-#include <iostream>
-#include <map>
-#include <memory>
-#include <unordered_map>
-
+#include "graphs/graph.h"
+#include "portability/sys_types.h"
+#include "utility/logging.h"
 #include <folly/AtomicHashArray.h>
 #include <folly/AtomicHashMap.h>
 #include <folly/AtomicUnorderedMap.h>
@@ -19,11 +16,11 @@
 #include <folly/portability/Atomic.h>
 #include <folly/portability/SysTime.h>
 #include <jemalloc/jemalloc.h>
-
-#include "graphs/graph.h"
-#include "portability/sys_types.h"
-#include "utility/logging.h"
-
+#include <fstream>
+#include <iostream>
+#include <map>
+#include <memory>
+#include <unordered_map>
 
 using std::cout;
 using std::endl;
@@ -46,34 +43,75 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
   ImmutableCSR(const GID_T gid) : Graph<GID_T, VID_T, VDATA_T, EDATA_T>(gid){};
 
   ~ImmutableCSR() {
-    if (this->vertexes_info_ != nullptr) {
-      delete this->vertexes_info_;
+    if (vertexes_info_ != nullptr) {
+      std::map<VID_T, graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>*> tmp;
+      vertexes_info_->swap(tmp);
+      delete vertexes_info_;
+      vertexes_info_ = nullptr;
     }
     if (map_localid2globalid_ != nullptr) {
+      std::unordered_map<VID_T, VID_T> tmp;
+      map_localid2globalid_->swap(tmp);
       delete map_localid2globalid_;
+      map_localid2globalid_ = nullptr;
     }
     if (map_globalid2localid_ != nullptr) {
+      std::unordered_map<VID_T, VID_T> tmp;
+      map_globalid2localid_->swap(tmp);
       delete map_globalid2localid_;
+      map_localid2globalid_ = nullptr;
     }
     if (buf_graph_ != nullptr) {
       free(buf_graph_);
       buf_graph_ = nullptr;
     }
+    vid_by_index_ = nullptr;
+    index_by_vid_ = nullptr;
+    in_edges_ = nullptr;
+    out_edges_ = nullptr;
+    indegree_ = nullptr;
+    outdegree_ = nullptr;
+    vdata_ = nullptr;
+    in_offset_ = nullptr;
+    out_offset_ = nullptr;
+    globalid_by_index_ = nullptr;
   };
 
   size_t get_num_vertexes() const override { return num_vertexes_; }
 
   void CleanUp() override {
     if (map_localid2globalid_ != nullptr) {
-      map_localid2globalid_->clear();
+      std::unordered_map<VID_T, VID_T> tmp;
+      map_localid2globalid_->swap(tmp);
+      delete map_localid2globalid_;
+      map_localid2globalid_ = nullptr;
     }
     if (map_globalid2localid_ != nullptr) {
-      map_globalid2localid_->clear();
+      std::unordered_map<VID_T, VID_T> tmp;
+      map_globalid2localid_->swap(tmp);
+      delete map_globalid2localid_;
+      map_localid2globalid_ = nullptr;
     }
     if (buf_graph_ != nullptr) {
       free(buf_graph_);
       buf_graph_ = nullptr;
     }
+    if (vertexes_info_ != nullptr) {
+      std::map<VID_T, graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>*> tmp;
+      vertexes_info_->swap(tmp);
+      delete vertexes_info_;
+      vertexes_info_ = nullptr;
+    }
+    vid_by_index_ = nullptr;
+    index_by_vid_ = nullptr;
+    in_edges_ = nullptr;
+    out_edges_ = nullptr;
+    indegree_ = nullptr;
+    outdegree_ = nullptr;
+    vdata_ = nullptr;
+    in_offset_ = nullptr;
+    out_offset_ = nullptr;
+    globalid_by_index_ = nullptr;
   };
 
   void ShowGraph(const size_t count = 2) {
@@ -363,11 +401,6 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     vertex_info->vdata = (VDATA_T*)malloc(sizeof(VDATA_T));
     *vertex_info->vdata = *(vdata_ + index);
     return vertex_info;
-  }
-
-  void CopyLabel(graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>& dst,
-                 graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>& src) {
-    *dst.vdata = *src.vdata;
   }
 
   VID_T globalid2localid(const VID_T vid) const {

@@ -1,18 +1,6 @@
 #ifndef MINIGRAPH_MINIGRAPH_SYS_H
 #define MINIGRAPH_MINIGRAPH_SYS_H
 
-#include <dirent.h>
-
-#include <filesystem>
-#include <fstream>
-#include <iostream>
-#include <memory>
-#include <sstream>
-#include <string>
-#include <vector>
-
-#include <folly/AtomicHashMap.h>
-
 #include "2d_pie/auto_app_base.h"
 #include "2d_pie/edge_map_reduce.h"
 #include "2d_pie/vertex_map_reduce.h"
@@ -22,6 +10,18 @@
 #include "utility/io/data_mngr.h"
 #include "utility/paritioner/edge_cut_partitioner.h"
 #include "utility/state_machine.h"
+#include <folly/AtomicHashMap.h>
+#include <condition_variable>
+#include <dirent.h>
+#include <filesystem>
+#include <fstream>
+#include <iostream>
+#include <memory>
+#include <mutex>
+#include <sstream>
+#include <string>
+#include <thread>
+#include <vector>
 
 namespace fs = std::filesystem;
 
@@ -47,6 +47,7 @@ class MiniGraphSys {
              ", num_workers_cc: ", num_workers_cc,
              ", num_worker_dc: ", num_workers_dc,
              ", num_threads: ", num_threads);
+    num_threads_ = num_threads;
     InitWorkList(work_space);
 
     // init Data Manager.
@@ -73,13 +74,14 @@ class MiniGraphSys {
 
     // init read_trigger
     read_trigger_ = std::make_unique<folly::ProducerConsumerQueue<GID_T>>(
-        vec_gid.size() + 1);
+        vec_gid.size() + 10000);
     for (auto& iter : vec_gid) {
       read_trigger_->write(iter);
     }
 
     // init thread pool
-    thread_pool_ = std::make_unique<utility::EDFThreadPool>(num_threads);
+    // thread_pool_ = std::make_unique<utility::EDFThreadPool>(num_threads);
+    thread_pool_ = std::make_unique<utility::EDFThreadPool>(num_threads_);
 
     // init state_machine
     state_machine_ = new utility::StateMachine<GID_T>(vec_gid);
@@ -91,7 +93,7 @@ class MiniGraphSys {
     // init partial result queue
     partial_result_queue_ =
         std::make_unique<folly::ProducerConsumerQueue<GID_T>>(vec_gid.size() +
-                                                              1);
+                                                              1024);
 
     // init auto_app.
     app_wrapper_ = std::make_unique<
@@ -102,32 +104,65 @@ class MiniGraphSys {
           data_mngr_->global_border_vertexes_.get(),
           data_mngr_->global_border_vertexes_info_.get());
     }
+
+    // init mutex, lck and cv
+    read_trigger_mtx_ = std::make_unique<std::mutex>();
+    task_queue_mtx_ = std::make_unique<std::mutex>();
+    partial_result_mtx_ = std::make_unique<std::mutex>();
+
+    read_trigger_lck_ = std::make_unique<std::unique_lock<std::mutex>>(
+        *read_trigger_mtx_.get());
+    task_queue_lck_ =
+        std::make_unique<std::unique_lock<std::mutex>>(*task_queue_mtx_.get());
+    partial_result_lck_ = std::make_unique<std::unique_lock<std::mutex>>(
+        *partial_result_mtx_.get());
+
+    read_trigger_cv_ = std::make_unique<std::condition_variable>();
+    task_queue_cv_ = std::make_unique<std::condition_variable>();
+    partial_result_cv_ = std::make_unique<std::condition_variable>();
+
+    system_switch_ = std::make_unique<std::atomic<bool>>(true);
+    system_switch_mtx_ = std::make_unique<std::mutex>();
+    system_switch_lck_ = std::make_unique<std::unique_lock<std::mutex>>(
+        *system_switch_mtx_.get());
+    system_switch_cv_ = std::make_unique<std::condition_variable>();
+
     // init components
     load_component_ = std::make_unique<
         components::LoadComponent<GID_T, VID_T, VDATA_T, EDATA_T, GRAPH_T>>(
         thread_pool_.get(), superstep_by_gid_, global_superstep_,
         state_machine_, read_trigger_.get(), task_queue_.get(), pt_by_gid_,
-        data_mngr_.get());
+        data_mngr_.get(), read_trigger_lck_.get(), task_queue_lck_.get(),
+        read_trigger_cv_.get(), task_queue_cv_.get());
     computing_component_ = std::make_unique<components::ComputingComponent<
         GID_T, VID_T, VDATA_T, EDATA_T, GRAPH_T, AUTOAPP_T>>(
         thread_pool_.get(), superstep_by_gid_, global_superstep_,
         state_machine_, task_queue_.get(), partial_result_queue_.get(),
-        data_mngr_.get(), app_wrapper_.get());
+        data_mngr_.get(), app_wrapper_.get(), task_queue_lck_.get(),
+        partial_result_lck_.get(), task_queue_cv_.get(),
+        partial_result_cv_.get());
     discharge_component_ =
         std::make_unique<components::DischargeComponent<GID_T, VID_T, VDATA_T,
                                                         EDATA_T, GRAPH_T>>(
             thread_pool_.get(), superstep_by_gid_, global_superstep_,
             state_machine_, partial_result_queue_.get(), pt_by_gid_,
-            read_trigger_.get(), data_mngr_.get());
+            read_trigger_.get(), data_mngr_.get(), partial_result_lck_.get(),
+            read_trigger_lck_.get(), partial_result_cv_.get(),
+            read_trigger_cv_.get(), system_switch_.get(),
+            system_switch_lck_.get(), system_switch_cv_.get());
     LOG_INFO("Init MiniGraphSys: Finish.");
   };
 
   ~MiniGraphSys() = default;
 
   void Stop() {
+    LOG_INFO("SYSTEM STOP");
     load_component_->Stop();
     computing_component_->Stop();
     discharge_component_->Stop();
+    load_component_->~LoadComponent();
+    computing_component_->~ComputingComponent();
+    discharge_component_->~DischargeComponent();
   }
 
   bool RunSys() {
@@ -148,13 +183,12 @@ class MiniGraphSys {
                                                   EDATA_T, GRAPH_T>::Run,
                   discharge_component_.get());
     this->thread_pool_->Commit(task_dc);
-    while (!this->state_machine_->IsTerminated()) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    }
 
+    system_switch_cv_->wait(*system_switch_lck_,
+                            [&] { return !system_switch_->load(); });
     this->Stop();
-    data_mngr_->CleanUp();
     auto end_time = std::chrono::system_clock::now();
+
     std::cout << "         #### RUNSYS(): Finish"
               << " Elapse time: "
               << std::chrono::duration_cast<std::chrono::microseconds>(
@@ -162,6 +196,7 @@ class MiniGraphSys {
                          .count() /
                      (double)CLOCKS_PER_SEC
               << " ####      " << std::endl;
+    data_mngr_->CleanUp();
     return true;
   }
 
@@ -173,15 +208,12 @@ class MiniGraphSys {
       auto graph = new GRAPH_T;
       data_mngr_->csr_io_adapter_->Read((GRAPH_BASE_T*)graph, csr_bin, gid,
                                         csr_pt.meta_pt, csr_pt.data_pt);
-      graph->ShowGraphAbs(100);
+      graph->ShowGraphAbs(99);
     }
   }
 
  private:
-  // configure.
-  std::unique_ptr<folly::ProducerConsumerQueue<GID_T>> read_trigger_ = nullptr;
-
-  // files list
+  // files by gid.
   folly::AtomicHashMap<GID_T, CSRPt>* pt_by_gid_ = nullptr;
 
   // partitioner
@@ -190,7 +222,8 @@ class MiniGraphSys {
       edge_cut_partitioner_ = nullptr;
 
   // thread pool.
-   std::unique_ptr<utility::EDFThreadPool> thread_pool_ = nullptr;
+  size_t num_threads_ = 0;
+  std::unique_ptr<utility::EDFThreadPool> thread_pool_ = nullptr;
 
   // superstep.
   folly::AtomicHashMap<GID_T, std::atomic<size_t>*>* superstep_by_gid_ =
@@ -202,6 +235,9 @@ class MiniGraphSys {
 
   // task queue.
   std::unique_ptr<folly::ProducerConsumerQueue<GID_T>> task_queue_ = nullptr;
+
+  // read trigger queue.
+  std::unique_ptr<folly::ProducerConsumerQueue<GID_T>> read_trigger_ = nullptr;
 
   // partial result queue.
   std::unique_ptr<folly::ProducerConsumerQueue<GID_T>> partial_result_queue_ =
@@ -222,9 +258,25 @@ class MiniGraphSys {
   std::unique_ptr<utility::io::DataMgnr<GID_T, VID_T, VDATA_T, EDATA_T>>
       data_mngr_ = nullptr;
 
-  // 2D-PIE
+  // App wrapper
   std::unique_ptr<AppWrapper<AUTOAPP_T, GID_T, VID_T, VDATA_T, EDATA_T>>
       app_wrapper_ = nullptr;
+
+  std::unique_ptr<std::mutex> read_trigger_mtx_;
+  std::unique_ptr<std::mutex> task_queue_mtx_;
+  std::unique_ptr<std::mutex> partial_result_mtx_;
+  std::unique_ptr<std::unique_lock<std::mutex>> read_trigger_lck_;
+  std::unique_ptr<std::unique_lock<std::mutex>> task_queue_lck_;
+  std::unique_ptr<std::unique_lock<std::mutex>> partial_result_lck_;
+  std::unique_ptr<std::condition_variable> read_trigger_cv_;
+  std::unique_ptr<std::condition_variable> task_queue_cv_;
+  std::unique_ptr<std::condition_variable> partial_result_cv_;
+
+  // system switch
+  std::unique_ptr<std::atomic<bool>> system_switch_;
+  std::unique_ptr<std::mutex> system_switch_mtx_;
+  std::unique_ptr<std::unique_lock<std::mutex>> system_switch_lck_;
+  std::unique_ptr<std::condition_variable> system_switch_cv_;
 
   void InitWorkList(const std::string& work_space) {
     std::string vertex_root = work_space + "/vertex/";

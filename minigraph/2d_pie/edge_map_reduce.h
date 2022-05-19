@@ -1,20 +1,18 @@
 #ifndef MINIGRAPH_2D_PIE_EDGE_MAP_REDUCE_H
 #define MINIGRAPH_2D_PIE_EDGE_MAP_REDUCE_H
 
-#include <condition_variable>
-#include <vector>
-
-#include <folly/MPMCQueue.h>
-#include <folly/ProducerConsumerQueue.h>
-#include <folly/concurrency/DynamicBoundedQueue.h>
-#include <folly/executors/ThreadPoolExecutor.h>
-
 #include "executors/task_runner.h"
 #include "graphs/graph.h"
 #include "graphs/immutable_csr.h"
 #include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
 #include "utility/thread_pool.h"
+#include <folly/MPMCQueue.h>
+#include <folly/ProducerConsumerQueue.h>
+#include <folly/concurrency/DynamicBoundedQueue.h>
+#include <folly/executors/ThreadPoolExecutor.h>
+#include <condition_variable>
+#include <vector>
 
 namespace minigraph {
 
@@ -51,10 +49,8 @@ class EMapBase {
     return frontier_out;
   };
 
- protected:
   CONTEXT_T context_;
 
- private:
   virtual bool F(const VertexInfo& u, VertexInfo& v) = 0;
   virtual bool C(const VertexInfo& u, const VertexInfo& v) = 0;
 
@@ -66,6 +62,7 @@ class EMapBase {
         continue;
       }
       VertexInfo&& v = graph->GetVertexByVid(local_id);
+      v.ShowVertexInfo();
       if (C(u, v)) {
         if (F(u, v)) {
           frontier_out->enqueue(v);

@@ -230,7 +230,6 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     }
 
     auto graph = (CSR_T*)graph_base;
-    graph->CleanUp();
 
     std::ifstream meta_file(meta_pt, std::ios::binary | std::ios::app);
     std::ifstream data_file(data_pt, std::ios::binary | std::ios::app);
@@ -289,6 +288,7 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
           graph->globalid_by_index_[i], graph->vid_by_index_[i]));
     }
     free(buf_meta);
+    buf_meta = nullptr;
     graph->is_serialized_ = true;
     graph->gid_ = gid;
     meta_file.close();
@@ -341,6 +341,7 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     meta_file.write((char*)buf_meta, sizeof(size_t) * 3);
     data_file.write((char*)graph.buf_graph_, total_size);
     free(buf_meta);
+    buf_meta = nullptr;
     meta_file.close();
     data_file.close();
     return true;

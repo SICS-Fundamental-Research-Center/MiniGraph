@@ -1,12 +1,10 @@
 #ifndef MINIGRAPH_DATA_MNGR_H
 #define MINIGRAPH_DATA_MNGR_H
 
-#include <memory>
-
-#include <folly/AtomicHashMap.h>
-
 #include "utility/io/csr_io_adapter.h"
 #include "utility/io/edge_list_io_adapter.h"
+#include <folly/AtomicHashMap.h>
+#include <memory>
 
 namespace minigraph {
 namespace utility {
@@ -119,10 +117,13 @@ class DataMgnr {
     }
   }
 
+
+
   void EraseGraph(const GID_T& gid) {
     if (pgraph_by_gid_->count(gid)) {
-      auto&& graph = pgraph_by_gid_->find(gid)->second;
+      auto graph = (CSR_T*)pgraph_by_gid_->find(gid)->second;
       graph->CleanUp();
+      //delete graph;
       pgraph_by_gid_->erase(gid);
     }
   };
@@ -130,6 +131,7 @@ class DataMgnr {
   void CleanUp() {
     for (auto& iter : *pgraph_by_gid_) {
       iter.second->CleanUp();
+      pgraph_by_gid_->erase(iter.first);
     }
   }
 

@@ -2,6 +2,9 @@
 #ifndef MINIGRAPH_UTILITY_STATE_MACHINE_H_
 #define MINIGRAPH_UTILITY_STATE_MACHINE_H_
 
+#include "portability/sys_types.h"
+#include <boost/sml.hpp>
+#include <folly/AtomicHashMap.h>
 #include <assert.h>
 #include <iostream>
 #include <map>
@@ -9,11 +12,6 @@
 #include <stdio.h>
 #include <unordered_map>
 #include <vector>
-
-#include <boost/sml.hpp>
-#include <folly/AtomicHashMap.h>
-
-#include "portability/sys_types.h"
 
 namespace minigraph {
 namespace utility {
@@ -128,9 +126,6 @@ class StateMachine {
       iter.second->is("RT"_s) ? ++count : 0;
     }
     if (count < graph_state_.size()) {
-      // for (auto& iter : graph_state_) {
-      //   if (iter.second->is("RC"_s)) iter.second->process_event(GoOn{});
-      // }
       return false;
     } else {
       system_state_.process_event(Fixpoint{});
@@ -209,13 +204,26 @@ class StateMachine {
     return false;
   }
 
-  std::vector<GID_T> Evoke() {
+  std::vector<GID_T> EvokeAllX(const char state) {
     std::vector<GID_T> output;
     for (auto& iter : graph_state_) {
-      iter.second->is("RT"_s)                ? output.push_back(iter.first),
-          iter.second->process_event(GoOn{}) : 0;
+      switch (state) {
+        case RT:
+          iter.second->is("RT"_s)                ? output.push_back(iter.first),
+              iter.second->process_event(GoOn{}) : 0;
+      }
     }
     return output;
+  }
+
+  void EvokeX(const GID_T gid, const char state) {
+    std::vector<GID_T> output;
+    auto iter = graph_state_.find(gid);
+    assert(iter != graph_state_.end());
+    switch (state) {
+      case RT:
+        iter->second->is("RT"_s) ? iter->second->process_event(GoOn{}) : 0;
+    }
   }
 
  private:
