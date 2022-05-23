@@ -36,10 +36,11 @@ class EMapBase {
     if (visited == nullptr) {
       LOG_INFO("Segmentation fault: ", "visited is nullptr.");
     }
-    Frontier* frontier_out = new Frontier(graph.get_num_vertexes() + 1);
+    Frontier* frontier_out =
+        new Frontier(graph.get_num_vertexes() + frontier_in->size() + 1048576);
     VertexInfo u;
     std::vector<std::function<void()>> tasks;
-    tasks.reserve(65536);
+    tasks.reserve(1048676);
     while (!frontier_in->empty()) {
       frontier_in->dequeue(u);
       auto task = std::bind(&EMapBase<GRAPH_T, CONTEXT_T>::Reduce, this, u,
@@ -48,6 +49,7 @@ class EMapBase {
     }
     LOG_INFO("EMap Run: ", tasks.size());
     task_runner->Run(tasks, false);
+    LOG_INFO("#");
     delete frontier_in;
     return frontier_out;
   };
@@ -65,9 +67,10 @@ class EMapBase {
         continue;
       }
       VertexInfo&& v = graph->GetVertexByVid(local_id);
-      v.ShowVertexInfo();
+      // v.ShowVertexInfo();
       if (C(u, v)) {
         if (F(u, v)) {
+          // LOG_INFO("Enqueue: ", v.vid);
           frontier_out->enqueue(v);
           if (!visited[local_id]) {
             visited[local_id] = true;

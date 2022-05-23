@@ -2,14 +2,12 @@
 #ifndef MINIGRAPH_COMPONENT_BASE_H
 #define MINIGRAPH_COMPONENT_BASE_H
 
-#include <atomic>
-#include <memory>
-
-#include <folly/AtomicHashMap.h>
-
 #include "utility/logging.h"
 #include "utility/state_machine.h"
 #include "utility/thread_pool.h"
+#include <folly/AtomicHashMap.h>
+#include <atomic>
+#include <memory>
 
 namespace minigraph {
 namespace components {
@@ -56,7 +54,8 @@ class ComponentBase {
       this->super_step_by_gid_mtx_->unlock();
       return;
     } else {
-      iter->second->store(iter->second->load() + val);
+      iter->second->fetch_add(1);
+      //iter->second->store(iter->second->load() + val);
     }
     this->super_step_by_gid_mtx_->unlock();
   }
@@ -86,6 +85,41 @@ class ComponentBase {
     global_superstep_mtx_->unlock();
   }
 
+  bool TrySync() {
+    size_t count = 0;
+    for (auto& iter : *this->superstep_by_gid_) {
+      if (iter.second->load() > this->get_global_superstep()) ++count;
+    }
+    if (count == this->superstep_by_gid_->size()) {
+      this->add_global_superstep();
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  bool CheckSuperstep() {
+    global_superstep_mtx_->lock();
+    super_step_by_gid_mtx_->lock();
+    bool tag = true;
+    for (auto& iter : *this->superstep_by_gid_) {
+      if (iter.second->load() >= global_superstep_->load()) {
+        ;
+      } else {
+        tag = false;
+      }
+    }
+    super_step_by_gid_mtx_->unlock();
+    global_superstep_mtx_->unlock();
+    return tag;
+  }
+
+  void ShowSuperStepByGid() {
+    for (auto& iter : *this->superstep_by_gid_) {
+      LOG_INFO("gid: ", iter.first, ", step: ", iter.second->load());
+    }
+  }
+
  protected:
   // contral switch.
   std::atomic<bool> switch_ = true;
@@ -102,8 +136,8 @@ class ComponentBase {
   utility::StateMachine<GID_T>* state_machine_ = nullptr;
 
  private:
-  std::mutex *super_step_by_gid_mtx_;
-  std::mutex *global_superstep_mtx_;
+  std::mutex* super_step_by_gid_mtx_;
+  std::mutex* global_superstep_mtx_;
 };
 
 }  // namespace components

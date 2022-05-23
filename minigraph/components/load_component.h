@@ -1,6 +1,7 @@
 #ifndef MINIGRAPH_LOAD_COMPONENT_H
 #define MINIGRAPH_LOAD_COMPONENT_H
 
+#include <condition_variable>
 #include <memory>
 #include <string>
 
@@ -13,6 +14,7 @@
 #include "utility/state_machine.h"
 #include "utility/thread_pool.h"
 
+
 namespace minigraph::components {
 
 template <typename GID_T, typename VID_T, typename VDATA_T, typename EDATA_T,
@@ -23,7 +25,7 @@ class LoadComponent : public ComponentBase<GID_T> {
 
  public:
   LoadComponent(
-      utility::EDFThreadPool* thread_pool,
+      const size_t num_workers, utility::EDFThreadPool* thread_pool,
       folly::AtomicHashMap<GID_T, std::atomic<size_t>*>* superstep_by_gid,
       std::atomic<size_t>* global_superstep,
       utility::StateMachine<GID_T>* state_machine,
@@ -37,6 +39,7 @@ class LoadComponent : public ComponentBase<GID_T> {
       std::condition_variable* task_queue_cv)
       : ComponentBase<GID_T>(thread_pool, superstep_by_gid, global_superstep,
                              state_machine) {
+    num_workers_.store(num_workers);
     pt_by_gid_ = pt_by_gid;
     data_mngr_ = data_mngr;
     task_queue_ = task_queue;
@@ -45,29 +48,45 @@ class LoadComponent : public ComponentBase<GID_T> {
     task_queue_lck_ = task_queue_lck;
     read_trigger_cv_ = read_trigger_cv;
     task_queue_cv_ = task_queue_cv;
+
+    executor_mtx_ = std::make_unique<std::mutex>();
+    executor_lck_ =
+        std::make_unique<std::unique_lock<std::mutex>>(*executor_mtx_.get());
+    executor_cv_ = std::make_unique<std::condition_variable>();
     XLOG(INFO, "Init LoadComponent: Finish.");
   }
 
   void Run() override {
     while (this->switch_.load(std::memory_order_relaxed)) {
+      std::vector<GID_T> vec_gid;
       GID_T gid = MINIGRAPH_GID_MAX;
       read_trigger_cv_->wait(*read_trigger_lck_, [&] {
-        return read_trigger_->read(gid) ||
-               !switch_.load(std::memory_order_relaxed) ||
-               read_trigger_->isEmpty();
+        return !this->switch_.load(std::memory_order_relaxed) ||
+               !read_trigger_->isEmpty();
       });
-      read_trigger_cv_->notify_all();
-      // if (this->state_machine_->IsTerminated()) {
-      if (!this->switch_.load(std::memory_order_relaxed)) {
-        return;
-      } else {
-        if (gid == MINIGRAPH_GID_MAX) {
-          std::this_thread::sleep_for(std::chrono::milliseconds(100));
-          continue;
+      if (this->switch_.load()) {
+        while (!read_trigger_->isEmpty()) {
+          while (!read_trigger_->read(gid)) {
+            continue;
+          }
+          vec_gid.push_back(gid);
         }
-        CSRPt& csr_pt = pt_by_gid_->find(gid)->second;
-        this->ProcessGraph(gid, csr_pt, data_mngr_, task_queue_,
-                           this->state_machine_);
+        for (size_t i = 0; i < vec_gid.size(); i++) {
+          gid = vec_gid.at(i);
+          CSRPt& csr_pt = pt_by_gid_->find(gid)->second;
+          executor_cv_->wait(*executor_lck_,
+                             [&] { return this->num_workers_.load() >= 1; });
+          auto task = std::bind(
+              &components::LoadComponent<GID_T, VID_T, VDATA_T, EDATA_T,
+                                         GRAPH_T>::ProcessGraph,
+              this, gid, csr_pt);
+          this->thread_pool_->Commit(task);
+          this->num_workers_.fetch_sub(1);
+          executor_cv_->notify_all();
+        }
+      } else {
+        LOG_INFO("LC exit", task_queue_->isEmpty());
+        return;
       }
     }
   }
@@ -75,6 +94,8 @@ class LoadComponent : public ComponentBase<GID_T> {
   void Stop() override { this->switch_.store(false); }
 
  private:
+  std::atomic<size_t> num_workers_;
+
   folly::ProducerConsumerQueue<GID_T>* read_trigger_;
   folly::ProducerConsumerQueue<GID_T>* task_queue_;
   folly::AtomicHashMap<GID_T, CSRPt>* pt_by_gid_;
@@ -85,20 +106,27 @@ class LoadComponent : public ComponentBase<GID_T> {
   std::condition_variable* read_trigger_cv_;
   std::condition_variable* task_queue_cv_;
 
-  void ProcessGraph(
-      GID_T gid, CSRPt& csr_pt,
-      utility::io::DataMgnr<GID_T, VID_T, VDATA_T, EDATA_T>* data_mngr,
-      folly::ProducerConsumerQueue<GID_T>* task_queue,
-      utility::StateMachine<GID_T>* state_machine) {
-    if (data_mngr->ReadGraph(gid, csr_pt, csr_bin)) {
-      // data_mngr->GetGraph(gid);
-      state_machine->ProcessEvent(gid, LOAD);
+  std::unique_ptr<std::mutex> executor_mtx_;
+  std::unique_ptr<std::unique_lock<std::mutex>> executor_lck_;
+  std::unique_ptr<std::condition_variable> executor_cv_;
+
+  void ProcessGraph(GID_T gid, CSRPt& csr_pt) {
+    if (this->data_mngr_->ReadGraph(gid, csr_pt, csr_bin)) {
+      executor_cv_->wait(*executor_lck_, [&] { return true; });
       task_queue_cv_->wait(*task_queue_lck_,
-                           [&] { return task_queue_->write(gid); });
-      task_queue_cv_->notify_all();
+                           [&] { return !task_queue_->isFull(); });
+      while (!task_queue_->write(gid)) {
+        continue;
+      }
+      task_queue_cv_->notify_one();
+      this->state_machine_->ProcessEvent(gid, LOAD);
     } else {
-      state_machine->ProcessEvent(gid, UNLOAD);
+      this->state_machine_->ProcessEvent(gid, UNLOAD);
+      LOG_ERROR("Read graph fault: ", gid);
     }
+    this->num_workers_.fetch_add(1);
+    executor_cv_->notify_all();
+    read_trigger_cv_->notify_all();
   }
 };
 

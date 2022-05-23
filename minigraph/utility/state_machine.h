@@ -2,16 +2,20 @@
 #ifndef MINIGRAPH_UTILITY_STATE_MACHINE_H_
 #define MINIGRAPH_UTILITY_STATE_MACHINE_H_
 
-#include "portability/sys_types.h"
-#include <boost/sml.hpp>
-#include <folly/AtomicHashMap.h>
 #include <assert.h>
+#include <stdio.h>
+
 #include <iostream>
 #include <map>
 #include <memory>
-#include <stdio.h>
 #include <unordered_map>
 #include <vector>
+
+#include <boost/sml.hpp>
+#include <folly/AtomicHashMap.h>
+
+#include "portability/sys_types.h"
+
 
 namespace minigraph {
 namespace utility {
@@ -205,15 +209,30 @@ class StateMachine {
   }
 
   std::vector<GID_T> EvokeAllX(const char state) {
-    std::vector<GID_T> output;
-    for (auto& iter : graph_state_) {
-      switch (state) {
-        case RT:
-          iter.second->is("RT"_s)                ? output.push_back(iter.first),
-              iter.second->process_event(GoOn{}) : 0;
-      }
+    std::vector<GID_T> out;
+    switch (state) {
+      case RT:
+        for (auto& iter : graph_state_) {
+          if (iter.second->is("RT"_s)) {
+            iter.second->process_event(GoOn{});
+            assert(iter.second->is("Idle"_s));
+            out.push_back(iter.first);
+          }
+        }
+        break;
+      case RC:
+        for (auto& iter : graph_state_) {
+          if (iter.second->is("RC"_s)) {
+            iter.second->process_event(Aggregate{});
+            assert(iter.second->is("Idle"_s));
+            out.push_back(iter.first);
+          }
+        }
+        break;
+      default:
+        break;
     }
-    return output;
+    return out;
   }
 
   void EvokeX(const GID_T gid, const char state) {
@@ -223,7 +242,22 @@ class StateMachine {
     switch (state) {
       case RT:
         iter->second->is("RT"_s) ? iter->second->process_event(GoOn{}) : 0;
+        assert(iter->second->is("Idle"_s));
+        break;
+      case RC:
+        iter->second->is("RC"_s) ? iter->second->process_event(Aggregate{}) : 0;
+        assert(iter->second->is("Idle"_s));
+        break;
     }
+  }
+
+  void ShowAllState() {
+    LOG_INFO("ShowAllState");
+    for (auto& iter : graph_state_) {
+      iter.second->visit_current_states(
+          [](auto state) { std::cout << state.c_str() << std::endl; });
+    }
+      LOG_INFO("--------------");
   }
 
  private:

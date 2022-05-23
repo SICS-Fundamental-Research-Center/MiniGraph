@@ -1,10 +1,6 @@
 #ifndef MINIGRAPH_UTILITY_THREAD_POOL_H_
 #define MINIGRAPH_UTILITY_THREAD_POOL_H_
 
-#include <folly/Function.h>
-#include <folly/executors/CPUThreadPoolExecutor.h>
-#include <folly/executors/EDFThreadPoolExecutor.h>
-#include <folly/executors/IOThreadPoolExecutor.h>
 #include <atomic>
 #include <cstddef>
 #include <functional>
@@ -14,6 +10,12 @@
 #include <queue>
 #include <stdexcept>
 #include <vector>
+
+#include <folly/Function.h>
+#include <folly/executors/CPUThreadPoolExecutor.h>
+#include <folly/executors/EDFThreadPoolExecutor.h>
+#include <folly/executors/IOThreadPoolExecutor.h>
+
 
 namespace minigraph {
 namespace utility {
@@ -110,6 +112,7 @@ class IOThreadPool : virtual public ThreadPool {
 class EDFThreadPool : virtual public ThreadPool {
  public:
   EDFThreadPool(const std::size_t num_threads) : ThreadPool(num_threads) {
+    num_threads_ = num_threads;
     edf_executor_ = std::make_unique<folly::EDFThreadPoolExecutor>(num_threads);
   }
 

@@ -1,18 +1,9 @@
 #ifndef MINIGRAPH_MINIGRAPH_SYS_H
 #define MINIGRAPH_MINIGRAPH_SYS_H
 
-#include "2d_pie/auto_app_base.h"
-#include "2d_pie/edge_map_reduce.h"
-#include "2d_pie/vertex_map_reduce.h"
-#include "components/computing_component.h"
-#include "components/discharge_component.h"
-#include "components/load_component.h"
-#include "utility/io/data_mngr.h"
-#include "utility/paritioner/edge_cut_partitioner.h"
-#include "utility/state_machine.h"
-#include <folly/AtomicHashMap.h>
-#include <condition_variable>
 #include <dirent.h>
+
+#include <condition_variable>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -22,6 +13,19 @@
 #include <string>
 #include <thread>
 #include <vector>
+
+#include <folly/AtomicHashMap.h>
+
+#include "2d_pie/auto_app_base.h"
+#include "2d_pie/edge_map_reduce.h"
+#include "2d_pie/vertex_map_reduce.h"
+#include "components/computing_component.h"
+#include "components/discharge_component.h"
+#include "components/load_component.h"
+#include "utility/io/data_mngr.h"
+#include "utility/paritioner/edge_cut_partitioner.h"
+#include "utility/state_machine.h"
+
 
 namespace fs = std::filesystem;
 
@@ -39,15 +43,14 @@ class MiniGraphSys {
  public:
   MiniGraphSys(const std::string work_space, const size_t num_workers_lc,
                const size_t num_workers_cc, const size_t num_workers_dc,
-               const size_t num_threads,
                AppWrapper<AUTOAPP_T, GID_T, VID_T, VDATA_T, EDATA_T>*
                    app_wrapper = nullptr) {
+    num_threads_ = num_workers_cc + num_workers_dc + num_workers_lc + 10;
     // configure sys.
     LOG_INFO("WorkSpace: ", work_space, " num_workers_lc: ", num_workers_lc,
              ", num_workers_cc: ", num_workers_cc,
              ", num_worker_dc: ", num_workers_dc,
-             ", num_threads: ", num_threads);
-    num_threads_ = num_threads;
+             ", num_threads: ", num_threads_);
     InitWorkList(work_space);
 
     // init Data Manager.
@@ -74,13 +77,12 @@ class MiniGraphSys {
 
     // init read_trigger
     read_trigger_ = std::make_unique<folly::ProducerConsumerQueue<GID_T>>(
-        vec_gid.size() + 10000);
+        vec_gid.size() + 64);
     for (auto& iter : vec_gid) {
       read_trigger_->write(iter);
     }
 
     // init thread pool
-    // thread_pool_ = std::make_unique<utility::EDFThreadPool>(num_threads);
     thread_pool_ = std::make_unique<utility::EDFThreadPool>(num_threads_);
 
     // init state_machine
@@ -88,12 +90,12 @@ class MiniGraphSys {
 
     // init task queue
     task_queue_ = std::make_unique<folly::ProducerConsumerQueue<GID_T>>(
-        vec_gid.size() + 1);
+        vec_gid.size() + 64);
 
     // init partial result queue
     partial_result_queue_ =
         std::make_unique<folly::ProducerConsumerQueue<GID_T>>(vec_gid.size() +
-                                                              1024);
+                                                              64);
 
     // init auto_app.
     app_wrapper_ = std::make_unique<
@@ -130,26 +132,28 @@ class MiniGraphSys {
     // init components
     load_component_ = std::make_unique<
         components::LoadComponent<GID_T, VID_T, VDATA_T, EDATA_T, GRAPH_T>>(
-        thread_pool_.get(), superstep_by_gid_, global_superstep_,
-        state_machine_, read_trigger_.get(), task_queue_.get(), pt_by_gid_,
-        data_mngr_.get(), read_trigger_lck_.get(), task_queue_lck_.get(),
-        read_trigger_cv_.get(), task_queue_cv_.get());
+        num_workers_lc, thread_pool_.get(), superstep_by_gid_,
+        global_superstep_, state_machine_, read_trigger_.get(),
+        task_queue_.get(), pt_by_gid_, data_mngr_.get(),
+        read_trigger_lck_.get(), task_queue_lck_.get(), read_trigger_cv_.get(),
+        task_queue_cv_.get());
     computing_component_ = std::make_unique<components::ComputingComponent<
         GID_T, VID_T, VDATA_T, EDATA_T, GRAPH_T, AUTOAPP_T>>(
-        thread_pool_.get(), superstep_by_gid_, global_superstep_,
-        state_machine_, task_queue_.get(), partial_result_queue_.get(),
-        data_mngr_.get(), app_wrapper_.get(), task_queue_lck_.get(),
-        partial_result_lck_.get(), task_queue_cv_.get(),
+        num_workers_cc, thread_pool_.get(), superstep_by_gid_,
+        global_superstep_, state_machine_, task_queue_.get(),
+        partial_result_queue_.get(), data_mngr_.get(), app_wrapper_.get(),
+        task_queue_lck_.get(), partial_result_lck_.get(), task_queue_cv_.get(),
         partial_result_cv_.get());
     discharge_component_ =
         std::make_unique<components::DischargeComponent<GID_T, VID_T, VDATA_T,
                                                         EDATA_T, GRAPH_T>>(
-            thread_pool_.get(), superstep_by_gid_, global_superstep_,
-            state_machine_, partial_result_queue_.get(), pt_by_gid_,
-            read_trigger_.get(), data_mngr_.get(), partial_result_lck_.get(),
-            read_trigger_lck_.get(), partial_result_cv_.get(),
-            read_trigger_cv_.get(), system_switch_.get(),
-            system_switch_lck_.get(), system_switch_cv_.get());
+            num_workers_dc, thread_pool_.get(), superstep_by_gid_,
+            global_superstep_, state_machine_, partial_result_queue_.get(),
+            pt_by_gid_, read_trigger_.get(), data_mngr_.get(),
+            partial_result_lck_.get(), read_trigger_lck_.get(),
+            partial_result_cv_.get(), read_trigger_cv_.get(),
+            system_switch_.get(), system_switch_lck_.get(),
+            system_switch_cv_.get());
     LOG_INFO("Init MiniGraphSys: Finish.");
   };
 
@@ -160,6 +164,9 @@ class MiniGraphSys {
     load_component_->Stop();
     computing_component_->Stop();
     discharge_component_->Stop();
+    read_trigger_cv_->notify_all();
+    task_queue_cv_->notify_all();
+    partial_result_cv_->notify_all();
     load_component_->~LoadComponent();
     computing_component_->~ComputingComponent();
     discharge_component_->~DischargeComponent();
@@ -171,23 +178,28 @@ class MiniGraphSys {
     auto task_lc = std::bind(&components::LoadComponent<GID_T, VID_T, VDATA_T,
                                                         EDATA_T, GRAPH_T>::Run,
                              load_component_.get());
-    this->thread_pool_->Commit(task_lc);
     auto task_cc = std::bind(
         &components::ComputingComponent<GID_T, VID_T, VDATA_T, EDATA_T, GRAPH_T,
                                         AUTOAPP_T>::Run,
         computing_component_.get());
-    this->thread_pool_->Commit(task_cc);
 
     auto task_dc =
         std::bind(&components::DischargeComponent<GID_T, VID_T, VDATA_T,
                                                   EDATA_T, GRAPH_T>::Run,
                   discharge_component_.get());
+
+    this->thread_pool_->Commit(task_lc);
+    this->thread_pool_->Commit(task_cc);
     this->thread_pool_->Commit(task_dc);
 
+    read_trigger_cv_->notify_all();
+    task_queue_cv_->notify_all();
+    partial_result_cv_->notify_all();
     system_switch_cv_->wait(*system_switch_lck_,
                             [&] { return !system_switch_->load(); });
     this->Stop();
     auto end_time = std::chrono::system_clock::now();
+    data_mngr_->CleanUp();
 
     std::cout << "         #### RUNSYS(): Finish"
               << " Elapse time: "
@@ -196,7 +208,6 @@ class MiniGraphSys {
                          .count() /
                      (double)CLOCKS_PER_SEC
               << " ####      " << std::endl;
-    data_mngr_->CleanUp();
     return true;
   }
 
