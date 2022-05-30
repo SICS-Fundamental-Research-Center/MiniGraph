@@ -1,9 +1,6 @@
 #include "executors/scheduled_executor.h"
-
-#include "utility/logging.h"
-
 #include "executors/cpu_scheduler.h"
-
+#include "utility/logging.h"
 
 namespace minigraph {
 namespace executors {
@@ -31,10 +28,10 @@ void ScheduledExecutor::ThreadPool::StopAndJoin() {
   internal_pool_.join();
 }
 
-ScheduledExecutor::ScheduledExecutor(unsigned int num_threads) :
-    scheduler_(std::make_unique<CPUScheduler>(num_threads)),
-    thread_pool_(num_threads),
-    factory_(scheduler_.get(), &thread_pool_) {
+ScheduledExecutor::ScheduledExecutor(unsigned int num_threads)
+    : scheduler_(std::make_unique<CPUScheduler>(num_threads)),
+      thread_pool_(num_threads),
+      factory_(scheduler_.get(), &thread_pool_) {
   std::lock_guard<std::mutex> grd(map_mtx_);
   throttles_.reserve(128);
 }
@@ -44,6 +41,20 @@ TaskRunner* ScheduledExecutor::RequestTaskRunner(
   std::lock_guard<std::mutex> grd(map_mtx_);
   ThrottlePtr throttle = scheduler_->AllocateNew(
       &factory_, std::forward<Schedulable::Metadata>(metadata));
+  Schedulable::ID_Type id = throttle->id();
+  auto result = throttles_.emplace(throttle->id(), std::move(throttle));
+  if (!result.second) {
+    LOGF_ERROR("TaskRunner creation did not happen, with throttle id: {}.", id);
+    return nullptr;
+  }
+  return result.first->second.get();
+}
+
+TaskRunner* ScheduledExecutor::RequestTaskRunner(
+    Schedulable::Metadata&& metadata, const size_t init_parallelism) {
+  std::lock_guard<std::mutex> grd(map_mtx_);
+  ThrottlePtr throttle = scheduler_->AllocateNew(
+      &factory_, std::forward<Schedulable::Metadata>(metadata), init_parallelism);
   Schedulable::ID_Type id = throttle->id();
   auto result = throttles_.emplace(throttle->id(), std::move(throttle));
   if (!result.second) {
@@ -65,9 +76,7 @@ void ScheduledExecutor::RecycleTaskRunner(TaskRunner* runner) {
   // throttle will destruct here, and get removed from Scheduler automatically.
 }
 
-void ScheduledExecutor::Stop() {
-  thread_pool_.StopAndJoin();
-}
+void ScheduledExecutor::Stop() { thread_pool_.StopAndJoin(); }
 
 }  // namespace executors
 }  // namespace minigraph

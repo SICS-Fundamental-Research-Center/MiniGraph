@@ -64,6 +64,10 @@ class ScheduledExecutor {
   // the client can submit tasks via the returned TaskRunner.
   TaskRunner* RequestTaskRunner(Schedulable::Metadata&& metadata);
 
+  // A function overloading to create a Trrottle instance on the basis of given
+  // init_parallelism
+  TaskRunner* RequestTaskRunner(Schedulable::Metadata&& metadata, const size_t init_parallelism);
+
   // Release and recycle the previously requested Throttle. Called after
   // all tasks are done with the Throttle.
   void RecycleTaskRunner(TaskRunner* runner);

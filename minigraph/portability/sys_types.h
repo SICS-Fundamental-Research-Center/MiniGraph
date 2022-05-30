@@ -25,6 +25,7 @@ using edata_t = size_t;
 #define NOTHINGCHANGED 'N'
 #define CHANGED 'C'
 #define AGGREGATE 'A'
+#define SHORTCUT 'S'
 #define FIXPOINT 'F'
 #define GOON 'G'
 
@@ -32,6 +33,7 @@ using edata_t = size_t;
 #define IDLE 'I'
 #define ACTIVE 'A'
 #define RT 'R'
+#define RTS 'S'
 #define RC 'C'
 #define TERMINATE 'X'
 

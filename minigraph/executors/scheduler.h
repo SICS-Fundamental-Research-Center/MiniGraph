@@ -33,6 +33,10 @@ class Scheduler {
       const SchedulableFactory<Schedulable_T>* factory,
       Schedulable::Metadata&& metadata) = 0;
 
+  virtual std::unique_ptr<Schedulable_T> AllocateNew(
+      const SchedulableFactory<Schedulable_T>* factory,
+      Schedulable::Metadata&& metadata, const size_t init_parallelism) = 0;
+
   // Call to release one allocated thread in recycler to Scheduler.
   virtual void RecycleOneThread(Schedulable_T* recycler) = 0;
 
@@ -40,6 +44,8 @@ class Scheduler {
   virtual void RecycleAllThreads(Schedulable_T* recycler) = 0;
 
  protected:
+  Schedulable::Metadata metadata_;
+
   // Allow external call to Remove() via Schedulable_T's destructor only.
   friend Schedulable_T::~Schedulable_T();
   // Interface for removing a previously created Schedulable instance.

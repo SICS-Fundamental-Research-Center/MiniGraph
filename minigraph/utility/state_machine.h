@@ -3,11 +3,10 @@
 #define MINIGRAPH_UTILITY_STATE_MACHINE_H_
 
 #include <assert.h>
-#include <stdio.h>
-
 #include <iostream>
 #include <map>
 #include <memory>
+#include <stdio.h>
 #include <unordered_map>
 #include <vector>
 
@@ -30,6 +29,7 @@ struct NothingChanged {};
 struct Changed {};
 struct Aggregate {};
 struct Fixpoint {};
+struct Shortcut {};
 struct GoOn {};
 
 // Define State Machine for each single graph.
@@ -41,13 +41,15 @@ struct GraphStateMachine {
     front::event<NothingChanged> event_nothing_changed;
     front::event<Changed> event_changed;
     front::event<Aggregate> event_aggregate;
+    front::event<Shortcut> event_shortcut;
     front::event<Fixpoint> event_fix_point;
     front::event<GoOn> event_go_on;
     return make_transition_table(
         *"Idle"_s + event_load = "Active"_s, "Idle"_s + event_unload = "Idle"_s,
         "Active"_s + event_nothing_changed = "RT"_s,
         "Active"_s + event_changed = "RC"_s,
-        "RC"_s + event_aggregate = "Idle"_s, "RT"_s + event_go_on = "Idle"_s,
+        "RC"_s + event_aggregate = "Idle"_s, "RC"_s + event_shortcut = "RTS"_s,
+        "RT"_s + event_go_on = "Idle"_s, "RTS"_s + event_go_on = "Idle"_s,
         "RT"_s + event_fix_point = X);
   }
 };
@@ -101,7 +103,7 @@ class StateMachine {
 
   bool GraphIs(const GID_T& gid, const char& state) const {
     assert(state == IDLE || state == ACTIVE || state == RT || state == RC ||
-           state == TERMINATE);
+           state == TERMINATE || state == RTS);
     auto iter = graph_state_.find(gid);
     using namespace sml;
     if (iter != graph_state_.end()) {
@@ -112,6 +114,8 @@ class StateMachine {
           return iter->second->is("Active"_s);
         case RT:
           return iter->second->is("RT"_s);
+        case RTS:
+          return iter->second->is("RTS"_s);
         case RC:
           return iter->second->is("RC"_s);
         case TERMINATE:
@@ -128,6 +132,7 @@ class StateMachine {
     unsigned count = 0;
     for (auto& iter : graph_state_) {
       iter.second->is("RT"_s) ? ++count : 0;
+      iter.second->is("RTS"_s) ? ++count : 0;
     }
     if (count < graph_state_.size()) {
       return false;
@@ -151,6 +156,9 @@ class StateMachine {
         case RT:
           if (iter.second->is("RT"_s)) gid = iter.first;
           break;
+        case RTS:
+          if (iter.second->is("RTS"_s)) gid = iter.first;
+          break;
         case RC:
           if (iter.second->is("RC"_s)) gid = iter.first;
           break;
@@ -168,7 +176,7 @@ class StateMachine {
     using namespace sml;
     assert(event == LOAD || event == UNLOAD || event == NOTHINGCHANGED ||
            event == CHANGED || event == AGGREGATE || event == FIXPOINT ||
-           event == GOON);
+           event == GOON || event == SHORTCUT);
     auto iter = graph_state_.find(gid);
     if (iter != graph_state_.end()) {
       switch (event) {
@@ -187,6 +195,10 @@ class StateMachine {
         case CHANGED:
           iter->second->process_event(Changed{});
           assert(iter->second->is("RC"_s));
+          break;
+        case SHORTCUT:
+          iter->second->process_event(Shortcut{});
+          assert(iter->second->is("RTS"_s));
           break;
         case AGGREGATE:
           iter->second->process_event(Aggregate{});
@@ -229,6 +241,15 @@ class StateMachine {
           }
         }
         break;
+      case RTS:
+        for (auto& iter : graph_state_) {
+          if (iter.second->is("RTS"_s)) {
+            iter.second->process_event(GoOn{});
+            assert(iter.second->is("Idle"_s));
+            out.push_back(iter.first);
+          }
+        }
+        break;
       default:
         break;
     }
@@ -248,6 +269,10 @@ class StateMachine {
         iter->second->is("RC"_s) ? iter->second->process_event(Aggregate{}) : 0;
         assert(iter->second->is("Idle"_s));
         break;
+      case RTS:
+        iter->second->is("RTS"_s) ? iter->second->process_event(GoOn{}) : 0;
+        assert(iter->second->is("Idle"_s));
+        break;
     }
   }
 
@@ -257,7 +282,7 @@ class StateMachine {
       iter.second->visit_current_states(
           [](auto state) { std::cout << state.c_str() << std::endl; });
     }
-      LOG_INFO("--------------");
+    LOG_INFO("--------------");
   }
 
  private:

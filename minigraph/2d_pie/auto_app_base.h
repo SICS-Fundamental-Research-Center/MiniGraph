@@ -63,13 +63,21 @@ class AutoAppBase {
   virtual bool MsgAggr(std::unordered_map<typename GRAPH_T::vid_t, VertexInfo*>*
                            partial_border_vertexes_info) = 0;
 
-  void Bind(
-      folly::AtomicHashMap<typename GRAPH_T::vid_t, VertexInfo*>*
-          global_border_vertexes_info,
-      folly::AtomicHashMap<typename GRAPH_T::vid_t, typename GRAPH_T::gid_t>*
-          global_border_vertexes) {
+  void Bind(std::unordered_map<typename GRAPH_T::vid_t,
+                               std::vector<typename GRAPH_T::gid_t>*>*
+                global_border_vertexes,
+            std::unordered_map<typename GRAPH_T::vid_t, VertexInfo*>*
+                global_border_vertexes_info,
+            std::unordered_map<typename GRAPH_T::vid_t,
+                               VertexDependencies<typename GRAPH_T::vid_t,
+                                                  typename GRAPH_T::gid_t>*>*
+                global_border_vertexes_with_dependencies,
+            bool* communication_matrix) {
     global_border_vertexes_info_ = global_border_vertexes_info;
     global_border_vertexes_ = global_border_vertexes;
+    global_border_vertexes_with_dependencies_ =
+        global_border_vertexes_with_dependencies;
+    communication_matrix_ = communication_matrix;
   }
 
   EMap_T* emap_ = nullptr;
@@ -81,6 +89,11 @@ class AutoAppBase {
   std::unordered_map<typename GRAPH_T::vid_t,
                      std::vector<typename GRAPH_T::gid_t>*>*
       global_border_vertexes_ = nullptr;
+  std::unordered_map<
+      typename GRAPH_T::vid_t,
+      VertexDependencies<typename GRAPH_T::vid_t, typename GRAPH_T::gid_t>*>*
+      global_border_vertexes_with_dependencies_ = nullptr;
+  bool* communication_matrix_ = nullptr;
 
  protected:
   bool GetPartialBorderResult(GRAPH_T& graph, bool* visited,

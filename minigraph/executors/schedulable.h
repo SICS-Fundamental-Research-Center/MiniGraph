@@ -18,7 +18,9 @@ class Schedulable {
 
   // Metadata information for effective scheduling.
   struct Metadata {
-    int priority;
+    unsigned priority = 1;
+    unsigned parallelism = 1;
+
     //TODO: add more fields to allow scheduler to do some strategic work.
   };
 

@@ -20,9 +20,12 @@ namespace components {
 
 static const auto kTotalParallelism = std::thread::hardware_concurrency();
 
-template <typename GID_T, typename VID_T, typename VDATA_T, typename EDATA_T,
-          typename GRAPH_T, typename AUTOAPP_T>
-class ComputingComponent : public ComponentBase<GID_T> {
+template <typename GRAPH_T, typename AUTOAPP_T>
+class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
+  using GID_T = typename GRAPH_T::gid_t;
+  using VID_T = typename GRAPH_T::vid_t;
+  using VDATA_T = typename GRAPH_T::vdata_t;
+  using EDATA_T = typename GRAPH_T::edata_t;
   using GRAPH_BASE_T = graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>;
   using APP_WARP = AppWrapper<AUTOAPP_T, GID_T, VID_T, VDATA_T, EDATA_T>;
   using VertexInfo =
@@ -39,7 +42,7 @@ class ComputingComponent : public ComponentBase<GID_T> {
       utility::StateMachine<GID_T>* state_machine,
       folly::ProducerConsumerQueue<GID_T>* task_queue,
       folly::ProducerConsumerQueue<GID_T>* partial_result_queue,
-      utility::io::DataMgnr<GID_T, VID_T, VDATA_T, EDATA_T>* data_mngr,
+      utility::io::DataMngr<GID_T, VID_T, VDATA_T, EDATA_T>* data_mngr,
       AppWrapper<AUTOAPP_T, GID_T, VID_T, VDATA_T, EDATA_T>* app_wrapper,
       std::unique_lock<std::mutex>* task_queue_lck,
       std::unique_lock<std::mutex>* partial_result_lck,
@@ -93,8 +96,7 @@ class ComputingComponent : public ComponentBase<GID_T> {
           executor_cv_->wait(*executor_lck_,
                              [&] { return this->num_workers_.load() >= 1; });
           auto task = std::bind(
-              &components::ComputingComponent<GID_T, VID_T, VDATA_T, EDATA_T,
-                                              GRAPH_T, AUTOAPP_T>::ProcessGraph,
+              &components::ComputingComponent<GRAPH_T, AUTOAPP_T>::ProcessGraph,
               this, gid);
           this->num_workers_.fetch_sub(1);
           this->thread_pool_->Commit(task);
@@ -118,7 +120,7 @@ class ComputingComponent : public ComponentBase<GID_T> {
   folly::ProducerConsumerQueue<GID_T>* partial_result_queue_;
 
   // data manager.
-  utility::io::DataMgnr<GID_T, VID_T, VDATA_T, EDATA_T>* data_mngr_ = nullptr;
+  utility::io::DataMngr<GID_T, VID_T, VDATA_T, EDATA_T>* data_mngr_ = nullptr;
 
   // 2D-PIE app wrapper.
   APP_WARP* app_wrapper_ = nullptr;
@@ -137,8 +139,7 @@ class ComputingComponent : public ComponentBase<GID_T> {
   void ProcessGraph(const GID_T& gid) {
     GRAPH_T* graph = (GRAPH_T*)data_mngr_->GetGraph(gid);
     executors::TaskRunner* task_runner =
-        scheduled_executor_->RequestTaskRunner({1, kTotalParallelism});
-
+        scheduled_executor_->RequestTaskRunner({1, kTotalParallelism}, 1);
     PARTIAL_RESULT_T* partial_result = new PARTIAL_RESULT_T;
     if (this->get_superstep_via_gid(gid) == 0) {
       app_wrapper_->auto_app_->PEval(*graph, partial_result, task_runner)
@@ -152,11 +153,12 @@ class ComputingComponent : public ComponentBase<GID_T> {
     partial_result_cv_->wait(*partial_result_lck_,
                              [&] { return !partial_result_queue_->isFull(); });
     scheduled_executor_->RecycleTaskRunner(task_runner);
+    this->add_superstep_via_gid(gid);
+    this->num_workers_.fetch_add(1);
+    this->state_machine_->ShowGraphState(gid);
     while (!partial_result_queue_->write(gid)) {
       continue;
     }
-    this->add_superstep_via_gid(gid);
-    this->num_workers_.fetch_add(1);
     delete partial_result;
     partial_result_cv_->notify_all();
     executor_cv_->notify_all();

@@ -29,6 +29,11 @@ class CPUScheduler final : public Scheduler<Throttle> {
       const SchedulableFactory<Throttle>* factory,
       Schedulable::Metadata&& metadata) override;
 
+  // Create a new Throttle and allocate user specific threads to it.
+  std::unique_ptr<Throttle> AllocateNew(
+      const SchedulableFactory<Throttle>* factory,
+      Schedulable::Metadata&& metadata, const size_t init_parallelism) override;
+
   // Recycle one thread from `recycler`, and allocated it to the next Throttle
   // waiting for more threads.
   void RecycleOneThread(Throttle* recycler) override;

@@ -14,8 +14,6 @@
 #include <thread>
 #include <vector>
 
-#include <folly/AtomicHashMap.h>
-
 #include "2d_pie/auto_app_base.h"
 #include "2d_pie/edge_map_reduce.h"
 #include "2d_pie/vertex_map_reduce.h"
@@ -25,9 +23,8 @@
 #include "utility/io/data_mngr.h"
 #include "utility/paritioner/edge_cut_partitioner.h"
 #include "utility/state_machine.h"
+#include <folly/AtomicHashMap.h>
 
-
-namespace fs = std::filesystem;
 
 namespace minigraph {
 
@@ -45,7 +42,7 @@ class MiniGraphSys {
                const size_t num_workers_cc, const size_t num_workers_dc,
                AppWrapper<AUTOAPP_T, GID_T, VID_T, VDATA_T, EDATA_T>*
                    app_wrapper = nullptr) {
-    num_threads_ = num_workers_cc + num_workers_dc + num_workers_lc + 10;
+    num_threads_ = num_workers_cc + num_workers_dc + num_workers_lc + 1;
     // configure sys.
     LOG_INFO("WorkSpace: ", work_space, " num_workers_lc: ", num_workers_lc,
              ", num_workers_cc: ", num_workers_cc,
@@ -55,10 +52,7 @@ class MiniGraphSys {
 
     // init Data Manager.
     data_mngr_ = std::make_unique<
-        utility::io::DataMgnr<GID_T, VID_T, VDATA_T, EDATA_T>>();
-
-    data_mngr_->global_border_vertexes_.reset(data_mngr_->ReadBorderVertexes(
-        work_space + "/border_vertexes/global.bv"));
+        utility::io::DataMngr<GID_T, VID_T, VDATA_T, EDATA_T>>();
 
     pt_by_gid_ = new folly::AtomicHashMap<GID_T, CSRPt>(64);
     InitPtByGid(work_space);
@@ -82,12 +76,6 @@ class MiniGraphSys {
       read_trigger_->write(iter);
     }
 
-    // init thread pool
-    thread_pool_ = std::make_unique<utility::EDFThreadPool>(num_threads_);
-
-    // init state_machine
-    state_machine_ = new utility::StateMachine<GID_T>(vec_gid);
-
     // init task queue
     task_queue_ = std::make_unique<folly::ProducerConsumerQueue<GID_T>>(
         vec_gid.size() + 64);
@@ -97,15 +85,28 @@ class MiniGraphSys {
         std::make_unique<folly::ProducerConsumerQueue<GID_T>>(vec_gid.size() +
                                                               64);
 
+    // init thread pool
+    thread_pool_ = std::make_unique<utility::EDFThreadPool>(num_threads_);
+
+    // init state_machine
+    state_machine_ = new utility::StateMachine<GID_T>(vec_gid);
+
+    // Read BorderVertexes, Communication Matrix, Graphs Dependencies.
+    auto global_border_vertexes = data_mngr_->ReadBorderVertexes(
+        work_space + "/border_vertexes/global.bv");
+    auto communication_matrix = data_mngr_->ReadCommunicationMatrix(
+        work_space + "border_vertexes/communication_matrix.bin");
+    auto global_border_vertexes_with_dependencies =
+        data_mngr_->ReadGraphDependencies(
+            work_space + "border_vertexes/graph_dependencies.bin");
+
     // init auto_app.
     app_wrapper_ = std::make_unique<
         AppWrapper<AUTOAPP_T, GID_T, VID_T, VDATA_T, EDATA_T>>();
     app_wrapper_.reset(app_wrapper);
-    if (data_mngr_->global_border_vertexes_ != nullptr) {
-      app_wrapper_->InitBorderVertexes(
-          data_mngr_->global_border_vertexes_.get(),
-          data_mngr_->global_border_vertexes_info_.get());
-    }
+    app_wrapper_->InitBorderVertexes(
+        global_border_vertexes, new std::unordered_map<VID_T, VertexInfo*>,
+        global_border_vertexes_with_dependencies, communication_matrix);
 
     // init mutex, lck and cv
     read_trigger_mtx_ = std::make_unique<std::mutex>();
@@ -130,30 +131,28 @@ class MiniGraphSys {
     system_switch_cv_ = std::make_unique<std::condition_variable>();
 
     // init components
-    load_component_ = std::make_unique<
-        components::LoadComponent<GID_T, VID_T, VDATA_T, EDATA_T, GRAPH_T>>(
+    load_component_ = std::make_unique<components::LoadComponent<GRAPH_T>>(
         num_workers_lc, thread_pool_.get(), superstep_by_gid_,
         global_superstep_, state_machine_, read_trigger_.get(),
         task_queue_.get(), pt_by_gid_, data_mngr_.get(),
         read_trigger_lck_.get(), task_queue_lck_.get(), read_trigger_cv_.get(),
         task_queue_cv_.get());
-    computing_component_ = std::make_unique<components::ComputingComponent<
-        GID_T, VID_T, VDATA_T, EDATA_T, GRAPH_T, AUTOAPP_T>>(
-        num_workers_cc, thread_pool_.get(), superstep_by_gid_,
-        global_superstep_, state_machine_, task_queue_.get(),
-        partial_result_queue_.get(), data_mngr_.get(), app_wrapper_.get(),
-        task_queue_lck_.get(), partial_result_lck_.get(), task_queue_cv_.get(),
-        partial_result_cv_.get());
+    computing_component_ =
+        std::make_unique<components::ComputingComponent<GRAPH_T, AUTOAPP_T>>(
+            num_workers_cc, thread_pool_.get(), superstep_by_gid_,
+            global_superstep_, state_machine_, task_queue_.get(),
+            partial_result_queue_.get(), data_mngr_.get(), app_wrapper_.get(),
+            task_queue_lck_.get(), partial_result_lck_.get(),
+            task_queue_cv_.get(), partial_result_cv_.get());
     discharge_component_ =
-        std::make_unique<components::DischargeComponent<GID_T, VID_T, VDATA_T,
-                                                        EDATA_T, GRAPH_T>>(
+        std::make_unique<components::DischargeComponent<GRAPH_T>>(
             num_workers_dc, thread_pool_.get(), superstep_by_gid_,
             global_superstep_, state_machine_, partial_result_queue_.get(),
             pt_by_gid_, read_trigger_.get(), data_mngr_.get(),
             partial_result_lck_.get(), read_trigger_lck_.get(),
             partial_result_cv_.get(), read_trigger_cv_.get(),
             system_switch_.get(), system_switch_lck_.get(),
-            system_switch_cv_.get());
+            system_switch_cv_.get(), communication_matrix);
     LOG_INFO("Init MiniGraphSys: Finish.");
   };
 
@@ -175,18 +174,14 @@ class MiniGraphSys {
   bool RunSys() {
     LOG_INFO("RunSys()");
     auto start_time = std::chrono::system_clock::now();
-    auto task_lc = std::bind(&components::LoadComponent<GID_T, VID_T, VDATA_T,
-                                                        EDATA_T, GRAPH_T>::Run,
+    auto task_lc = std::bind(&components::LoadComponent<GRAPH_T>::Run,
                              load_component_.get());
-    auto task_cc = std::bind(
-        &components::ComputingComponent<GID_T, VID_T, VDATA_T, EDATA_T, GRAPH_T,
-                                        AUTOAPP_T>::Run,
-        computing_component_.get());
+    auto task_cc =
+        std::bind(&components::ComputingComponent<GRAPH_T, AUTOAPP_T>::Run,
+                  computing_component_.get());
 
-    auto task_dc =
-        std::bind(&components::DischargeComponent<GID_T, VID_T, VDATA_T,
-                                                  EDATA_T, GRAPH_T>::Run,
-                  discharge_component_.get());
+    auto task_dc = std::bind(&components::DischargeComponent<GRAPH_T>::Run,
+                             discharge_component_.get());
 
     this->thread_pool_->Commit(task_lc);
     this->thread_pool_->Commit(task_cc);
@@ -227,11 +222,6 @@ class MiniGraphSys {
   // files by gid.
   folly::AtomicHashMap<GID_T, CSRPt>* pt_by_gid_ = nullptr;
 
-  // partitioner
-  std::unique_ptr<minigraph::utility::partitioner::EdgeCutPartitioner<
-      GID_T, VID_T, VDATA_T, EDATA_T>>
-      edge_cut_partitioner_ = nullptr;
-
   // thread pool.
   size_t num_threads_ = 0;
   std::unique_ptr<utility::EDFThreadPool> thread_pool_ = nullptr;
@@ -255,18 +245,14 @@ class MiniGraphSys {
       nullptr;
 
   // components.
-  std::unique_ptr<
-      components::LoadComponent<GID_T, VID_T, VDATA_T, EDATA_T, GRAPH_T>>
-      load_component_ = nullptr;
-  std::unique_ptr<components::ComputingComponent<GID_T, VID_T, VDATA_T, EDATA_T,
-                                                 GRAPH_T, AUTOAPP_T>>
+  std::unique_ptr<components::LoadComponent<GRAPH_T>> load_component_ = nullptr;
+  std::unique_ptr<components::ComputingComponent<GRAPH_T, AUTOAPP_T>>
       computing_component_ = nullptr;
-  std::unique_ptr<
-      components::DischargeComponent<GID_T, VID_T, VDATA_T, EDATA_T, GRAPH_T>>
+  std::unique_ptr<components::DischargeComponent<GRAPH_T>>
       discharge_component_ = nullptr;
 
   // data manager
-  std::unique_ptr<utility::io::DataMgnr<GID_T, VID_T, VDATA_T, EDATA_T>>
+  std::unique_ptr<utility::io::DataMngr<GID_T, VID_T, VDATA_T, EDATA_T>>
       data_mngr_ = nullptr;
 
   // App wrapper

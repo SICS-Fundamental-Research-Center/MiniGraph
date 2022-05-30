@@ -17,9 +17,12 @@
 
 namespace minigraph::components {
 
-template <typename GID_T, typename VID_T, typename VDATA_T, typename EDATA_T,
-          typename GRAPH_T>
-class LoadComponent : public ComponentBase<GID_T> {
+template <typename GRAPH_T>
+class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
+  using GID_T = typename GRAPH_T::gid_t;
+  using VID_T = typename GRAPH_T::vid_t;
+  using VDATA_T = typename GRAPH_T::vdata_t;
+  using EDATA_T = typename GRAPH_T::edata_t;
   using GRAPH_BASE_T = graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>;
   using CSR_T = graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>;
 
@@ -32,7 +35,7 @@ class LoadComponent : public ComponentBase<GID_T> {
       folly::ProducerConsumerQueue<GID_T>* read_trigger,
       folly::ProducerConsumerQueue<GID_T>* task_queue,
       folly::AtomicHashMap<GID_T, CSRPt>* pt_by_gid,
-      utility::io::DataMgnr<GID_T, VID_T, VDATA_T, EDATA_T>* data_mngr,
+      utility::io::DataMngr<GID_T, VID_T, VDATA_T, EDATA_T>* data_mngr,
       std::unique_lock<std::mutex>* read_trigger_lck,
       std::unique_lock<std::mutex>* task_queue_lck,
       std::condition_variable* read_trigger_cv,
@@ -76,10 +79,9 @@ class LoadComponent : public ComponentBase<GID_T> {
           CSRPt& csr_pt = pt_by_gid_->find(gid)->second;
           executor_cv_->wait(*executor_lck_,
                              [&] { return this->num_workers_.load() >= 1; });
-          auto task = std::bind(
-              &components::LoadComponent<GID_T, VID_T, VDATA_T, EDATA_T,
-                                         GRAPH_T>::ProcessGraph,
-              this, gid, csr_pt);
+          auto task =
+              std::bind(&components::LoadComponent<GRAPH_T>::ProcessGraph, this,
+                        gid, csr_pt);
           this->thread_pool_->Commit(task);
           this->num_workers_.fetch_sub(1);
           executor_cv_->notify_all();
@@ -99,7 +101,7 @@ class LoadComponent : public ComponentBase<GID_T> {
   folly::ProducerConsumerQueue<GID_T>* read_trigger_;
   folly::ProducerConsumerQueue<GID_T>* task_queue_;
   folly::AtomicHashMap<GID_T, CSRPt>* pt_by_gid_;
-  utility::io::DataMgnr<GID_T, VID_T, VDATA_T, EDATA_T>* data_mngr_ = nullptr;
+  utility::io::DataMngr<GID_T, VID_T, VDATA_T, EDATA_T>* data_mngr_ = nullptr;
   std::atomic<bool> switch_ = true;
   std::unique_lock<std::mutex>* read_trigger_lck_;
   std::unique_lock<std::mutex>* task_queue_lck_;
