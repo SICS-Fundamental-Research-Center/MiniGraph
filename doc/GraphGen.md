@@ -10,6 +10,11 @@ b and c are the cross links between a and b.
 It may have duplicate edges, but the generator only keep one of them.
 ```shell
 $cd bin
-$./graph_gen_exec -a [probability] -b [probability] -c [probability] -d [probability] -o [output file] -power [power of 2] -edges [the count of edges]
+$./graphgen_exec -a [probability] -b [probability] -c [probability] -d [probability] -o [output file] -power [power of 2] -edges [the count of edges]
+```
+or
+```shell
+$cd bin
+$./graphgen_exec -x [probability] -y [probability] -o [output file] -power [power of 2] -edges [the count of edges]
 ```
 
