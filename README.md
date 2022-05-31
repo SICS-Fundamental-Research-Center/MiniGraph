@@ -26,12 +26,12 @@ $make
 ## Partition input.
 ```shell
 $cd bin
-$./preprocess_exec  -p -n 1 -i [input in csv format] -o [output path]
+$./preprocess_exec  -p -n [the number of fragments] -i [input in csv format] -o [output path]
 ```
 
 ## Executing BFS
 
 ```shell
 $cd bin
-$./bfs_exec -i [workspace] -lc [The number of LoadComponent] -cc [The number of ComputingComponent] -dc [The number of DischargeComponent]
+$./bfs_exec -i [workspace] -lc [The number of LoadComponent] -cc [The number of ComputingComponent] -dc [The number of DischargeComponent] -cores [total parallism]
 ```
