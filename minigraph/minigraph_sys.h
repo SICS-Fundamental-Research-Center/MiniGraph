@@ -14,6 +14,8 @@
 #include <thread>
 #include <vector>
 
+#include <folly/AtomicHashMap.h>
+
 #include "2d_pie/auto_app_base.h"
 #include "2d_pie/edge_map_reduce.h"
 #include "2d_pie/vertex_map_reduce.h"
@@ -23,7 +25,6 @@
 #include "utility/io/data_mngr.h"
 #include "utility/paritioner/edge_cut_partitioner.h"
 #include "utility/state_machine.h"
-#include <folly/AtomicHashMap.h>
 
 
 namespace minigraph {
@@ -40,8 +41,11 @@ class MiniGraphSys {
  public:
   MiniGraphSys(const std::string work_space, const size_t num_workers_lc,
                const size_t num_workers_cc, const size_t num_workers_dc,
+               const size_t num_cores,
                AppWrapper<AUTOAPP_T, GID_T, VID_T, VDATA_T, EDATA_T>*
                    app_wrapper = nullptr) {
+    assert(num_workers_dc > 0 && num_workers_cc > 0 && num_workers_dc > 0 &&
+           num_cores / num_workers_cc >= 1);
     num_threads_ = num_workers_cc + num_workers_dc + num_workers_lc + 1;
     // configure sys.
     LOG_INFO("WorkSpace: ", work_space, " num_workers_lc: ", num_workers_lc,
@@ -139,11 +143,12 @@ class MiniGraphSys {
         task_queue_cv_.get());
     computing_component_ =
         std::make_unique<components::ComputingComponent<GRAPH_T, AUTOAPP_T>>(
-            num_workers_cc, thread_pool_.get(), superstep_by_gid_,
-            global_superstep_, state_machine_, task_queue_.get(),
-            partial_result_queue_.get(), data_mngr_.get(), app_wrapper_.get(),
-            task_queue_lck_.get(), partial_result_lck_.get(),
-            task_queue_cv_.get(), partial_result_cv_.get());
+            num_workers_cc, num_cores / num_workers_lc, thread_pool_.get(),
+            superstep_by_gid_, global_superstep_, state_machine_,
+            task_queue_.get(), partial_result_queue_.get(), data_mngr_.get(),
+            app_wrapper_.get(), task_queue_lck_.get(),
+            partial_result_lck_.get(), task_queue_cv_.get(),
+            partial_result_cv_.get());
     discharge_component_ =
         std::make_unique<components::DischargeComponent<GRAPH_T>>(
             num_workers_dc, thread_pool_.get(), superstep_by_gid_,

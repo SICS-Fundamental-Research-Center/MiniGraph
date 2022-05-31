@@ -14,7 +14,6 @@
 #include "utility/io/data_mngr.h"
 #include "utility/thread_pool.h"
 
-
 namespace minigraph {
 namespace components {
 
@@ -36,7 +35,8 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
 
  public:
   ComputingComponent(
-      const size_t num_workers, utility::EDFThreadPool* thread_pool,
+      const size_t num_workers, const size_t num_cores_per_worker,
+      utility::EDFThreadPool* thread_pool,
       folly::AtomicHashMap<GID_T, std::atomic<size_t>*>* superstep_by_gid,
       std::atomic<size_t>* global_superstep,
       utility::StateMachine<GID_T>* state_machine,
@@ -53,6 +53,7 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       : ComponentBase<GID_T>(thread_pool, superstep_by_gid, global_superstep,
                              state_machine) {
     num_workers_.store(num_workers);
+    num_cores_per_worker_ = num_cores_per_worker;
     data_mngr_ = data_mngr;
     task_queue_ = task_queue;
     partial_result_queue_ = partial_result_queue;
@@ -112,6 +113,7 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
 
  private:
   std::atomic<size_t> num_workers_;
+  size_t num_cores_per_worker_ = 0;
   std::atomic<bool> switch_ = true;
 
   // task_queue.
@@ -138,8 +140,8 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
 
   void ProcessGraph(const GID_T& gid) {
     GRAPH_T* graph = (GRAPH_T*)data_mngr_->GetGraph(gid);
-    executors::TaskRunner* task_runner =
-        scheduled_executor_->RequestTaskRunner({1, kTotalParallelism}, 1);
+    executors::TaskRunner* task_runner = scheduled_executor_->RequestTaskRunner(
+        {num_cores_per_worker_, kTotalParallelism}, num_cores_per_worker_);
     PARTIAL_RESULT_T* partial_result = new PARTIAL_RESULT_T;
     if (this->get_superstep_via_gid(gid) == 0) {
       app_wrapper_->auto_app_->PEval(*graph, partial_result, task_runner)

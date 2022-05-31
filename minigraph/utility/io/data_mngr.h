@@ -1,10 +1,13 @@
 #ifndef MINIGRAPH_DATA_MNGR_H
 #define MINIGRAPH_DATA_MNGR_H
 
+#include <memory>
+
+#include <folly/AtomicHashMap.h>
+
 #include "utility/io/csr_io_adapter.h"
 #include "utility/io/edge_list_io_adapter.h"
-#include <folly/AtomicHashMap.h>
-#include <memory>
+
 
 namespace minigraph {
 namespace utility {
@@ -224,9 +227,9 @@ class DataMngr {
     free(who_provide);
     free(who_need);
     graph_dependencies_file.close();
-    for (auto& iter : *global_border_vertexes_with_dependencies) {
-      iter.second->ShowVertexDependencies();
-    }
+    //for (auto& iter : *global_border_vertexes_with_dependencies) {
+    //  iter.second->ShowVertexDependencies();
+    //}
     return global_border_vertexes_with_dependencies;
   }
 
