@@ -8,54 +8,43 @@
 #include "portability/sys_types.h"
 #include "utility/logging.h"
 #include <folly/concurrency/DynamicBoundedQueue.h>
-#include <condition_variable>
 
 template <typename GRAPH_T, typename CONTEXT_T>
-class SSSPVMap : public minigraph::VMapBase<GRAPH_T, CONTEXT_T> {
+class BFSVMap : public minigraph::VMapBase<GRAPH_T, CONTEXT_T> {
   using VertexInfo = minigraph::graphs::VertexInfo<typename GRAPH_T::vid_t,
                                                    typename GRAPH_T::vdata_t,
                                                    typename GRAPH_T::edata_t>;
 
  public:
-  SSSPVMap(const CONTEXT_T& context)
+  BFSVMap(const CONTEXT_T& context)
       : minigraph::VMapBase<GRAPH_T, CONTEXT_T>(context) {}
   bool C(const VertexInfo& u) override { return false; }
   bool F(VertexInfo& u, GRAPH_T* graph = nullptr) override { return false; }
 };
 
 template <typename GRAPH_T, typename CONTEXT_T>
-class SSSPEMap : public minigraph::EMapBase<GRAPH_T, CONTEXT_T> {
+class BFSEMap : public minigraph::EMapBase<GRAPH_T, CONTEXT_T> {
   using VertexInfo = minigraph::graphs::VertexInfo<typename GRAPH_T::vid_t,
                                                    typename GRAPH_T::vdata_t,
                                                    typename GRAPH_T::edata_t>;
 
  public:
-  SSSPEMap(const CONTEXT_T& context)
+  BFSEMap(const CONTEXT_T& context)
       : minigraph::EMapBase<GRAPH_T, CONTEXT_T>(context) {}
-  bool F(const VertexInfo& u, VertexInfo& v) override {
-    v.vdata[0] = u.vdata[0] + 1;
-    return true;
-  }
-
-  bool C(const VertexInfo& u, const VertexInfo& v) override {
-    if (u.vdata[0] + 1 < v.vdata[0]) {
-      return true;
-    } else {
-      return false;
-    }
-  }
+  bool C(const VertexInfo& u, const VertexInfo& v) override { return false; }
+  bool F(const VertexInfo& u, VertexInfo& v) override { return false; }
 };
 
 template <typename GRAPH_T, typename CONTEXT_T>
-class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
+class BFSPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
   using VertexInfo = minigraph::graphs::VertexInfo<typename GRAPH_T::vid_t,
                                                    typename GRAPH_T::vdata_t,
                                                    typename GRAPH_T::edata_t>;
 
  public:
-  SSSPPIE(minigraph::VMapBase<GRAPH_T, CONTEXT_T>* vmap,
-          minigraph::EMapBase<GRAPH_T, CONTEXT_T>* emap,
-          const CONTEXT_T& context)
+  BFSPIE(minigraph::VMapBase<GRAPH_T, CONTEXT_T>* vmap,
+         minigraph::EMapBase<GRAPH_T, CONTEXT_T>* emap,
+         const CONTEXT_T& context)
       : minigraph::AutoAppBase<GRAPH_T, CONTEXT_T>(vmap, emap, context) {}
 
   using Frontier = folly::DMPMCQueue<VertexInfo, false>;
@@ -72,13 +61,28 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     LOG_INFO("PEval() - Processing gid: ", graph.gid_);
     bool* visited = (bool*)malloc(graph.get_num_vertexes());
     memset(visited, 0, sizeof(bool) * graph.get_num_vertexes());
-    Frontier* frontier_in = new Frontier(graph.get_num_vertexes() + 1000);
-    VertexInfo&& vertex_info = graph.GetVertexByVid(local_id);
-    vertex_info.vdata[0] = 1;
+    Frontier* frontier_in = new Frontier(graph.get_num_vertexes());
+    VertexInfo&& src = graph.GetVertexByVid(local_id);
+    src.vdata[0] = 1;
     visited[local_id] = true;
-    frontier_in->enqueue(vertex_info);
+    frontier_in->enqueue(src);
+    VertexInfo u;
+    size_t count = 0;
     while (!frontier_in->empty()) {
-      frontier_in = this->emap_->Map(frontier_in, visited, graph, task_runner);
+      frontier_in->dequeue(u);
+      for (size_t i = 0; i < u.outdegree; i++) {
+        auto local_id = graph.globalid2localid(u.out_edges[i]);
+        if (local_id == VID_MAX) {
+          continue;
+        }
+        if (visited[local_id]) {
+          continue;
+        }
+        VertexInfo&& v = graph.GetVertexByVid(local_id);
+        v.vdata[0] = 1;
+        visited[local_id] = true;
+        frontier_in->enqueue(v);
+      }
     }
     bool tag = this->GetPartialBorderResult(graph, visited, partial_result);
     MsgAggr(partial_result);
@@ -93,20 +97,36 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
       return false;
     }
     LOG_INFO("IncEval() - Processing gid: ", graph.gid_);
-    Frontier* frontier_in =
-        new Frontier(this->global_border_vertexes_info_->size() + 1);
 
+    Frontier* frontier_in =
+        new Frontier(this->global_border_vertexes_info_->size() +
+                     graph.get_num_vertexes() + 1024);
     for (auto& iter : *this->global_border_vertexes_info_) {
       frontier_in->enqueue(*iter.second);
     }
     bool* visited = (bool*)malloc(graph.get_num_vertexes());
     memset(visited, 0, sizeof(bool) * graph.get_num_vertexes());
+    VertexInfo u;
     while (!frontier_in->empty()) {
-      frontier_in = this->emap_->Map(frontier_in, visited, graph, task_runner);
+      frontier_in->dequeue(u);
+      for (size_t i = 0; i < u.outdegree; i++) {
+        auto local_id = graph.globalid2localid(u.out_edges[i]);
+        if (local_id == VID_MAX || visited[local_id]) {
+          continue;
+        } else {
+          VertexInfo&& v = graph.GetVertexByVid(local_id);
+          if (v.vdata[0] != 1) {
+            v.vdata[0] = 1;
+            visited[local_id] = true;
+            frontier_in->enqueue(v);
+          }
+        }
+      }
     }
     auto tag = this->GetPartialBorderResult(graph, visited, partial_result);
     MsgAggr(partial_result);
     free(visited);
+    delete frontier_in;
     return tag;
   }
 
@@ -136,7 +156,7 @@ struct Context {
 };
 
 using CSR_T = minigraph::graphs::ImmutableCSR<gid_t, vid_t, vdata_t, edata_t>;
-using SSSPPIE_T = SSSPPIE<CSR_T, Context>;
+using BFSPIE_T = BFSPIE<CSR_T, Context>;
 
 int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -146,15 +166,15 @@ int main(int argc, char* argv[]) {
   size_t num_workers_dc = FLAGS_dc;
   size_t num_cores = FLAGS_cores;
   Context context;
-  auto sssp_edge_map = new SSSPEMap<CSR_T, Context>(context);
-  auto sssp_vertex_map = new SSSPVMap<CSR_T, Context>(context);
-  auto sssp_pie =
-      new SSSPPIE<CSR_T, Context>(sssp_vertex_map, sssp_edge_map, context);
+  auto bfs_edge_map = new BFSEMap<CSR_T, Context>(context);
+  auto bfs_vertex_map = new BFSVMap<CSR_T, Context>(context);
+  auto bfs_pie =
+      new BFSPIE<CSR_T, Context>(bfs_vertex_map, bfs_edge_map, context);
   auto app_wrapper =
-      new AppWrapper<SSSPPIE<CSR_T, Context>, gid_t, vid_t, vdata_t, edata_t>(
-          sssp_pie);
+      new AppWrapper<BFSPIE<CSR_T, Context>, gid_t, vid_t, vdata_t, edata_t>(
+          bfs_pie);
 
-  minigraph::MiniGraphSys<CSR_T, SSSPPIE_T> minigraph_sys(
+  minigraph::MiniGraphSys<CSR_T, BFSPIE_T> minigraph_sys(
       work_space, num_workers_lc, num_workers_cc, num_workers_dc, num_cores, app_wrapper);
   minigraph_sys.RunSys();
   minigraph_sys.ShowResult();

@@ -31,6 +31,7 @@ class PRVMap : public minigraph::VMapBase<GRAPH_T, CONTEXT_T> {
     if ((u.vdata[0] - next) * (u.vdata[0] - next) > this->context_.epsilon) {
       u.vdata[0] = next;
     }
+    return true;
   }
 };
 
@@ -76,8 +77,7 @@ class PRPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
       if (iter++ > this->context_.num_iter) {
         break;
       }
-      frontier_in =
-          this->vmap_->Map(frontier_in, visited, graph, task_runner);
+      frontier_in = this->vmap_->Map(frontier_in, visited, graph, task_runner);
     }
     bool tag = this->GetPartialBorderResult(graph, visited, partial_result);
     MsgAggr(partial_result);
@@ -101,8 +101,7 @@ class PRPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     bool* visited = (bool*)malloc(graph.get_num_vertexes());
     memset(visited, 0, sizeof(bool) * graph.get_num_vertexes());
     while (!frontier_in->empty()) {
-      frontier_in =
-          this->emap_->Map(frontier_in, visited, graph, task_runner);
+      frontier_in = this->emap_->Map(frontier_in, visited, graph, task_runner);
     }
     auto tag = this->GetPartialBorderResult(graph, visited, partial_result);
     MsgAggr(partial_result);
@@ -146,7 +145,7 @@ int main(int argc, char* argv[]) {
   size_t num_workers_lc = FLAGS_lc;
   size_t num_workers_cc = FLAGS_cc;
   size_t num_workers_dc = FLAGS_dc;
-  size_t num_thread_cpu = num_workers_lc + num_workers_cc + num_workers_dc;
+  size_t num_cores = FLAGS_cores;
   Context context;
   context.num_iter = FLAGS_iter;
   auto pr_emap = new PREMap<CSR_T, Context>(context);
@@ -157,8 +156,7 @@ int main(int argc, char* argv[]) {
           pr_pie);
 
   minigraph::MiniGraphSys<CSR_T, PRPIE_T> minigraph_sys(
-      work_space, num_workers_lc, num_workers_cc, num_workers_dc,
-      num_thread_cpu, app_wrapper);
+      work_space, num_workers_lc, num_workers_cc, num_workers_dc, num_cores, app_wrapper);
   minigraph_sys.RunSys();
   minigraph_sys.ShowResult();
   gflags::ShutDownCommandLineFlags();

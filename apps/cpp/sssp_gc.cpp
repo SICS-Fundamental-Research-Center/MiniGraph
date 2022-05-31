@@ -72,12 +72,27 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     LOG_INFO("PEval() - Processing gid: ", graph.gid_);
     bool* visited = (bool*)malloc(graph.get_num_vertexes());
     memset(visited, 0, sizeof(bool) * graph.get_num_vertexes());
-    Frontier* frontier_in = new Frontier(graph.get_num_vertexes() + 1000);
+    Frontier* frontier_in = new Frontier(graph.get_num_vertexes() + 1024);
     VertexInfo&& vertex_info = graph.GetVertexByVid(local_id);
     vertex_info.vdata[0] = 1;
     visited[local_id] = true;
     frontier_in->enqueue(vertex_info);
+    VertexInfo u;
     while (!frontier_in->empty()) {
+      frontier_in->dequeue(u);
+      for (size_t i = 0; i < u.outdegree; i++) {
+        auto local_id = graph.globalid2localid(u.out_edges[i]);
+        if (local_id == VID_MAX || visited[local_id]) {
+          continue;
+        } else {
+          VertexInfo&& v = graph.GetVertexByVid(local_id);
+          if (v.vdata[0] > u.vdata[0] + 1) {
+            v.vdata[0] = u.vdata[0] + 1;
+            visited[local_id] = true;
+            frontier_in->enqueue(v);
+          }
+        }
+      }
       frontier_in = this->emap_->Map(frontier_in, visited, graph, task_runner);
     }
     bool tag = this->GetPartialBorderResult(graph, visited, partial_result);
@@ -94,13 +109,15 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     }
     LOG_INFO("IncEval() - Processing gid: ", graph.gid_);
     Frontier* frontier_in =
-        new Frontier(this->global_border_vertexes_info_->size() + 1);
+        new Frontier(this->global_border_vertexes_info_->size() +
+                     graph.get_num_vertexes() + 1024);
 
     for (auto& iter : *this->global_border_vertexes_info_) {
       frontier_in->enqueue(*iter.second);
     }
     bool* visited = (bool*)malloc(graph.get_num_vertexes());
     memset(visited, 0, sizeof(bool) * graph.get_num_vertexes());
+    VertexInfo u;
     while (!frontier_in->empty()) {
       frontier_in = this->emap_->Map(frontier_in, visited, graph, task_runner);
     }
