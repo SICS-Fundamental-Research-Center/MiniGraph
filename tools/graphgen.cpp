@@ -1,5 +1,7 @@
 #include "portability/sys_types.h"
 #include <gflags/gflags.h>
+#include <glog/logging.h>
+#include <sys/stat.h>
 #include <cstring>
 #include <fstream>
 #include <iostream>
@@ -7,6 +9,7 @@
 #include <random>
 #include <rapidcsv.h>
 #include <string>
+#include <unistd.h>
 
 class GraphGen {
  public:
@@ -22,6 +25,36 @@ class GraphGen {
   size_t num_vertexes_;
   size_t num_edges_;
   std::string out_pt_;
+
+  static void MakeDirectory(const std::string& pt) {
+    std::string dir = pt;
+    int len = dir.size();
+    if (dir[len - 1] != '/') {
+      dir[len] = '/';
+      len++;
+    }
+    std::string temp;
+    for (int i = 1; i < len; i++) {
+      if (dir[i] == '/') {
+        temp = dir.substr(0, i);
+        if (access(temp.c_str(), 0) != 0) {
+          if (mkdir(temp.c_str(), 0777) != 0) {
+            VLOG(1) << "failed operaiton.";
+          }
+        }
+      }
+    }
+  }
+
+  static bool IsExist(const std::string& pt) {
+    struct stat buffer;
+    return (stat(pt.c_str(), &buffer) == 0);
+  }
+
+  static void Touch(const std::string& pt) {
+    std::ofstream file(pt, std::ios::binary);
+    file.close();
+  };
 };
 
 class RMAT final : public GraphGen {
@@ -69,7 +102,6 @@ class RMAT final : public GraphGen {
 
     for (size_t i = 0; i < this->num_edges_; i++) {
       auto xy = Falling();
-      std::cout << xy.first << ", " << xy.second << std::endl;
       if (x_signal_[xy.first] && y_signal_[xy.second]) {
         continue;
       } else {
@@ -77,7 +109,6 @@ class RMAT final : public GraphGen {
         y_signal_[xy.second] ? 0 : y_signal_[xy.second] = true;
         src.push_back(xy.first);
         dst.push_back(xy.second);
-        std::cout << "falling: " << xy.first << ", " << xy.second << std::endl;
       }
     }
     return std::make_pair(src, dst);
@@ -93,6 +124,8 @@ class RMAT final : public GraphGen {
     doc.SetColumn<size_t>(0, data.first);
     doc.SetColumn<size_t>(1, data.second);
     doc.Save(out_pt);
+    std::cout << "Save to " << out_pt << " num edges: " << data.first.size()
+              << std::endl;
   };
 
  private:
@@ -149,8 +182,14 @@ int main(int argc, char* argv[]) {
   size_t power = FLAGS_power;
   size_t num_edges = FLAGS_edges;
   std::string output_pt = FLAGS_o;
+  std::cout << "RmatGen: x = " << x << ", y = " << y
+            << ", num_vertexes: " << pow(2, power)
+            << ", num_edges: " << num_edges << std::endl;
   RMAT rmat(power, num_edges, output_pt, x, y);
   std::pair<std::vector<size_t>, std::vector<size_t>>&& data = rmat.Run();
+  if (!RMAT::IsExist(output_pt)) {
+    RMAT::Touch(output_pt);
+  }
   rmat.WriteEdgeList(data, output_pt);
 
   gflags::ShutDownCommandLineFlags();

@@ -1,5 +1,3 @@
-#include <folly/concurrency/DynamicBoundedQueue.h>
-
 #include "2d_pie/auto_app_base.h"
 #include "2d_pie/edge_map_reduce.h"
 #include "2d_pie/vertex_map_reduce.h"
@@ -9,6 +7,7 @@
 #include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
 #include "utility/logging.h"
+#include <folly/concurrency/DynamicBoundedQueue.h>
 
 template <typename GRAPH_T, typename CONTEXT_T>
 class BFSVMap : public minigraph::VMapBase<GRAPH_T, CONTEXT_T> {
@@ -92,9 +91,11 @@ class BFSPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
       LOG_INFO("IncEval() - Discarding gid: ", graph.gid_);
       return false;
     }
-    LOG_INFO("IncEval() - Processing gid: ", graph.gid_);
+    LOG_INFO("IncEval() - Processing gid: ", graph.gid_,
+             "size of global_border_vertexes_info: ",
+             this->global_border_vertexes_info_->size());
     Frontier* frontier_in =
-        new Frontier(this->global_border_vertexes_info_->size() + 1);
+        new Frontier(this->global_border_vertexes_info_->size() + 65536);
 
     for (auto& iter : *this->global_border_vertexes_info_) {
       frontier_in->enqueue(*iter.second);
@@ -104,8 +105,10 @@ class BFSPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     while (!frontier_in->empty()) {
       frontier_in = this->emap_->Map(frontier_in, visited, graph, task_runner);
     }
+    LOG_INFO("MERGE");
     auto tag = this->GetPartialBorderResult(graph, visited, partial_result);
     MsgAggr(partial_result);
+    LOG_INFO("~MERGE");
     free(visited);
     return tag;
   }
@@ -144,7 +147,7 @@ int main(int argc, char* argv[]) {
   size_t num_workers_lc = FLAGS_lc;
   size_t num_workers_cc = FLAGS_cc;
   size_t num_workers_dc = FLAGS_dc;
-  size_t num_threads = FLAGS_cc + FLAGS_lc + FLAGS_dc;
+  size_t num_cores = FLAGS_cores;
   Context context;
   auto bfs_edge_map = new BFSEMap<CSR_T, Context>(context);
   auto bfs_vertex_map = new BFSVMap<CSR_T, Context>(context);
@@ -155,9 +158,9 @@ int main(int argc, char* argv[]) {
           bfs_pie);
 
   minigraph::MiniGraphSys<CSR_T, BFSPIE_T> minigraph_sys(
-      work_space, num_workers_lc, num_workers_cc, num_workers_dc, num_threads,
-      app_wrapper);
+      work_space, num_workers_lc, num_workers_cc, num_workers_dc, num_cores, app_wrapper);
   minigraph_sys.RunSys();
+
   minigraph_sys.ShowResult();
   gflags::ShutDownCommandLineFlags();
 }

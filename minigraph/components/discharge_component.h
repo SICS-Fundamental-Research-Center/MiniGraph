@@ -1,22 +1,22 @@
 #ifndef MINIGRAPH_DISCHARGE_COMPONENT_H
 #define MINIGRAPH_DISCHARGE_COMPONENT_H
 
-#include <string>
-
-#include <folly/ProducerConsumerQueue.h>
-
 #include "components/component_base.h"
 #include "portability/sys_data_structure.h"
 #include "utility/io/csr_io_adapter.h"
 #include "utility/thread_pool.h"
-
+#include <folly/ProducerConsumerQueue.h>
+#include <string>
 
 namespace minigraph {
 namespace components {
 
-template <typename GID_T, typename VID_T, typename VDATA_T, typename EDATA_T,
-          typename GRAPH_T>
-class DischargeComponent : public ComponentBase<GID_T> {
+template <typename GRAPH_T>
+class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
+  using GID_T = typename GRAPH_T::gid_t;
+  using VID_T = typename GRAPH_T::vid_t;
+  using VDATA_T = typename GRAPH_T::vdata_t;
+  using EDATA_T = typename GRAPH_T::edata_t;
   using GRAPH_BASE_T = graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>;
   using CSR_T = graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>;
 
@@ -29,14 +29,14 @@ class DischargeComponent : public ComponentBase<GID_T> {
       folly::ProducerConsumerQueue<GID_T>* partial_result_queue,
       folly::AtomicHashMap<GID_T, CSRPt>* pt_by_gid,
       folly::ProducerConsumerQueue<GID_T>* read_trigger,
-      utility::io::DataMgnr<GID_T, VID_T, VDATA_T, EDATA_T>* data_mngr,
+      utility::io::DataMngr<GID_T, VID_T, VDATA_T, EDATA_T>* data_mngr,
       std::unique_lock<std::mutex>* partial_result_lck,
       std::unique_lock<std::mutex>* read_trigger_lck,
       std::condition_variable* partial_result_cv,
       std::condition_variable* read_trigger_cv,
       std::atomic<bool>* system_switch,
       std::unique_lock<std::mutex>* system_switch_lck,
-      std::condition_variable* system_switch_cv)
+      std::condition_variable* system_switch_cv, bool* communication_matrix)
       : ComponentBase<GID_T>(thread_pool, superstep_by_gid, global_superstep,
                              state_machine) {
     partial_result_queue_ = partial_result_queue;
@@ -50,7 +50,7 @@ class DischargeComponent : public ComponentBase<GID_T> {
     system_switch_ = system_switch;
     system_switch_lck_ = system_switch_lck;
     system_switch_cv_ = system_switch_cv;
-
+    communication_matrix_ = communication_matrix;
     XLOG(INFO, "Init DischargeComponent: Finish.");
   }
 
@@ -71,8 +71,17 @@ class DischargeComponent : public ComponentBase<GID_T> {
       }
       for (size_t i = 0; i < vec_gid.size(); i++) {
         gid = vec_gid.at(i);
+        CheckRTRule(gid);
         if (this->TrySync()) {
           if (this->state_machine_->IsTerminated()) {
+            auto out_rts = this->state_machine_->EvokeAllX(RTS);
+            if (out_rts.size() != 0) {
+              for (auto& iter : out_rts) {
+                GID_T gid = iter;
+                CSRPt& csr_pt = pt_by_gid_->find(gid)->second;
+                data_mngr_->WriteGraph(gid, csr_pt, csr_bin);
+              }
+            }
             system_switch_cv_->wait(*system_switch_lck_,
                                     [&] { return system_switch_->load(); });
             system_switch_->store(false);
@@ -83,7 +92,6 @@ class DischargeComponent : public ComponentBase<GID_T> {
             WriteAllGraphsBack();
           }
         } else {
-          // BUFF GID
         }
       }
     }
@@ -91,12 +99,29 @@ class DischargeComponent : public ComponentBase<GID_T> {
 
   void Stop() override { this->switch_.store(false); }
 
+ private:
+  std::atomic<size_t> num_workers_;
+  std::atomic<bool> switch_ = true;
+  folly::ProducerConsumerQueue<GID_T>* partial_result_queue_ = nullptr;
+  utility::io::DataMngr<GID_T, VID_T, VDATA_T, EDATA_T>* data_mngr_ = nullptr;
+  folly::ProducerConsumerQueue<GID_T>* read_trigger_ = nullptr;
+  folly::AtomicHashMap<GID_T, CSRPt>* pt_by_gid_ = nullptr;
+  std::unique_lock<std::mutex>* read_trigger_lck_;
+  std::unique_lock<std::mutex>* partial_result_lck_;
+  std::condition_variable* read_trigger_cv_;
+  std::condition_variable* partial_result_cv_;
+  std::unique_lock<std::mutex>* system_switch_lck_;
+  std::condition_variable* system_switch_cv_;
+  std::atomic<bool>* system_switch_;
+  bool* communication_matrix_;
+
   void WriteAllGraphsBack() {
     GID_T gid = this->state_machine_->GetXStateOf(RC);
     if (gid != MINIGRAPH_GID_MAX) {
       LOG_INFO("EVOKE ALL");
       auto out_rc = this->state_machine_->EvokeAllX(RC);
       auto out_rt = this->state_machine_->EvokeAllX(RT);
+      auto out_rts = this->state_machine_->EvokeAllX(RTS);
       for (auto& iter : out_rt) {
         GID_T gid = iter;
         data_mngr_->EraseGraph(gid);
@@ -110,23 +135,35 @@ class DischargeComponent : public ComponentBase<GID_T> {
         read_trigger_->write(gid);
         read_trigger_cv_->notify_all();
       }
+      for (auto& iter : out_rts) {
+        GID_T gid = iter;
+        CSRPt& csr_pt = pt_by_gid_->find(gid)->second;
+        data_mngr_->WriteGraph(gid, csr_pt, csr_bin);
+        read_trigger_->write(gid);
+        read_trigger_cv_->notify_all();
+      }
     }
   }
 
- private:
-  std::atomic<size_t> num_workers_;
-  std::atomic<bool> switch_ = true;
-  folly::ProducerConsumerQueue<GID_T>* partial_result_queue_ = nullptr;
-  utility::io::DataMgnr<GID_T, VID_T, VDATA_T, EDATA_T>* data_mngr_ = nullptr;
-  folly::ProducerConsumerQueue<GID_T>* read_trigger_ = nullptr;
-  folly::AtomicHashMap<GID_T, CSRPt>* pt_by_gid_ = nullptr;
-  std::unique_lock<std::mutex>* read_trigger_lck_;
-  std::unique_lock<std::mutex>* partial_result_lck_;
-  std::condition_variable* read_trigger_cv_;
-  std::condition_variable* partial_result_cv_;
-  std::unique_lock<std::mutex>* system_switch_lck_;
-  std::condition_variable* system_switch_cv_;
-  std::atomic<bool>* system_switch_;
+  bool CheckRTRule(const GID_T gid) {
+    size_t num_graphs = this->pt_by_gid_->size();
+    if (this->state_machine_->GraphIs(gid, RC)) {
+      bool tag = true;
+      for (size_t j = 0; j < num_graphs; j++) {
+        if (*(communication_matrix_ + j * num_graphs + gid) == 1) {
+          tag = false;
+          break;
+        }
+      }
+      if (tag) {
+        this->state_machine_->ProcessEvent(gid, SHORTCUT);
+        LOG_INFO("SHORT CUT", gid);
+      }
+    } else {
+      return false;
+    }
+    return false;
+  }
 };
 
 }  // namespace components

@@ -5,13 +5,16 @@
 #ifndef MINIGRAPH_UTILITY_EDGE_CUT_PARTITIONER_H
 #define MINIGRAPH_UTILITY_EDGE_CUT_PARTITIONER_H
 
+#include <vector>
+
+#include <folly/AtomicHashMap.h>
+#include <folly/FBVector.h>
+
 #include "portability/sys_types.h"
 #include "utility/io/csr_io_adapter.h"
 #include "utility/io/data_mngr.h"
 #include "utility/io/io_adapter_base.h"
-#include <folly/AtomicHashMap.h>
-#include <folly/FBVector.h>
-#include <vector>
+
 
 namespace minigraph {
 namespace utility {
@@ -36,41 +39,27 @@ class EdgeCutPartitioner {
   using CSR_T = graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>;
 
  public:
-  EdgeCutPartitioner(const std::string& graph_pt, const std::string& root_pt) {
-    graph_pt_ = graph_pt;
-    root_pt_ = root_pt;
-    global_border_vertexes_ =
-        new std::unordered_map<VID_T, std::vector<GID_T>*>();
-    csr_io_adapter_ =
-        std::make_unique<io::CSRIOAdapter<GID_T, VID_T, VDATA_T, EDATA_T>>();
-  };
+  EdgeCutPartitioner() = default;
+  ~EdgeCutPartitioner() = default;
 
-  bool RunPartition(const size_t number_partitions,
+  bool RunPartition(CSR_T& graph, const size_t number_partitions,
                     const std::string init_model = "val",
                     const VDATA_T init_vdata = 0) {
     XLOG(INFO, "RunPartition");
-    auto graph = new graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>;
-    csr_io_adapter_->Read((GRAPH_BASE_T*)graph, edge_list_csv, 0, graph_pt_);
+    // auto graph = new graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>;
+    // csr_io_adapter_->Read((GRAPH_BASE_T*)graph, edge_list_csv, 0, graph_pt_);
+    communication_matrix_ =
+        (bool*)malloc(sizeof(bool) * number_partitions * number_partitions);
+    memset(communication_matrix_, 0,
+           sizeof(bool) * number_partitions * number_partitions);
     if (!SplitImmutableCSR(number_partitions, graph)) {
       LOG_INFO("SplitFailure()");
       return false;
     };
-    if (!data_mgnr_.IsExist(root_pt_ + "/meta/")) {
-      data_mgnr_.MakeDirectory(root_pt_ + "/meta/");
-    }
-    if (!data_mgnr_.IsExist(root_pt_ + "/data/")) {
-      data_mgnr_.MakeDirectory(root_pt_ + "/data/");
-    }
-    if (!data_mgnr_.IsExist(root_pt_ + "/border_vertexes/")) {
-      data_mgnr_.MakeDirectory(root_pt_ + "/border_vertexes/");
-    }
+
     auto count = 0;
     for (auto& iter_fragments : *fragments_) {
       auto fragment = (CSR_T*)iter_fragments;
-      std::string meta_pt =
-          root_pt_ + "/meta/" + std::to_string(count) + ".meta";
-      std::string data_pt =
-          root_pt_ + "/data/" + std::to_string(count) + ".data";
       fragment->Serialize();
       if (init_model == "val") {
         fragment->InitVdata2AllX(init_vdata);
@@ -79,28 +68,128 @@ class EdgeCutPartitioner {
       } else if (init_model == "vid") {
         fragment->InitVdataByVid();
       }
-
-      fragment->ShowGraphAbs();
-      data_mgnr_.csr_io_adapter_->Write(*fragment, immutable_csr_bin, meta_pt,
-                                        data_pt);
-      auto border_vertexes = fragment->GetBorderVertexes();
+      auto border_vertexes = fragment->GetVertexesThatRequiredByOtherGraphs();
       MergeBorderVertexes(border_vertexes);
       count++;
     }
+    SetVertexesDependencies();
+    SetCommunicationMatrix();
     return true;
   }
 
-  bool SplitImmutableCSR(const size_t& num_partitions, CSR_T* graph) {
+  std::vector<graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>*>* GetFragments() {
+    return fragments_;
+  }
+
+  std::unordered_map<VID_T, std::vector<GID_T>*>* GetGlobalBorderVertexes()
+      const {
+    return global_border_vertexes_;
+  }
+
+  std::pair<size_t, bool*> GetCommunicationMatrix() {
+    return std::make_pair(fragments_->size(), communication_matrix_);
+  }
+
+  std::unordered_map<VID_T, VertexDependencies<VID_T, GID_T>*>*
+  GetBorderVertexesWithDependencies() {
+    return global_border_vertexes_with_dependencies_;
+  }
+
+ private:
+  std::string graph_pt_;
+  // to store fragments
+
+  bool* communication_matrix_ = nullptr;
+  std::vector<graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>*>* fragments_ =
+      nullptr;
+  utility::io::DataMngr<GID_T, VID_T, VDATA_T, EDATA_T> data_mgnr_;
+  std::unordered_map<VID_T, std::vector<GID_T>*>* global_border_vertexes_ =
+      nullptr;
+
+  std::unordered_map<VID_T, VertexDependencies<VID_T, GID_T>*>*
+      global_border_vertexes_with_dependencies_ = nullptr;
+
+  void MergeBorderVertexes(std::unordered_map<VID_T, GID_T>* border_vertexes) {
+    if (global_border_vertexes_ == nullptr) {
+      global_border_vertexes_ =
+          new std::unordered_map<VID_T, std::vector<GID_T>*>();
+    }
+    for (auto iter = border_vertexes->begin(); iter != border_vertexes->end();
+         iter++) {
+      auto iter_global = global_border_vertexes_->find(iter->first);
+      if (iter_global != global_border_vertexes_->end()) {
+        iter_global->second->push_back(iter->second);
+      } else {
+        std::vector<GID_T>* vec_gid = new std::vector<GID_T>;
+        vec_gid->push_back(iter->second);
+        global_border_vertexes_->insert(std::make_pair(iter->first, vec_gid));
+      }
+    }
+  }
+
+  bool SetVertexesDependencies(bool is_write = false,
+                               std::string output_pt = "") {
+    auto global_border_vertex_with_dependencies =
+        new std::unordered_map<VID_T, VertexDependencies<VID_T, GID_T>*>;
+    for (auto& iter : *global_border_vertexes_) {
+      GID_T vid = iter.first;
+      VertexDependencies<VID_T, GID_T>* vd =
+          new VertexDependencies<VID_T, GID_T>(vid);
+      for (auto& iter_who_need : *iter.second) {
+        vd->who_need_->push_back(iter_who_need);
+      }
+      for (auto& iter_fragments : *fragments_) {
+        auto fragment = (CSR_T*)iter_fragments;
+        if (fragment->globalid2localid(vid) != VID_MAX) {
+          vd->who_provide_->push_back(fragment->gid_);
+        }
+        global_border_vertex_with_dependencies->insert(
+            std::make_pair(iter.first, vd));
+      }
+    }
+    for (auto& iter : *global_border_vertex_with_dependencies) {
+      iter.second->ShowVertexDependencies();
+    }
+    global_border_vertexes_with_dependencies_ =
+        global_border_vertex_with_dependencies;
+    return true;
+  }
+
+  bool SetCommunicationMatrix() {
+    if (global_border_vertexes_with_dependencies_ == nullptr) {
+      LOG_ERROR(
+          "segmentation fault: global_border_vertexes_with_dependencies is "
+          "nullptr");
+      return false;
+    }
+    if (communication_matrix_ == nullptr) {
+      LOG_ERROR("segmentation fault: communication_matrix is nullptr");
+      return false;
+    }
+    size_t num_graphs = fragments_->size();
+    for (auto& iter : *global_border_vertexes_with_dependencies_) {
+      for (auto& iter_who_need : *iter.second->who_need_) {
+        for (auto& iter_who_provide : *iter.second->who_provide_) {
+          *(communication_matrix_ + num_graphs * iter_who_need +
+            iter_who_provide) = 1;
+        }
+      }
+    }
+
+    return true;
+  }
+
+  bool SplitImmutableCSR(const size_t& num_partitions, CSR_T& graph) {
     fragments_ = new std::vector<GRAPH_BASE_T*>();
     const size_t num_vertex_per_fragments =
-        graph->get_num_vertexes() / num_partitions;
+        graph.get_num_vertexes() / num_partitions;
     VID_T localid = 0;
     GID_T gid = 0;
     size_t count = 0;
     graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>* csr_fragment =
         nullptr;
-    auto iter_vertexes = graph->vertexes_info_->cbegin();
-    while (iter_vertexes != graph->vertexes_info_->cend()) {
+    auto iter_vertexes = graph.vertexes_info_->cbegin();
+    while (iter_vertexes != graph.vertexes_info_->cend()) {
       if (csr_fragment == nullptr || count > num_vertex_per_fragments) {
         if (csr_fragment != nullptr) {
           csr_fragment->gid_ = gid++;
@@ -148,50 +237,6 @@ class EdgeCutPartitioner {
     } else {
       return false;
     }
-  }
-
-  std::unordered_map<VID_T, std::vector<GID_T>*>* GetGlobalBorderVertexes()
-      const {
-    return global_border_vertexes_;
-  }
-
- private:
-  std::string graph_pt_;
-
-  // to store fragments
-  std::string root_pt_;
-
-  std::vector<graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>*>* fragments_ =
-      nullptr;
-
-  utility::io::DataMgnr<GID_T, VID_T, VDATA_T, EDATA_T> data_mgnr_;
-
-  std::unique_ptr<io::CSRIOAdapter<GID_T, VID_T, VDATA_T, EDATA_T>>
-      csr_io_adapter_ = nullptr;
-
-  std::unordered_map<VID_T, std::vector<GID_T>*>* global_border_vertexes_ =
-      nullptr;
-
-  void MergeBorderVertexes(std::unordered_map<VID_T, GID_T>* border_vertexes) {
-    if (global_border_vertexes_ == nullptr) {
-      global_border_vertexes_ =
-          new std::unordered_map<VID_T, std::vector<GID_T>*>();
-    }
-    for (auto iter = border_vertexes->begin(); iter != border_vertexes->end();
-         iter++) {
-      auto iter_global = global_border_vertexes_->find(iter->first);
-      if (iter_global != global_border_vertexes_->end()) {
-        iter_global->second->push_back(iter->second);
-      } else {
-        std::vector<GID_T>* vec_gid = new std::vector<GID_T>;
-        vec_gid->push_back(iter->second);
-        global_border_vertexes_->insert(std::make_pair(iter->first, vec_gid));
-      }
-    }
-  }
-
-  void GetCommunicationMatrix(CSR_T* graph){
-
   }
 };
 

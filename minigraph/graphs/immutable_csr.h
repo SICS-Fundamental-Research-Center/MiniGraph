@@ -7,6 +7,8 @@
 #include <memory>
 #include <unordered_map>
 
+#include <jemalloc/jemalloc.h>
+
 #include <folly/AtomicHashArray.h>
 #include <folly/AtomicHashMap.h>
 #include <folly/AtomicUnorderedMap.h>
@@ -18,7 +20,6 @@
 #include <folly/portability/Asm.h>
 #include <folly/portability/Atomic.h>
 #include <folly/portability/SysTime.h>
-#include <jemalloc/jemalloc.h>
 
 #include "graphs/graph.h"
 #include "portability/sys_types.h"
@@ -116,9 +117,10 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
 
   void ShowGraph(const size_t count = 2) {
     std::cout << "\n\n##### ImmutableCSRGraph GID: " << gid_
-         << ", num_verteses: " << num_vertexes_
-         << ", sum_in_degree:" << sum_in_edges_
-         << ", sum_out_degree: " << sum_out_edges_ << " #####" << std::endl;
+              << ", num_verteses: " << num_vertexes_
+              << ", sum_in_degree:" << sum_in_edges_
+              << ", sum_out_degree: " << sum_out_edges_ << " #####"
+              << std::endl;
     size_t count_ = 0;
     for (size_t i = 0; i < this->get_num_vertexes(); i++) {
       if (count_++ > count) {
@@ -127,15 +129,16 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       }
       VertexInfo&& vertex_info = GetVertexByIndex(i);
       VID_T global_id = globalid_by_index_[i];
-      vertex_info.ShowVertexAbs(global_id);
+      vertex_info.ShowVertexInfo(global_id);
     }
   }
 
   void ShowGraphAbs(const size_t count = 2) {
     std::cout << "\n\n##### ImmutableCSRGraph GID: " << gid_
-         << ", num_verteses: " << num_vertexes_
-         << ", sum_in_degree:" << sum_in_edges_
-         << ", sum_out_degree: " << sum_out_edges_ << " #####" << std::endl;
+              << ", num_verteses: " << num_vertexes_
+              << ", sum_in_degree:" << sum_in_edges_
+              << ", sum_out_degree: " << sum_out_edges_ << " #####"
+              << std::endl;
     size_t count_ = 0;
     for (size_t i = 0; i < this->get_num_vertexes(); i++) {
       if (count_++ > count) {
@@ -429,7 +432,7 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     return globalid_by_index_[index];
   }
 
-  std::unordered_map<VID_T, GID_T>* GetBorderVertexes() {
+  std::unordered_map<VID_T, GID_T>* GetVertexesThatRequiredByOtherGraphs() {
     std::unordered_map<VID_T, GID_T>* border_vertexes =
         new std::unordered_map<VID_T, GID_T>();
     for (size_t index = 0; index < num_vertexes_; index++) {
@@ -475,4 +478,4 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
 
 }  // namespace graphs
 }  // namespace minigraph
-#endif // MINIGRAPH_GRAPHS_IMMUTABLECSR_H
+#endif  // MINIGRAPH_GRAPHS_IMMUTABLECSR_H

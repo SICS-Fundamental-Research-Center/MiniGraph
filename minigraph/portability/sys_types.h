@@ -25,6 +25,7 @@ using edata_t = size_t;
 #define NOTHINGCHANGED 'N'
 #define CHANGED 'C'
 #define AGGREGATE 'A'
+#define SHORTCUT 'S'
 #define FIXPOINT 'F'
 #define GOON 'G'
 
@@ -32,6 +33,7 @@ using edata_t = size_t;
 #define IDLE 'I'
 #define ACTIVE 'A'
 #define RT 'R'
+#define RTS 'S'
 #define RC 'C'
 #define TERMINATE 'X'
 
@@ -47,7 +49,7 @@ DEFINE_uint64(edges, 1, "the number of edges");
 DEFINE_uint64(lc, 1, "the number of executors in LoadComponent");
 DEFINE_uint64(cc, 1, "the number of executors in ComputingComponent");
 DEFINE_uint64(dc, 1, "the number of executors in DischargeComponent");
-DEFINE_uint64(threads, 4, "the sizeof CPUThreadPool");
+DEFINE_uint64(cores, 4, "the number of cores we used");
 DEFINE_uint64(iter, 4, "number of iterations for inner while loop");
 DEFINE_string(init_model, "val", "init model for vdata of all vertexes");
 DEFINE_uint64(init_val, 0, "init value for vdata of all vertexes");
