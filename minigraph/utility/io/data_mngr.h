@@ -1,13 +1,10 @@
 #ifndef MINIGRAPH_DATA_MNGR_H
 #define MINIGRAPH_DATA_MNGR_H
 
-#include <memory>
-
-#include <folly/AtomicHashMap.h>
-
 #include "utility/io/csr_io_adapter.h"
 #include "utility/io/edge_list_io_adapter.h"
-
+#include <folly/AtomicHashMap.h>
+#include <memory>
 
 namespace minigraph {
 namespace utility {
@@ -24,6 +21,9 @@ class DataMngr {
  public:
   std::unique_ptr<utility::io::CSRIOAdapter<GID_T, VID_T, VDATA_T, EDATA_T>>
       csr_io_adapter_;
+  std::unique_ptr<
+      utility::io::EdgeListIOAdapter<GID_T, VID_T, VDATA_T, EDATA_T>>
+      edge_list_io_adapter_;
   std::unique_ptr<std::unordered_map<VID_T, std::vector<GID_T>*>>
       global_border_vertexes_ = nullptr;
   std::unique_ptr<std::unordered_map<VID_T, VertexInfo*>>
@@ -35,6 +35,9 @@ class DataMngr {
 
     csr_io_adapter_ = std::make_unique<
         utility::io::CSRIOAdapter<GID_T, VID_T, VDATA_T, EDATA_T>>();
+
+    edge_list_io_adapter_ = std::make_unique<
+        utility::io::EdgeListIOAdapter<gid_t, vid_t, vdata_t, edata_t>>();
   };
 
   bool ReadGraph(const GID_T& gid, const CSRPt& csr_pt,
@@ -43,6 +46,20 @@ class DataMngr {
     auto graph = new CSR_T;
     auto out = csr_io_adapter_->Read((GRAPH_BASE_T*)graph, graph_format, gid,
                                      csr_pt.meta_pt, csr_pt.data_pt);
+    if (out) {
+      pgraph_by_gid_->insert(std::make_pair(gid, (GRAPH_BASE_T*)graph));
+    }
+    return out;
+  }
+
+  bool ReadGraph(const GID_T& gid, const EdgeListPt& edge_list_pt,
+                 const GraphFormat& graph_format= edge_list_csv) {
+    LOG_INFO("Read gid: ", gid);
+    auto graph = new EDGE_LIST_T;
+
+    auto out = edge_list_io_adapter_->Read((GRAPH_BASE_T*)graph, graph_format,
+                                           gid, edge_list_pt.edges_pt,
+                                           edge_list_pt.v_label_pt);
     if (out) {
       pgraph_by_gid_->insert(std::make_pair(gid, (GRAPH_BASE_T*)graph));
     }
@@ -227,9 +244,9 @@ class DataMngr {
     free(who_provide);
     free(who_need);
     graph_dependencies_file.close();
-    //for (auto& iter : *global_border_vertexes_with_dependencies) {
-    //  iter.second->ShowVertexDependencies();
-    //}
+    // for (auto& iter : *global_border_vertexes_with_dependencies) {
+    //   iter.second->ShowVertexDependencies();
+    // }
     return global_border_vertexes_with_dependencies;
   }
 

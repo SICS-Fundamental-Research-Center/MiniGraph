@@ -15,6 +15,11 @@ struct CSRPt {
   std::string data_pt;
 };
 
+struct EdgeListPt {
+  std::string edges_pt;
+  std::string v_label_pt;
+};
+
 template <typename VID_T, typename GID_T>
 class VertexDependencies {
  public:

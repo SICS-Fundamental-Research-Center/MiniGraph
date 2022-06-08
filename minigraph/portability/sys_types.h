@@ -39,6 +39,7 @@ using edata_t = size_t;
 
 DEFINE_string(i, "", "input path");
 DEFINE_string(o, "", "output path");
+DEFINE_string(pattern, "", "query graph (edge list in csv)");
 DEFINE_bool(tobin, false, "convert the graph to binary format");
 DEFINE_bool(p, false, "partition input graph");
 DEFINE_string(t, "edgelist", "type");

@@ -12,12 +12,18 @@
 #include <folly/concurrency/DynamicBoundedQueue.h>
 #include <folly/executors/ThreadPoolExecutor.h>
 #include <condition_variable>
+#include <functional>
+#include <future>
 #include <vector>
 
 namespace minigraph {
 
 template <typename GRAPH_T, typename CONTEXT_T>
 class EMapBase {
+  using GID_T = typename GRAPH_T::gid_t;
+  using VID_T = typename GRAPH_T::vid_t;
+  using VDATA_T = typename GRAPH_T::vdata_t;
+  using EDATA_T = typename GRAPH_T::edata_t;
   using VertexInfo =
       graphs::VertexInfo<typename GRAPH_T::vid_t, typename GRAPH_T::vdata_t,
                          typename GRAPH_T::edata_t>;
@@ -50,6 +56,46 @@ class EMapBase {
     delete frontier_in;
     return frontier_out;
   };
+
+  template <class F, class... Args>
+  Frontier* Map(Frontier* frontier_in, bool* visited, GRAPH_T& graph,
+                executors::TaskRunner* task_runner, F&& f, Args&&... args) {
+    Frontier* frontier_out = new Frontier(graph.get_num_vertexes() + 1);
+    VertexInfo vertex_info;
+    std::vector<std::function<void()>> tasks;
+    size_t tid = 0;
+    while (!frontier_in->empty()) {
+      frontier_in->dequeue(vertex_info);
+      auto task = std::bind(f, tid++, frontier_out, vertex_info, args...);
+      tasks.push_back(task);
+    }
+    LOG_INFO("EMap Run: ", tasks.size());
+    task_runner->Run(tasks, false);
+    LOG_INFO("#");
+    delete frontier_in;
+    return frontier_out;
+  }
+
+  template <typename T, class F, class... Args>
+  auto Map(folly::DMPMCQueue<T, false>* frontier_in, GRAPH_T& graph,
+           executors::TaskRunner* task_runner, F&& f, Args&&... args)
+      -> std::future<decltype(f(args...))> {
+    folly::DMPMCQueue<T, false>* frontier_out = new folly::DMPMCQueue<T, false>;
+
+    T t;
+    std::vector<std::function<void()>> tasks;
+    size_t tid = 0;
+    while (!frontier_in->empty()) {
+      frontier_in->dequeue(t);
+      auto task = std::bind(f, tid++, frontier_out, t, args...);
+      tasks.push_back(task);
+    }
+    LOG_INFO("EMap Run: ", tasks.size());
+    task_runner->Run(tasks, false);
+    LOG_INFO("#");
+    delete frontier_in;
+    return frontier_out;
+  }
 
   CONTEXT_T context_;
 

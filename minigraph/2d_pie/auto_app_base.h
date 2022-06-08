@@ -40,10 +40,19 @@ class AutoAppBase {
   //
   // @brief Partial evaluation to implement.
   // @note: This pure virtual function works as an interface, instructing users
-  // to implement in the specific app. The PEval in the inherited apps would be
+  // to implement in the specific app. The Init in the inherited apps would be
   // invoked directly, not via virtual functions.
   //
   // @param graph
+  virtual bool Init(GRAPH_T& graph) = 0;
+
+  //
+  // @brief Partial evaluation to implement.
+  // @note: This pure virtual function works as an interface, instructing users
+  // to implement in the specific app. The PEval in the inherited apps would be
+  // invoked directly, not via virtual functions.
+  //
+  // @param graph, partial_result
   virtual bool PEval(GRAPH_T& graph, PARTIAL_RESULT_T* partial_result,
                      executors::TaskRunner* task_runner) = 0;
 
@@ -51,7 +60,7 @@ class AutoAppBase {
   // @note: This pure virtual function works as an interface, instructing users
   // to implement in the specific app. The IncEval in the inherited apps would
   // be invoked directly, not via virtual functions.
-  // @param graph
+  // @param graph, partial_result
   virtual bool IncEval(GRAPH_T& graph, PARTIAL_RESULT_T* partial_result,
                        executors::TaskRunner* task_runner) = 0;
 
