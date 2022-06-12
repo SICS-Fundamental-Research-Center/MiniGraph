@@ -1,20 +1,23 @@
 #ifndef MINIGRAPH_2D_PIE_EDGE_MAP_REDUCE_H
 #define MINIGRAPH_2D_PIE_EDGE_MAP_REDUCE_H
 
+#include <condition_variable>
+#include <functional>
+#include <future>
+#include <vector>
+
+#include <folly/MPMCQueue.h>
+#include <folly/ProducerConsumerQueue.h>
+#include <folly/concurrency/DynamicBoundedQueue.h>
+#include <folly/executors/ThreadPoolExecutor.h>
+
 #include "executors/task_runner.h"
 #include "graphs/graph.h"
 #include "graphs/immutable_csr.h"
 #include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
 #include "utility/thread_pool.h"
-#include <folly/MPMCQueue.h>
-#include <folly/ProducerConsumerQueue.h>
-#include <folly/concurrency/DynamicBoundedQueue.h>
-#include <folly/executors/ThreadPoolExecutor.h>
-#include <condition_variable>
-#include <functional>
-#include <future>
-#include <vector>
+
 
 namespace minigraph {
 
@@ -79,15 +82,15 @@ class EMapBase {
   template <typename T, class F, class... Args>
   auto Map(folly::DMPMCQueue<T, false>* frontier_in, GRAPH_T& graph,
            executors::TaskRunner* task_runner, F&& f, Args&&... args)
-      -> std::future<decltype(f(args...))> {
-    folly::DMPMCQueue<T, false>* frontier_out = new folly::DMPMCQueue<T, false>;
-
+      -> folly::DMPMCQueue<T, false>* {
+    folly::DMPMCQueue<T, false>* frontier_out =
+        new folly::DMPMCQueue<T, false>(10000);
     T t;
     std::vector<std::function<void()>> tasks;
     size_t tid = 0;
     while (!frontier_in->empty()) {
       frontier_in->dequeue(t);
-      auto task = std::bind(f, tid++, frontier_out, t, args...);
+      auto task = std::bind(f, tid++, t, args...);
       tasks.push_back(task);
     }
     LOG_INFO("EMap Run: ", tasks.size());

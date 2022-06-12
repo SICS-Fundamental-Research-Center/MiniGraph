@@ -10,6 +10,7 @@
 #include "portability/sys_data_structure.h"
 #include "utility/thread_pool.h"
 
+
 struct CSRPt {
   std::string meta_pt;
   std::string data_pt;
@@ -77,6 +78,51 @@ class AppWrapper {
   }
 
   AutoApp* auto_app_ = nullptr;
+};
+
+template <typename VID_T>
+class PartialMatch {
+ public:
+  size_t x_ = 0;
+  size_t y_ = 0;
+  VID_T* meta_ = nullptr;
+  VID_T* matching_solutions_ = nullptr;
+
+  PartialMatch() = default;
+  PartialMatch(size_t x, size_t y) {
+    x_ = x;
+    y_ = y;
+    meta_ = (VID_T*)malloc(sizeof(VID_T) * x_);
+    memset(meta_, 0, sizeof(VID_T) * x_);
+    matching_solutions_ = (VID_T*)malloc(sizeof(VID_T) * y * x_);
+    memset(matching_solutions_, 0, sizeof(VID_T) * y_ * x_);
+  };
+
+  ~PartialMatch() = default;
+  //~PartialMatch() {
+  //  if (meta_ != nullptr) {
+  //    free(meta_);
+  //  }
+  //  if (matching_solutions_ != nullptr) {
+  //    free(matching_solutions_);
+  //  }
+  //};
+
+  void ShowPartialMatch() {
+    LOG_INFO("Show Partial Match -  x: ", x_, " y: ", y_);
+    std::cout << "  meta: " << std::endl;
+    for (size_t i = 0; i < x_; i++) {
+      std::cout << meta_[i] << ", ";
+    }
+    std::cout << std::endl;
+    std::cout << "  solution: " << std::endl;
+    for (size_t i = 0; i < y_; i++) {
+      for (size_t j = 0; j < x_; j++) {
+        std::cout << *(matching_solutions_ + i * x_ + j) << ", ";
+      }
+      std::cout << std::endl;
+    }
+  };
 };
 
 // reference http://www.cs.cmu.edu/~pbbs/benchmarks/graphIO.html
