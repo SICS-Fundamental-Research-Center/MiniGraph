@@ -1,14 +1,16 @@
 #pragma once
 
+#include <math.h>
+
 #include <condition_variable>
 #include <string>
-
-#include <folly/AtomicHashMap.h>
+#include <vector>
 
 #include "graphs/graph.h"
 #include "graphs/immutable_csr.h"
 #include "portability/sys_data_structure.h"
 #include "utility/thread_pool.h"
+#include <folly/AtomicHashMap.h>
 
 
 struct CSRPt {
@@ -88,25 +90,36 @@ class PartialMatch {
   VID_T* meta_ = nullptr;
   VID_T* matching_solutions_ = nullptr;
 
+  VID_T* meta_to_add_ = nullptr;
+
+  std::vector<VID_T>* vec_meta_ = nullptr;
+  std::vector<std::vector<VID_T>*>* vec_matching_solutions = nullptr;
+
   PartialMatch() = default;
   PartialMatch(size_t x, size_t y) {
     x_ = x;
     y_ = y;
     meta_ = (VID_T*)malloc(sizeof(VID_T) * x_);
     memset(meta_, 0, sizeof(VID_T) * x_);
+    meta_to_add_ = new VID_T;
+    *meta_to_add_ = VID_MAX;
     matching_solutions_ = (VID_T*)malloc(sizeof(VID_T) * y * x_);
     memset(matching_solutions_, 0, sizeof(VID_T) * y_ * x_);
+
+    vec_meta_ = new std::vector<VID_T>;
+    vec_matching_solutions = new std::vector<std::vector<VID_T>*>;
+
   };
 
   ~PartialMatch() = default;
-  //~PartialMatch() {
-  //  if (meta_ != nullptr) {
-  //    free(meta_);
-  //  }
-  //  if (matching_solutions_ != nullptr) {
-  //    free(matching_solutions_);
-  //  }
-  //};
+
+  VID_T GetStateId() {
+    VID_T state_id = 0;
+    for (size_t i = 0; i < vec_meta_->size(); i++) {
+      state_id += vec_meta_->at(i) * std::pow(10, (i + 1));
+    }
+    return state_id;
+  }
 
   void ShowPartialMatch() {
     LOG_INFO("Show Partial Match -  x: ", x_, " y: ", y_);
@@ -122,7 +135,21 @@ class PartialMatch {
       }
       std::cout << std::endl;
     }
+  }
+
+  bool IsInMeta(VID_T vid) {
+    for (size_t i = 0; i < vec_meta_->size(); i++) {
+      if (vec_meta_->at(i) == vid) return true;
+    }
+    return false;
   };
+
+ // bool IsInCurrentMatchingSolution(VID_T vid) {
+ //   for (size_t i = 0; i < current_matching_solution_->size(); i++) {
+ //     if (current_matching_solution_->at(i) == vid) return true;
+ //   }
+ //   return false;
+ // }
 };
 
 // reference http://www.cs.cmu.edu/~pbbs/benchmarks/graphIO.html

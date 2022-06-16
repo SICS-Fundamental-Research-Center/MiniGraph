@@ -9,7 +9,8 @@ using vid_t = unsigned;
 using vdata_t = float;
 using edata_t = size_t;
 
-#define VID_MAX (((unsigned)(-1)) >> 1)
+//#define VID_MAX (((unsigned)(-1)) >> 1)
+#define VID_MAX 0XFFFF
 #define MINIGRAPH_GID_MAX (((unsigned)(-1)) >> 1)
 
 #ifndef HAVE_MODE_T

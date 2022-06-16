@@ -268,9 +268,9 @@ class SubIsoPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     return c_set;
   }
 
-  //bool RefineCandidateVertices() {
+  bool RefineCandidateVertices() {
     // TO ADD...;
-  //}
+  }
 
   std::unordered_map<std::pair<VID_T, VID_T>,
                      std::vector<std::pair<VID_T, VID_T>>*>*
