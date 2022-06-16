@@ -9,7 +9,8 @@ using vid_t = unsigned;
 using vdata_t = float;
 using edata_t = size_t;
 
-#define VID_MAX (((unsigned)(-1)) >> 1)
+//#define VID_MAX (((unsigned)(-1)) >> 1)
+#define VID_MAX 0XFFFF
 #define MINIGRAPH_GID_MAX (((unsigned)(-1)) >> 1)
 
 #ifndef HAVE_MODE_T
@@ -39,6 +40,7 @@ using edata_t = size_t;
 
 DEFINE_string(i, "", "input path");
 DEFINE_string(o, "", "output path");
+DEFINE_string(pattern, "", "query graph (edge list in csv)");
 DEFINE_bool(tobin, false, "convert the graph to binary format");
 DEFINE_bool(p, false, "partition input graph");
 DEFINE_string(t, "edgelist", "type");

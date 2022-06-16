@@ -31,18 +31,56 @@ namespace graphs {
 
 template <typename GID_T, typename VID_T, typename VDATA_T, typename EDATA_T>
 class EdgeList : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
- public:
-  EdgeList() : Graph<GID_T, VID_T, VDATA_T, EDATA_T>() {}
+  using VertexInfo = graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>;
 
-  EdgeList(const GID_T gid) : Graph<GID_T, VID_T, VDATA_T, EDATA_T>(gid){};
+ public:
+  EdgeList() : Graph<GID_T, VID_T, VDATA_T, EDATA_T>() {
+    vertexes_info_ =
+        new std::map<VID_T, graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>*>();
+  }
+
+  EdgeList(const GID_T gid) : Graph<GID_T, VID_T, VDATA_T, EDATA_T>(gid) {
+    vertexes_info_ =
+        new std::map<VID_T, graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>*>();
+  };
 
   ~EdgeList() = default;
 
   size_t get_num_vertexes() const override { return num_vertexes_; }
 
-  void CleanUp() override{};
+  void CleanUp() override {
+    if (vertexes_info_ != nullptr) {
+      std::map<VID_T, graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>*> tmp;
+      vertexes_info_->swap(tmp);
+      delete vertexes_info_;
+      vertexes_info_ = nullptr;
+    }
+  };
 
-  void ShowGraph(const size_t count = 2) {}
+  void ShowGraph(const size_t count = 2) {
+    std::cout << "\n\n##### EdgeListGraph GID: " << gid_
+              << ", num_verteses: " << num_vertexes_
+              << ", num_edges: " << num_edges_ << " #####" << std::endl;
+    size_t count_ = 0;
+    for (size_t i = 0; i < this->get_num_vertexes(); i++) {
+      if (count_++ > count) {
+        std::cout << "############################" << std::endl;
+        return;
+      }
+      VertexInfo* vertex_info = vertexes_info_->find(i)->second;
+      vertex_info->ShowVertexInfo();
+    }
+  }
+
+  graphs::VertexInfo<VID_T, VDATA_T, EDATA_T> GetVertexByVid(const VID_T vid) {
+    auto iter = vertexes_info_->find(vid);
+    if (iter != vertexes_info_->end()) {
+      return *iter->second;
+    } else {
+      graphs::VertexInfo<VID_T, VDATA_T, EDATA_T> vertex_info;
+      return vertex_info;
+    }
+  }
 
  public:
   //  basic param
@@ -53,6 +91,7 @@ class EdgeList : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
   GraphFormat graph_format;
   void* buf_graph_ = nullptr;
   bool is_serialized_ = false;
+  std::map<VID_T, VertexInfo*>* vertexes_info_ = nullptr;
 };
 
 }  // namespace graphs
