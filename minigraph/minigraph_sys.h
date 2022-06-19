@@ -1,9 +1,19 @@
 #ifndef MINIGRAPH_MINIGRAPH_SYS_H
 #define MINIGRAPH_MINIGRAPH_SYS_H
 
-#include <dirent.h>
-
+#include "2d_pie/auto_app_base.h"
+#include "2d_pie/edge_map_reduce.h"
+#include "2d_pie/vertex_map_reduce.h"
+#include "components/computing_component.h"
+#include "components/discharge_component.h"
+#include "components/load_component.h"
+#include "message_manager/default_message_manager.h"
+#include "utility/io/data_mngr.h"
+#include "utility/paritioner/edge_cut_partitioner.h"
+#include "utility/state_machine.h"
+#include <folly/AtomicHashMap.h>
 #include <condition_variable>
+#include <dirent.h>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -13,19 +23,6 @@
 #include <string>
 #include <thread>
 #include <vector>
-
-#include <folly/AtomicHashMap.h>
-
-#include "2d_pie/auto_app_base.h"
-#include "2d_pie/edge_map_reduce.h"
-#include "2d_pie/vertex_map_reduce.h"
-#include "components/computing_component.h"
-#include "components/discharge_component.h"
-#include "components/load_component.h"
-#include "utility/io/data_mngr.h"
-#include "utility/paritioner/edge_cut_partitioner.h"
-#include "utility/state_machine.h"
-
 
 namespace minigraph {
 
@@ -57,6 +54,12 @@ class MiniGraphSys {
     // init Data Manager.
     data_mngr_ = std::make_unique<
         utility::io::DataMngr<GID_T, VID_T, VDATA_T, EDATA_T>>();
+
+    // init Message Manager
+    msg_mngr_ = std::make_unique<
+        message::DefaultMessageManager<GID_T, VID_T, VDATA_T, EDATA_T>>(
+        data_mngr_.get());
+    msg_mngr_->Init(work_space);
 
     pt_by_gid_ = new folly::AtomicHashMap<GID_T, CSRPt>(64);
     InitPtByGid(work_space);
@@ -97,9 +100,12 @@ class MiniGraphSys {
 
     // Read BorderVertexes, Communication Matrix, Graphs Dependencies.
     auto global_border_vertexes = data_mngr_->ReadBorderVertexes(
-        work_space + "/border_vertexes/global.bv");
-    auto communication_matrix = data_mngr_->ReadCommunicationMatrix(
-        work_space + "border_vertexes/communication_matrix.bin");
+        work_space + "border_vertexes/global.bv");
+    auto communication_matrix =
+        data_mngr_
+            ->ReadCommunicationMatrix(
+                work_space + "border_vertexes/communication_matrix.bin")
+            .second;
     auto global_border_vertexes_with_dependencies =
         data_mngr_->ReadGraphDependencies(
             work_space + "border_vertexes/graph_dependencies.bin");
@@ -111,6 +117,7 @@ class MiniGraphSys {
     app_wrapper_->InitBorderVertexes(
         global_border_vertexes, new std::unordered_map<VID_T, VertexInfo*>,
         global_border_vertexes_with_dependencies, communication_matrix);
+    app_wrapper_->InitMsgMngr(msg_mngr_.get());
 
     // init mutex, lck and cv
     read_trigger_mtx_ = std::make_unique<std::mutex>();
@@ -263,6 +270,10 @@ class MiniGraphSys {
   // App wrapper
   std::unique_ptr<AppWrapper<AUTOAPP_T, GID_T, VID_T, VDATA_T, EDATA_T>>
       app_wrapper_ = nullptr;
+
+  std::unique_ptr<
+      message::DefaultMessageManager<GID_T, VID_T, VDATA_T, EDATA_T>>
+      msg_mngr_;
 
   std::unique_ptr<std::mutex> read_trigger_mtx_;
   std::unique_ptr<std::mutex> task_queue_mtx_;

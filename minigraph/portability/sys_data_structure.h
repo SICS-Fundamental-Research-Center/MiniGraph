@@ -1,17 +1,15 @@
 #pragma once
 
-#include <math.h>
-
-#include <condition_variable>
-#include <string>
-#include <vector>
-
 #include "graphs/graph.h"
 #include "graphs/immutable_csr.h"
 #include "portability/sys_data_structure.h"
 #include "utility/thread_pool.h"
 #include <folly/AtomicHashMap.h>
-
+#include <condition_variable>
+#include <math.h>
+#include <string>
+#include <vector>
+//#include "message_manager/default_message_manager.h"
 
 struct CSRPt {
   std::string meta_pt;
@@ -59,30 +57,7 @@ class VertexDependencies {
   }
 };
 
-template <typename AutoApp, typename GID_T, typename VID_T, typename VDATA_T,
-          typename EDATA_T>
-class AppWrapper {
-  using VertexInfo = minigraph::graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>;
-
- public:
-  AppWrapper(AutoApp* auto_app) { auto_app_ = auto_app; }
-  AppWrapper() = default;
-
-  void InitBorderVertexes(
-      std::unordered_map<VID_T, std::vector<GID_T>*>* global_border_vertexes,
-      std::unordered_map<VID_T, VertexInfo*>* global_border_vertexes_info,
-      std::unordered_map<VID_T, VertexDependencies<VID_T, GID_T>*>*
-          global_border_vertexes_with_dependencies,
-      bool* communication_matrix) {
-    auto_app_->Bind(global_border_vertexes, global_border_vertexes_info,
-                    global_border_vertexes_with_dependencies,
-                    communication_matrix);
-  }
-
-  AutoApp* auto_app_ = nullptr;
-};
-
-template <typename VID_T>
+template <typename GID_T, typename VID_T, typename VDATA_T, typename EDATA_T>
 class PartialMatch {
  public:
   size_t x_ = 0;
@@ -93,9 +68,25 @@ class PartialMatch {
   VID_T* meta_to_add_ = nullptr;
 
   std::vector<VID_T>* vec_meta_ = nullptr;
+
+  // In case of the buffer is full, vec_matching_solutions need to be flushed to
+  // the secondary storage.
   std::vector<std::vector<VID_T>*>* vec_matching_solutions = nullptr;
 
-  PartialMatch() = default;
+  // persistent in main memory.
+  std::unordered_map<
+      GID_T,
+      std::vector<minigraph::graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>*>*>*
+      partial_result_ = nullptr;
+
+  PartialMatch() {
+    vec_meta_ = new std::vector<VID_T>;
+    vec_matching_solutions = new std::vector<std::vector<VID_T>*>;
+    partial_result_ = new std::unordered_map<
+        GID_T,
+        std::vector<minigraph::graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>*>*>;
+  }
+
   PartialMatch(size_t x, size_t y) {
     x_ = x;
     y_ = y;
@@ -109,7 +100,24 @@ class PartialMatch {
     vec_meta_ = new std::vector<VID_T>;
     vec_matching_solutions = new std::vector<std::vector<VID_T>*>;
 
-  };
+    partial_result_ = new std::unordered_map<
+        GID_T,
+        std::vector<minigraph::graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>*>*>;
+  }
+
+  PartialMatch(size_t x) {
+    x_ = x;
+    meta_ = (VID_T*)malloc(sizeof(VID_T) * x_);
+    memset(meta_, 0, sizeof(VID_T) * x_);
+    meta_to_add_ = new VID_T;
+    *meta_to_add_ = VID_MAX;
+
+    vec_meta_ = new std::vector<VID_T>;
+    vec_matching_solutions = new std::vector<std::vector<VID_T>*>;
+    partial_result_ = new std::unordered_map<
+        GID_T,
+        std::vector<minigraph::graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>*>*>;
+  }
 
   ~PartialMatch() = default;
 
@@ -143,13 +151,6 @@ class PartialMatch {
     }
     return false;
   };
-
- // bool IsInCurrentMatchingSolution(VID_T vid) {
- //   for (size_t i = 0; i < current_matching_solution_->size(); i++) {
- //     if (current_matching_solution_->at(i) == vid) return true;
- //   }
- //   return false;
- // }
 };
 
 // reference http://www.cs.cmu.edu/~pbbs/benchmarks/graphIO.html

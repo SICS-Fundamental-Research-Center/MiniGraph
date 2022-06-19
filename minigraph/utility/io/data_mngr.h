@@ -1,12 +1,10 @@
 #ifndef MINIGRAPH_DATA_MNGR_H
 #define MINIGRAPH_DATA_MNGR_H
 
-#include <memory>
-
-#include <folly/AtomicHashMap.h>
-
 #include "utility/io/csr_io_adapter.h"
 #include "utility/io/edge_list_io_adapter.h"
+#include <folly/AtomicHashMap.h>
+#include <memory>
 
 namespace minigraph {
 namespace utility {
@@ -264,7 +262,8 @@ class DataMngr {
     return true;
   }
 
-  bool* ReadCommunicationMatrix(const std::string& input_pt) {
+  std::pair<size_t, bool*> ReadCommunicationMatrix(
+      const std::string& input_pt) {
     std::ifstream communication_matrix_file(input_pt, std::ios::binary);
     size_t num_graphs = 0;
     communication_matrix_file.read((char*)&num_graphs, sizeof(size_t));
@@ -272,14 +271,8 @@ class DataMngr {
         (bool*)malloc(sizeof(bool) * num_graphs * num_graphs);
     communication_matrix_file.read((char*)communication_matrix,
                                    sizeof(bool) * num_graphs * num_graphs);
-    for (size_t i = 0; i < num_graphs; i++) {
-      for (size_t j = 0; j < num_graphs; j++) {
-        std::cout << *(communication_matrix + i * num_graphs + j) << ", ";
-      }
-      std::cout << std::endl;
-    }
     communication_matrix_file.close();
-    return communication_matrix;
+    return std::make_pair(num_graphs, communication_matrix);
   }
 
   std::unordered_map<VID_T, std::vector<GID_T>*>* ReadBorderVertexes(
@@ -303,6 +296,38 @@ class DataMngr {
     }
     LOG_INFO("LOAD global_border_vertexes: ", global_border_vertexes->size());
     return global_border_vertexes;
+  }
+
+  std::pair<VID_T, GID_T*> ReadGlobalid2Gid(const std::string& input_pt) {
+    std::ifstream input_file(input_pt, std::ios::binary | std::ios::app);
+    VID_T maximum_vid = 0;
+    input_file.read((char*)&maximum_vid, sizeof(VID_T));
+    GID_T* buf_globalid2gid = (GID_T*)malloc(sizeof(GID_T) * maximum_vid);
+    memset(buf_globalid2gid, 0, sizeof(GID_T) * maximum_vid);
+    input_file.read((char*)buf_globalid2gid, sizeof(GID_T) * maximum_vid);
+    input_file.close();
+    return std::make_pair(maximum_vid, buf_globalid2gid);
+  }
+
+  bool WriteGlobalid2Gid(std::unordered_map<VID_T, GID_T>& globalid2gid,
+                         const std::string& output_pt) {
+    if (IsExist(output_pt)) {
+      remove(output_pt.c_str());
+    }
+
+    VID_T maximum_vid = 0;
+    for (auto& iter : globalid2gid)
+      iter.first > maximum_vid ? maximum_vid = iter.first : 0;
+    maximum_vid++;
+    GID_T* buf_globalid2gid = (GID_T*)malloc(sizeof(GID_T) * maximum_vid);
+    memset(buf_globalid2gid, 0, (maximum_vid) * sizeof(GID_T));
+    for (auto& iter : globalid2gid) buf_globalid2gid[iter.first] = iter.second;
+
+    std::ofstream output_file(output_pt, std::ios::binary | std::ios::app);
+    output_file.write((char*)&maximum_vid, sizeof(VID_T));
+    output_file.write((char*)buf_globalid2gid, sizeof(GID_T) * maximum_vid);
+    free(buf_globalid2gid);
+    output_file.close();
   }
 
   GRAPH_BASE_T* GetGraph(const GID_T& gid) {

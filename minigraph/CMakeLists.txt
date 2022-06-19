@@ -70,6 +70,7 @@ file(GLOB MINIGRAPH_SOURCES
         "portability/*.cpp"
         "state_machine/*.cpp"
         "utility/*.cpp"
+        "message_manager/*.cpp"
         )
 
 
@@ -84,8 +85,7 @@ endif()
 #######################
 # Generate libminigraph
 #######################
-add_library (minigraph
-        ${MINIGRAPH_SOURCES} tests/2d_pie/bfs_test.cpp)
+add_library (minigraph ${MINIGRAPH_SOURCES})
 
 target_link_libraries(minigraph
         ${FOLLY_LIBRARIES} )

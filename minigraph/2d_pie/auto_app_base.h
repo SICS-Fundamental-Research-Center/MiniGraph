@@ -1,12 +1,6 @@
 #ifndef MINIGRAPH_2D_PIE_AUTO_APP_BASE_H
 #define MINIGRAPH_2D_PIE_AUTO_APP_BASE_H
 
-#include <memory>
-#include <unordered_map>
-
-#include <folly/MPMCQueue.h>
-#include <folly/concurrency/DynamicBoundedQueue.h>
-
 #include "2d_pie/edge_map_reduce.h"
 #include "2d_pie/vertex_map_reduce.h"
 #include "executors/scheduled_executor.h"
@@ -15,8 +9,12 @@
 #include "executors/throttle.h"
 #include "graphs/graph.h"
 #include "graphs/immutable_csr.h"
+#include "message_manager/default_message_manager.h"
 #include "utility/thread_pool.h"
-
+#include <folly/MPMCQueue.h>
+#include <folly/concurrency/DynamicBoundedQueue.h>
+#include <memory>
+#include <unordered_map>
 
 namespace minigraph {
 
@@ -89,6 +87,12 @@ class AutoAppBase {
     communication_matrix_ = communication_matrix;
   }
 
+  void Bind(message::DefaultMessageManager<
+            typename GRAPH_T::gid_t, typename GRAPH_T::vid_t,
+            typename GRAPH_T::vdata_t, typename GRAPH_T::edata_t>* msg_mngr) {
+    msg_mngr_ = msg_mngr;
+  }
+
   EMap_T* emap_ = nullptr;
   VMap_T* vmap_ = nullptr;
 
@@ -102,6 +106,12 @@ class AutoAppBase {
       typename GRAPH_T::vid_t,
       VertexDependencies<typename GRAPH_T::vid_t, typename GRAPH_T::gid_t>*>*
       global_border_vertexes_with_dependencies_ = nullptr;
+
+  message::DefaultMessageManager<
+      typename GRAPH_T::gid_t, typename GRAPH_T::vid_t,
+      typename GRAPH_T::vdata_t, typename GRAPH_T::edata_t>* msg_mngr_ =
+      nullptr;
+
   bool* communication_matrix_ = nullptr;
 
  protected:
@@ -124,6 +134,37 @@ class AutoAppBase {
       }
     }
     return tag;
+  }
+};
+
+template <typename AutoApp, typename GID_T, typename VID_T, typename VDATA_T,
+          typename EDATA_T>
+class AppWrapper {
+  using VertexInfo = minigraph::graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>;
+
+ public:
+  AutoApp* auto_app_ = nullptr;
+
+  message::DefaultMessageManager<GID_T, VID_T, VDATA_T, EDATA_T>* msg_mngr_;
+
+  AppWrapper(AutoApp* auto_app) { auto_app_ = auto_app; }
+  AppWrapper() = default;
+
+  void InitBorderVertexes(
+      std::unordered_map<VID_T, std::vector<GID_T>*>* global_border_vertexes,
+      std::unordered_map<VID_T, VertexInfo*>* global_border_vertexes_info,
+      std::unordered_map<VID_T, VertexDependencies<VID_T, GID_T>*>*
+          global_border_vertexes_with_dependencies,
+      bool* communication_matrix) {
+    auto_app_->Bind(global_border_vertexes, global_border_vertexes_info,
+                    global_border_vertexes_with_dependencies,
+                    communication_matrix);
+  }
+
+  void InitMsgMngr(message::DefaultMessageManager<GID_T, VID_T, VDATA_T,
+                                                  EDATA_T>* msg_mngr) {
+    msg_mngr_ = msg_mngr;
+    auto_app_->Bind(msg_mngr_);
   }
 };
 

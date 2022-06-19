@@ -3,6 +3,7 @@
 #include "2d_pie/vertex_map_reduce.h"
 #include "executors/task_runner.h"
 #include "graphs/graph.h"
+#include "message_manager/default_message_manager.h"
 #include "minigraph_sys.h"
 #include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
@@ -89,17 +90,19 @@ class SubIsoPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
       return false;
     }
 
-    std::queue<VID_T> GetCandidates_(
+    std::queue<VID_T> GetCandidates(
         EDGE_LIST_T& pattern, GRAPH_T& graph,
         std::vector<VID_T>& current_matching_solution) {
       std::queue<VID_T> candidate;
       if (current_matching_solution.empty()) {
         for (size_t i = 0; i < graph.get_num_vertexes(); i++)
-          candidate.emplace(graph.GetVertexByIndex(i).vid);
+          candidate.emplace(
+              graph.localid2globalid(graph.GetVertexByIndex(i).vid));
       } else {
         size_t num_candidates = 0;
         for (size_t i = current_matching_solution.size() - 1; i > 0; i--) {
-          auto v = graph.GetVertexByVid(current_matching_solution.at(i));
+          auto v = graph.GetVertexByVid(
+              graph.globalid2localid(current_matching_solution.at(i)));
           for (size_t j = 0; j < v.outdegree; j++) {
             if (!IsInCurrentMatchingSolution(v.out_edges[j],
                                              current_matching_solution)) {
@@ -117,9 +120,11 @@ class SubIsoPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
         }
         if (num_candidates == 0) {
           for (size_t i = 0; i < graph.get_num_vertexes(); i++) {
-            if (!IsInCurrentMatchingSolution(graph.GetVertexByIndex(i).vid,
-                                             current_matching_solution)) {
-              candidate.emplace(graph.GetVertexByIndex(i).vid);
+            if (!IsInCurrentMatchingSolution(
+                    graph.localid2globalid(graph.GetVertexByIndex(i).vid),
+                    current_matching_solution)) {
+              candidate.emplace(
+                  graph.localid2globalid(graph.GetVertexByIndex(i).vid));
             }
           }
         }
@@ -143,7 +148,11 @@ class SubIsoPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
         auto nbr_u = pattern.GetVertexByVid(u.out_edges[i]);
         bool tag = false;
         for (size_t j = 0; j < v.outdegree; j++) {
-          auto nbr_v = graph.GetVertexByVid(v.out_edges[i]);
+          auto nbr_v_vid = graph.globalid2localid(v.out_edges[i]);
+          if (nbr_v_vid == VID_MAX) {
+            continue;
+          }
+          auto nbr_v = graph.GetVertexByVid(nbr_v_vid);
           if (CompareVertexes(nbr_u, nbr_v)) {
             tag = true;
             break;
@@ -159,7 +168,12 @@ class SubIsoPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
         auto nbr_u = pattern.GetVertexByVid(u.in_edges[i]);
         bool tag = false;
         for (size_t j = 0; j < v.indegree; j++) {
-          auto nbr_v = graph.GetVertexByVid(v.in_edges[i]);
+          auto nbr_v_vid = graph.globalid2localid(v.in_edges[i]);
+          if (nbr_v_vid == VID_MAX) {
+            continue;
+          }
+          auto nbr_v = graph.GetVertexByVid(graph.globalid2localid(nbr_v_vid));
+
           if (CompareVertexes(nbr_u, nbr_v)) {
             tag = true;
             break;
@@ -183,9 +197,10 @@ class SubIsoPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
       for (size_t i = 0; i < current_matching_solution.size(); i++) {
         auto u = pattern.GetVertexByVid(meta.at(i));
-        auto v = graph.GetVertexByVid(current_matching_solution.at(i));
+        auto v = graph.GetVertexByVid(
+            graph.globalid2localid(current_matching_solution.at(i)));
         if (!CompareVertexes(u, v)) return false;
-        if (!CompareNbrVertexes(u, v, pattern, graph)) return false;
+        // if (!CompareNbrVertexes(u, v, pattern, graph)) return false;
       }
       return true;
     }
@@ -194,7 +209,8 @@ class SubIsoPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
                                std::vector<VID_T>& meta,
                                std::vector<VID_T>& current_matching_solution) {
       VertexInfo&& u = pattern.GetVertexByVid(meta.back());
-      VertexInfo&& v = graph.GetVertexByVid(current_matching_solution.back());
+      VertexInfo&& v = graph.GetVertexByVid(
+          graph.globalid2localid(current_matching_solution.back()));
       if (!CompareVertexes(u, v)) return false;
       if (!CompareNbrVertexes(u, v, pattern, graph)) return false;
       return true;
@@ -225,49 +241,32 @@ class SubIsoPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
       }
     }
 
-    std::queue<VID_T> GetCandidates(
-        EDGE_LIST_T& pattern, GRAPH_T& graph,
-        std::vector<VID_T>& current_matching_solution) {
-      std::queue<VID_T> candidate;
-      if (current_matching_solution.empty()) {
-        for (size_t i = 0; i < graph.get_num_vertexes(); i++)
-          candidate.emplace(graph.GetVertexByIndex(i).vid);
-      } else {
-        auto v = graph.GetVertexByVid(current_matching_solution.back());
-        for (size_t i = 0; i < v.outdegree; i++) {
-          auto nbr_vid = v.out_edges[i];
-
-          bool tag = true;
-          for (auto& iter_current_matching_solution :
-               current_matching_solution) {
-            if (nbr_vid == iter_current_matching_solution) {
-              tag = false;
-              break;
-            }
-          }
-          if (tag) {
-            candidate.emplace(nbr_vid);
-          }
-        }
-      }
-      return candidate;
-    }
-
     void Match(EDGE_LIST_T& pattern, GRAPH_T& graph,
-               PartialMatch<VID_T>& partial_match, std::vector<VID_T> meta,
+               PartialMatch<GID_T, VID_T, VDATA_T, EDATA_T>& partial_match,
+               std::vector<VID_T> meta,
                std::vector<VID_T> current_matching_solution, VID_T u_vid,
-               VID_T v_vid) {
+               VID_T v_vid,
+               minigraph::message::DefaultMessageManager<GID_T, VID_T, VDATA_T,
+                                                         EDATA_T>& msg_mngr) {
       if (v_vid == VID_MAX && u_vid == VID_MAX) {
         u_vid = GetNewPredicates(pattern, meta);
-        v_vid = graph.GetVertexByIndex(1).vid;
+        // v_vid = graph.localid2globalid(graph.GetVertexByIndex(0).vid);
+        v_vid = graph.localid2globalid(graph.GetVertexByIndex(0).vid);
+
         std::queue<VID_T>&& candidate =
             GetCandidates(pattern, graph, current_matching_solution);
         while (!candidate.empty()) {
           Match(pattern, graph, partial_match, meta, current_matching_solution,
-                v_vid, candidate.front());
+                v_vid, candidate.front(), msg_mngr);
           candidate.pop();
         }
       } else {
+        if (graph.globalid2localid(v_vid) == VID_MAX) {
+          // msg_mngr_->x_;
+          LOG_INFO("!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+          msg_mngr.BufferPartialResult(current_matching_solution, graph, v_vid);
+          return;
+        }
         meta.push_back(u_vid);
         current_matching_solution.push_back(v_vid);
         if (meta.size() == pattern.get_num_vertexes()) {
@@ -283,11 +282,11 @@ class SubIsoPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
                                     current_matching_solution)) {
             VID_T&& new_predicates = GetNewPredicates(pattern, meta);
             std::queue<VID_T>&& candidate =
-                GetCandidates_(pattern, graph, current_matching_solution);
+                GetCandidates(pattern, graph, current_matching_solution);
             while (!candidate.empty()) {
               Match(pattern, graph, partial_match, meta,
                     current_matching_solution, new_predicates,
-                    candidate.front());
+                    candidate.front(), msg_mngr);
               candidate.pop();
             }
           } else {
@@ -302,18 +301,22 @@ class SubIsoPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
   bool PEval(GRAPH_T& graph, PARTIAL_RESULT_T* partial_result,
              minigraph::executors::TaskRunner* task_runner) override {
-    PartialMatch<VID_T>* partial_match =
-        new PartialMatch<VID_T>(this->context_.pattern->get_num_vertexes(), 0);
+    auto partial_match = new PartialMatch<GID_T, VID_T, VDATA_T, EDATA_T>(
+        this->context_.pattern->get_num_vertexes(), 0);
     bool* visited = (bool*)malloc(sizeof(bool) * graph.get_num_vertexes());
     std::unordered_map<VID_T, bool*>* M = new std::unordered_map<VID_T, bool*>;
-    // <STATE_ID_T s, M(s)>
 
     VF2 vf2_executor;
     std::vector<VID_T>* meta = new std::vector<VID_T>;
     std::vector<VID_T>* current_matching_solution = new std::vector<VID_T>;
     vf2_executor.Match(*this->context_.pattern, graph, *partial_match, *meta,
-                       *current_matching_solution, VID_MAX, VID_MAX);
+                       *current_matching_solution, VID_MAX, VID_MAX,
+                       *this->msg_mngr_);
+    size_t count = 0;
     for (auto& iter : *partial_match->vec_matching_solutions) {
+      if (count++ > 10) {
+        break;
+      }
       for (size_t i = 0; i < partial_match->x_; i++) {
         std::cout << iter->at(i) << ", ";
       }
@@ -378,8 +381,8 @@ int main(int argc, char* argv[]) {
   auto bfs_pie =
       new SubIsoPIE<CSR_T, Context>(bfs_vertex_map, bfs_edge_map, context);
   auto app_wrapper =
-      new AppWrapper<SubIsoPIE<CSR_T, Context>, gid_t, vid_t, vdata_t, edata_t>(
-          bfs_pie);
+      new minigraph::AppWrapper<SubIsoPIE<CSR_T, Context>, gid_t, vid_t,
+                                vdata_t, edata_t>(bfs_pie);
 
   minigraph::MiniGraphSys<CSR_T, SubIsoPIE_T> minigraph_sys(
       work_space, num_workers_lc, num_workers_cc, num_workers_dc, num_cores,
