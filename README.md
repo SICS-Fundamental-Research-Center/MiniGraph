@@ -29,10 +29,11 @@ To generate graph where vertexes are all 0.
 $cd bin
 $./preprocess_exec  -p -n [the number of fragments] -i [input in csv format] -o [output path] -init_model val -init_val 0
 ```
-Or else to obtain graph where vertexes are initialized to vid.
+To obtain graph where vertexes are initialized to its vid (or to all maximum value).
 ```shell
 $cd bin
 $./preprocess_exec  -p -n [the number of fragments] -i [input in csv format] -o [output path] -init_model vid
+%./preprocess_exec  -p -n [the number of fragments] -i [input in csv format] -o [output path] -init_model max
 ```
 
 ## Executing BFS
