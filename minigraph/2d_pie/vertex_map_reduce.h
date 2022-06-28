@@ -1,21 +1,18 @@
 #ifndef MINIGRAPH_2D_PIE_VERTEX_MAP_REDUCE_H
 #define MINIGRAPH_2D_PIE_VERTEX_MAP_REDUCE_H
 
-#include <condition_variable>
-#include <vector>
-
-#include <folly/MPMCQueue.h>
-#include <folly/ProducerConsumerQueue.h>
-#include <folly/concurrency/DynamicBoundedQueue.h>
-#include <folly/executors/ThreadPoolExecutor.h>
-
 #include "executors/task_runner.h"
 #include "graphs/graph.h"
 #include "graphs/immutable_csr.h"
 #include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
 #include "utility/thread_pool.h"
-
+#include <folly/MPMCQueue.h>
+#include <folly/ProducerConsumerQueue.h>
+#include <folly/concurrency/DynamicBoundedQueue.h>
+#include <folly/executors/ThreadPoolExecutor.h>
+#include <condition_variable>
+#include <vector>
 
 namespace minigraph {
 
@@ -62,9 +59,10 @@ class VMapBase {
   template <class F, class... Args>
   Frontier* Map(Frontier* frontier_in, bool* visited, GRAPH_T& graph,
                 executors::TaskRunner* task_runner, F&& f, Args&&... args) {
-    Frontier* frontier_out = new Frontier(graph.get_num_vertexes() + 1);
+    Frontier* frontier_out = new Frontier(graph.get_num_vertexes() + 1024);
     VertexInfo vertex_info;
     std::vector<std::function<void()>> tasks;
+    tasks.reserve(graph.get_num_vertexes() + 1024);
     size_t tid = 0;
     while (!frontier_in->empty()) {
       frontier_in->dequeue(vertex_info);
@@ -75,6 +73,7 @@ class VMapBase {
     task_runner->Run(tasks, false);
     LOG_INFO("#");
     delete frontier_in;
+    //LOG_INFO("#");
     return frontier_out;
   }
 

@@ -58,7 +58,7 @@ class MiniGraphSys {
     // init Message Manager
     msg_mngr_ = std::make_unique<
         message::DefaultMessageManager<GID_T, VID_T, VDATA_T, EDATA_T>>(
-        data_mngr_.get());
+        data_mngr_.get(), work_space);
     msg_mngr_->Init(work_space);
 
     pt_by_gid_ = new folly::AtomicHashMap<GID_T, CSRPt>(64);
@@ -69,28 +69,27 @@ class MiniGraphSys {
 
     // init superstep of fragments as all 0;
     std::vector<GID_T> vec_gid;
-    superstep_by_gid_ =
-        new folly::AtomicHashMap<GID_T, std::atomic<size_t>*>(64);
+    // superstep_by_gid_ =
+    //     new folly::AtomicHashMap<GID_T, std::atomic<size_t>*>(64);
+    superstep_by_gid_ = new std::unordered_map<GID_T, std::atomic<size_t>*>;
+    //        new folly::AtomicHashMap<GID_T, std::atomic<size_t>*>(64);
     for (auto& iter : *pt_by_gid_) {
-      superstep_by_gid_->insert(iter.first, new std::atomic<size_t>(0));
+      superstep_by_gid_->insert(
+          std::make_pair(iter.first, new std::atomic<size_t>(0)));
       vec_gid.push_back(iter.first);
     }
 
     // init read_trigger
-    read_trigger_ = std::make_unique<folly::ProducerConsumerQueue<GID_T>>(
-        vec_gid.size() + 64);
+    read_trigger_ = std::make_unique<std::queue<GID_T>>();
     for (auto& iter : vec_gid) {
-      read_trigger_->write(iter);
+      read_trigger_->push(iter);
     }
 
     // init task queue
-    task_queue_ = std::make_unique<folly::ProducerConsumerQueue<GID_T>>(
-        vec_gid.size() + 64);
+    task_queue_ = std::make_unique<std::queue<GID_T>>();
 
     // init partial result queue
-    partial_result_queue_ =
-        std::make_unique<folly::ProducerConsumerQueue<GID_T>>(vec_gid.size() +
-                                                              64);
+    partial_result_queue_ = std::make_unique<std::queue<GID_T>>();
 
     // init thread pool
     thread_pool_ = std::make_unique<utility::EDFThreadPool>(num_threads_);
@@ -114,9 +113,6 @@ class MiniGraphSys {
     app_wrapper_ = std::make_unique<
         AppWrapper<AUTOAPP_T, GID_T, VID_T, VDATA_T, EDATA_T>>();
     app_wrapper_.reset(app_wrapper);
-    app_wrapper_->InitBorderVertexes(
-        global_border_vertexes, new std::unordered_map<VID_T, VertexInfo*>,
-        global_border_vertexes_with_dependencies, communication_matrix);
     app_wrapper_->InitMsgMngr(msg_mngr_.get());
 
     // init mutex, lck and cv
@@ -150,17 +146,16 @@ class MiniGraphSys {
         task_queue_cv_.get());
     computing_component_ =
         std::make_unique<components::ComputingComponent<GRAPH_T, AUTOAPP_T>>(
-            num_workers_cc, num_cores / num_workers_lc, thread_pool_.get(),
-            superstep_by_gid_, global_superstep_, state_machine_,
-            task_queue_.get(), partial_result_queue_.get(), data_mngr_.get(),
-            app_wrapper_.get(), task_queue_lck_.get(),
-            partial_result_lck_.get(), task_queue_cv_.get(),
-            partial_result_cv_.get());
+            num_workers_cc, num_cores, thread_pool_.get(), superstep_by_gid_,
+            global_superstep_, state_machine_, task_queue_.get(),
+            partial_result_queue_.get(), data_mngr_.get(), app_wrapper_.get(),
+            task_queue_lck_.get(), partial_result_lck_.get(),
+            task_queue_cv_.get(), partial_result_cv_.get());
     discharge_component_ =
         std::make_unique<components::DischargeComponent<GRAPH_T>>(
             num_workers_dc, thread_pool_.get(), superstep_by_gid_,
             global_superstep_, state_machine_, partial_result_queue_.get(),
-            pt_by_gid_, read_trigger_.get(), data_mngr_.get(),
+            read_trigger_.get(), pt_by_gid_, data_mngr_.get(),
             partial_result_lck_.get(), read_trigger_lck_.get(),
             partial_result_cv_.get(), read_trigger_cv_.get(),
             system_switch_.get(), system_switch_lck_.get(),
@@ -204,7 +199,6 @@ class MiniGraphSys {
     partial_result_cv_->notify_all();
     system_switch_cv_->wait(*system_switch_lck_,
                             [&] { return !system_switch_->load(); });
-    this->Stop();
     auto end_time = std::chrono::system_clock::now();
     data_mngr_->CleanUp();
 
@@ -215,6 +209,7 @@ class MiniGraphSys {
                          .count() /
                      (double)CLOCKS_PER_SEC
               << " ####      " << std::endl;
+    this->Stop();
     return true;
   }
 
@@ -239,22 +234,20 @@ class MiniGraphSys {
   std::unique_ptr<utility::EDFThreadPool> thread_pool_ = nullptr;
 
   // superstep.
-  folly::AtomicHashMap<GID_T, std::atomic<size_t>*>* superstep_by_gid_ =
-      nullptr;
+  std::unordered_map<GID_T, std::atomic<size_t>*>* superstep_by_gid_ = nullptr;
   std::atomic<size_t>* global_superstep_ = nullptr;
 
   // state machine.
   utility::StateMachine<GID_T>* state_machine_ = nullptr;
 
   // task queue.
-  std::unique_ptr<folly::ProducerConsumerQueue<GID_T>> task_queue_ = nullptr;
+  std::unique_ptr<std::queue<GID_T>> task_queue_ = nullptr;
 
   // read trigger queue.
-  std::unique_ptr<folly::ProducerConsumerQueue<GID_T>> read_trigger_ = nullptr;
+  std::unique_ptr<std::queue<GID_T>> read_trigger_ = nullptr;
 
   // partial result queue.
-  std::unique_ptr<folly::ProducerConsumerQueue<GID_T>> partial_result_queue_ =
-      nullptr;
+  std::unique_ptr<std::queue<GID_T>> partial_result_queue_ = nullptr;
 
   // components.
   std::unique_ptr<components::LoadComponent<GRAPH_T>> load_component_ = nullptr;

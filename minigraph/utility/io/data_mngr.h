@@ -28,6 +28,8 @@ class DataMngr {
       global_border_vertexes_ = nullptr;
   std::unique_ptr<std::unordered_map<VID_T, VertexInfo*>>
       global_border_vertexes_info_ = nullptr;
+  std::unordered_map<GID_T, std::vector<VID_T>*>*
+      global_border_vertexes_by_gid_;
 
   DataMngr() {
     pgraph_by_gid_ =
@@ -38,6 +40,8 @@ class DataMngr {
 
     edge_list_io_adapter_ = std::make_unique<
         utility::io::EdgeListIOAdapter<gid_t, vid_t, vdata_t, edata_t>>();
+    global_border_vertexes_by_gid_ =
+        new std::unordered_map<GID_T, std::vector<VID_T>*>;
   };
 
   bool ReadGraph(const GID_T& gid, const CSRPt& csr_pt,
@@ -259,6 +263,45 @@ class DataMngr {
     communication_matrix_file.write((char*)communication_matrix,
                                     sizeof(bool) * num_graphs * num_graphs);
     communication_matrix_file.close();
+    return true;
+  }
+
+  bool WriteGlobalBorderVertexesbyGid(
+      std::unordered_map<GID_T, std::vector<VID_T>*>&
+          global_border_vertexes_by_gid,
+      const std::string& output_pt) {
+    size_t num_graph = global_border_vertexes_by_gid.size();
+    size_t* num_vertexes_for_each_graph =
+        (size_t*)malloc(sizeof(size_t) * num_graph);
+    size_t* offset =
+        (size_t*)malloc(sizeof(size_t) * num_graph);
+    size_t i = 0;
+    size_t count = 0;
+
+    for (auto& iter : global_border_vertexes_by_gid) {
+      num_vertexes_for_each_graph[i] = iter.second->size();
+      offset[i] = count;
+      count += iter.second->size();
+      i++;
+    }
+
+    auto buf_vid = (VID_T*)malloc(sizeof(VID_T) * count);
+
+    i = 0;
+    for (auto& iter : global_border_vertexes_by_gid) {
+      for (auto& iter_vid : *iter.second) buf_vid[i++] = iter_vid;
+    }
+
+    std::ofstream output_file(output_pt, std::ios::binary);
+    output_file.write((char*)&num_graph, sizeof(size_t));
+    output_file.write((char*)num_vertexes_for_each_graph, sizeof(size_t) * num_graph);
+    output_file.write((char*)offset, sizeof(size_t) * num_graph);
+    output_file.write((char*)buf_vid, sizeof(VID_T) * count);
+
+    free(buf_vid);
+    free(num_vertexes_for_each_graph);
+    free(offset);
+    output_file.close();
     return true;
   }
 

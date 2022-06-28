@@ -33,7 +33,7 @@ ScheduledExecutor::ScheduledExecutor(unsigned int num_threads)
       thread_pool_(num_threads),
       factory_(scheduler_.get(), &thread_pool_) {
   std::lock_guard<std::mutex> grd(map_mtx_);
-  throttles_.reserve(128);
+  throttles_.reserve(1024);
 }
 
 TaskRunner* ScheduledExecutor::RequestTaskRunner(
@@ -54,7 +54,8 @@ TaskRunner* ScheduledExecutor::RequestTaskRunner(
     Schedulable::Metadata&& metadata, const size_t init_parallelism) {
   std::lock_guard<std::mutex> grd(map_mtx_);
   ThrottlePtr throttle = scheduler_->AllocateNew(
-      &factory_, std::forward<Schedulable::Metadata>(metadata), init_parallelism);
+      &factory_, std::forward<Schedulable::Metadata>(metadata),
+      init_parallelism);
   Schedulable::ID_Type id = throttle->id();
   auto result = throttles_.emplace(throttle->id(), std::move(throttle));
   if (!result.second) {
@@ -65,6 +66,7 @@ TaskRunner* ScheduledExecutor::RequestTaskRunner(
 }
 
 void ScheduledExecutor::RecycleTaskRunner(TaskRunner* runner) {
+  // erase_mtx_.lock();
   ThrottlePtr throttle = nullptr;
   Schedulable::ID_Type id = dynamic_cast<Throttle*>(runner)->id();
   std::lock_guard<std::mutex> grd(map_mtx_);
@@ -72,8 +74,12 @@ void ScheduledExecutor::RecycleTaskRunner(TaskRunner* runner) {
     LOG_ERROR("Trying to recycle TaskRunner whose ID is unknown.");
     return;
   }
+  LOG_INFO("erase: ", id);
+  //  scheduler_->RecycleAllThreads(recycler->second.get());
   throttles_.erase(id);
-  // throttle will destruct here, and get removed from Scheduler automatically.
+  LOG_INFO("erase: ", id);
+  // erase_mtx_.unlock();
+  //  throttle will destruct here, and get removed from Scheduler automatically.
 }
 
 void ScheduledExecutor::Stop() { thread_pool_.StopAndJoin(); }

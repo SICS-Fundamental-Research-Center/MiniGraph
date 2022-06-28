@@ -1,17 +1,14 @@
 #include "executors/throttle.h"
-
+#include "executors/scheduler.h"
+#include "utility/logging.h"
 #include <thread>
 #include <utility>
-
-#include "executors/scheduler.h"
 
 namespace minigraph {
 namespace executors {
 
-Throttle::Throttle(ID_Type id,
-                   Scheduler<Throttle>* scheduler,
-                   TaskRunner* downstream,
-                   size_t max_parallelism)
+Throttle::Throttle(ID_Type id, Scheduler<Throttle>* scheduler,
+                   TaskRunner* downstream, size_t max_parallelism)
     : Schedulable(id),
       scheduler_(scheduler),
       downstream_(downstream),
@@ -30,10 +27,12 @@ Throttle::~Throttle() {
   for (size_t i = 0; original_parallelism_ > 0 && i < original_parallelism_;
        i++) {
     sem_.post();
+    // NOTE...
   }
 }
 
 void Throttle::Run(Task&& task, bool release_resource) {
+  LOG_INFO("RUN");
   std::mutex mtx;
   bool task_completed = false;
   std::condition_variable finish_cv;
@@ -61,6 +60,7 @@ void Throttle::Run(const std::vector<Task>& tasks, bool release_resource) {
   const std::vector<size_t> indices = PackagedTaskIndices(tasks.size());
   const size_t num_packages = indices.size() - 1;
 
+  LOG_INFO("RUN");
   std::mutex mtx;
   size_t pending_packages = num_packages;
   std::condition_variable finish_cv;
@@ -76,15 +76,16 @@ void Throttle::Run(const std::vector<Task>& tasks, bool release_resource) {
           {
             std::lock_guard grd(mtx);
             pending_packages--;
+            // LOG_INFO("!!!!!!!!!!!!!!!!!!!!PENDING_PACKAGE: ",
+            // pending_packages);
           }
-          finish_cv.notify_one();
           sem_.post();
+          finish_cv.notify_one();
         },
         false);
   }
 
   std::unique_lock<std::mutex> lck(mtx);
-
   while (pending_packages > 0) {
     finish_cv.wait(lck);
     // Here, cv is waked up after all task packages have been pushed downstream.
@@ -133,7 +134,7 @@ size_t Throttle::IncreaseParallelism(size_t delta) {
 size_t Throttle::DecrementParallelism() {
   // Change `allocated_parallelism_` before actually decrement semaphore counts.
   const size_t before = allocated_parallelism_.fetch_sub(1);
-  if (before == 0) {
+  if (before <= 0) {
     allocated_parallelism_++;
   } else {
     sem_.wait();
@@ -155,8 +156,8 @@ ThrottleFactory::ThrottleFactory(Scheduler<Throttle>* scheduler,
 
 std::unique_ptr<Throttle> ThrottleFactory::New(
     size_t initial_parallelism, Schedulable::Metadata&& metadata) const {
-  auto instance = std::make_unique<Throttle>(
-      next_id_++, scheduler_, downstream_, initial_parallelism);
+  auto instance = std::make_unique<Throttle>(next_id_++, scheduler_,
+                                             downstream_, initial_parallelism);
   std::swap(*(instance->mutable_metadata()), metadata);
   return instance;
 }

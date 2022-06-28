@@ -113,6 +113,12 @@ int main(int argc, char* argv[]) {
     data_mngr.WriteGlobalid2Gid(*globalid2gid,
                                 dst_pt + "/message/globalid2gid.bin");
 
+    auto global_border_vertexes_by_gid =
+        edge_cut_partitioner.GetGlobalBorderVertexesbyGid();
+    data_mngr.WriteGlobalBorderVertexesbyGid(
+        *global_border_vertexes_by_gid,
+        dst_pt + "/message/border_vertexes_by_gid.bin");
+
     // data_mngr.ReadCommunicationMatrix(
     //     dst_pt + "/border_vertexes/communication_matrix.bin");
     auto out = data_mngr.ReadGlobalid2Gid(dst_pt + "/message/globalid2gid.bin");

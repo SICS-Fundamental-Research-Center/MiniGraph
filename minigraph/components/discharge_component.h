@@ -23,12 +23,11 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
  public:
   DischargeComponent(
       const size_t num_workers, utility::EDFThreadPool* thread_pool,
-      folly::AtomicHashMap<GID_T, std::atomic<size_t>*>* superstep_by_gid,
+      std::unordered_map<GID_T, std::atomic<size_t>*>* superstep_by_gid,
       std::atomic<size_t>* global_superstep,
       utility::StateMachine<GID_T>* state_machine,
-      folly::ProducerConsumerQueue<GID_T>* partial_result_queue,
+      std::queue<GID_T>* partial_result_queue, std::queue<GID_T>* read_trigger,
       folly::AtomicHashMap<GID_T, CSRPt>* pt_by_gid,
-      folly::ProducerConsumerQueue<GID_T>* read_trigger,
       utility::io::DataMngr<GID_T, VID_T, VDATA_T, EDATA_T>* data_mngr,
       std::unique_lock<std::mutex>* partial_result_lck,
       std::unique_lock<std::mutex>* read_trigger_lck,
@@ -57,23 +56,33 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   ~DischargeComponent() = default;
 
   void Run() override {
-    while (this->switch_.load(std::memory_order_relaxed)) {
-      std::vector<GID_T> vec_gid;
+    while (this->switch_.load()) {
+      std::vector<GID_T> *vec_gid = new std::vector<GID_T>;
       GID_T gid = MINIGRAPH_GID_MAX;
-      partial_result_cv_->wait(*partial_result_lck_, [&] {
-        return !partial_result_queue_->isEmpty();
-      });
-      while (!partial_result_queue_->isEmpty()) {
-        while (!partial_result_queue_->read(gid)) {
-          continue;
-        }
-        vec_gid.push_back(gid);
+      partial_result_cv_->wait(*partial_result_lck_, [&] { return true; });
+      while (!partial_result_queue_->empty()) {
+        gid = partial_result_queue_->front();
+        partial_result_queue_->pop();
+        vec_gid->push_back(gid);
+        LOG_INFO(gid);
       }
-      for (size_t i = 0; i < vec_gid.size(); i++) {
-        gid = vec_gid.at(i);
+      // while (!partial_result_queue_->isEmpty()) {
+      //   while (!partial_result_queue_->read(gid)) {
+      //     continue;
+      //   }
+      //   vec_gid.push_back(gid);
+      // }
+      for (size_t i = 0; i < vec_gid->size(); i++) {
+        gid = vec_gid->at(i);
         CheckRTRule(gid);
+        LOG_INFO("DC: ", gid);
+
+        this->state_machine_->ShowGraphState(gid);
+       // this->ShowSuperStepByGid();
         if (this->TrySync()) {
-          if (this->state_machine_->IsTerminated()) {
+
+          if (this->state_machine_->IsTerminated() ||
+              this->get_global_superstep() > 10000) {
             auto out_rts = this->state_machine_->EvokeAllX(RTS);
             if (out_rts.size() != 0) {
               for (auto& iter : out_rts) {
@@ -81,6 +90,7 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
                 CSRPt& csr_pt = pt_by_gid_->find(gid)->second;
                 data_mngr_->WriteGraph(gid, csr_pt, csr_bin);
               }
+            } else {
             }
             system_switch_cv_->wait(*system_switch_lck_,
                                     [&] { return system_switch_->load(); });
@@ -91,7 +101,6 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
           } else {
             WriteAllGraphsBack();
           }
-        } else {
         }
       }
     }
@@ -102,9 +111,9 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
  private:
   std::atomic<size_t> num_workers_;
   std::atomic<bool> switch_ = true;
-  folly::ProducerConsumerQueue<GID_T>* partial_result_queue_ = nullptr;
+  std::queue<GID_T>* partial_result_queue_ = nullptr;
+  std::queue<GID_T>* read_trigger_ = nullptr;
   utility::io::DataMngr<GID_T, VID_T, VDATA_T, EDATA_T>* data_mngr_ = nullptr;
-  folly::ProducerConsumerQueue<GID_T>* read_trigger_ = nullptr;
   folly::AtomicHashMap<GID_T, CSRPt>* pt_by_gid_ = nullptr;
   std::unique_lock<std::mutex>* read_trigger_lck_;
   std::unique_lock<std::mutex>* partial_result_lck_;
@@ -122,26 +131,26 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       auto out_rc = this->state_machine_->EvokeAllX(RC);
       auto out_rt = this->state_machine_->EvokeAllX(RT);
       auto out_rts = this->state_machine_->EvokeAllX(RTS);
+      //read_trigger_cv_->wait(*read_trigger_lck_,
+      //                       [&] { return !read_trigger_->empty(); });
       for (auto& iter : out_rt) {
         GID_T gid = iter;
         data_mngr_->EraseGraph(gid);
-        read_trigger_->write(gid);
-        read_trigger_cv_->notify_all();
+        read_trigger_->push(gid);
       }
       for (auto& iter : out_rc) {
         GID_T gid = iter;
         CSRPt& csr_pt = pt_by_gid_->find(gid)->second;
         data_mngr_->WriteGraph(gid, csr_pt, csr_bin);
-        read_trigger_->write(gid);
-        read_trigger_cv_->notify_all();
+        read_trigger_->push(gid);
       }
       for (auto& iter : out_rts) {
         GID_T gid = iter;
         CSRPt& csr_pt = pt_by_gid_->find(gid)->second;
         data_mngr_->WriteGraph(gid, csr_pt, csr_bin);
-        read_trigger_->write(gid);
-        read_trigger_cv_->notify_all();
+        read_trigger_->push(gid);
       }
+      read_trigger_cv_->notify_all();
     }
   }
 

@@ -15,7 +15,7 @@ namespace logging {
 // the "sync_level" flag specifies that all logs of the level WARN and above
 // are processed synchronously.
 inline constexpr char kDefaultConfigStderr[] =
-    "INFO; default:async=true,sync_level=WARN";
+    "INFO; default:async=true,sync_level=INFO";
 
 // Default logging configuration for debugging (print all to stderr).
 inline constexpr char kDebugConfig[] = "DEBUG; default:async=false";

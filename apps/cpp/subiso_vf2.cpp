@@ -3,7 +3,9 @@
 #include "2d_pie/vertex_map_reduce.h"
 #include "executors/task_runner.h"
 #include "graphs/graph.h"
+#include "message_manager/border_vertexes.h"
 #include "message_manager/default_message_manager.h"
+#include "message_manager/partial_match.h"
 #include "minigraph_sys.h"
 #include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
@@ -74,13 +76,15 @@ class SubIsoPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
  public:
   class VF2 {
+    enum TFU { vf2_true, vf2_false, vf2_uncertain };
+
    public:
-    bool CoversAll(bool* visited, size_t num_vertexes) {
-      for (size_t i = 0; i < num_vertexes; i++) {
-        if (visited[i] == 0) return false;
-      }
-      return true;
-    }
+    // bool CoversAll(bool* visited, size_t num_vertexes) {
+    //   for (size_t i = 0; i < num_vertexes; i++) {
+    //     if (visited[i] == 0) return false;
+    //   }
+    //   return true;
+    // }
 
     bool IsInCurrentMatchingSolution(
         VID_T vid, std::vector<VID_T>& current_matching_solution) {
@@ -88,6 +92,19 @@ class SubIsoPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
         if (current_matching_solution.at(i) == vid) return true;
       }
       return false;
+    }
+
+    template <typename V_T>
+    bool IsInVec(std::vector<V_T>& vec, V_T& v) {
+      for (size_t i = 0; i < vec.size(); i++)
+        if (vec.at(i) == v) return true;
+      return false;
+    }
+
+    size_t GetIndexOfX(std::vector<VID_T>& vec, VID_T vid) {
+      for (size_t i = 0; i < vec.size(); i++)
+        if (vec.at(i) == vid) return i;
+      return SIZE_MAX;
     }
 
     std::queue<VID_T> GetCandidates(
@@ -100,9 +117,11 @@ class SubIsoPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
               graph.localid2globalid(graph.GetVertexByIndex(i).vid));
       } else {
         size_t num_candidates = 0;
-        for (size_t i = current_matching_solution.size() - 1; i > 0; i--) {
-          auto v = graph.GetVertexByVid(
-              graph.globalid2localid(current_matching_solution.at(i)));
+
+        for (auto& iter : current_matching_solution) {
+          auto v_local_vid = graph.globalid2localid(iter);
+          if (v_local_vid == VID_MAX) continue;
+          auto v = graph.GetVertexByVid(v_local_vid);
           for (size_t j = 0; j < v.outdegree; j++) {
             if (!IsInCurrentMatchingSolution(v.out_edges[j],
                                              current_matching_solution)) {
@@ -110,27 +129,22 @@ class SubIsoPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
               candidate.emplace(v.out_edges[j]);
             }
           }
-          for (size_t j = 0; j < v.indegree; j++) {
-            if (!IsInCurrentMatchingSolution(v.in_edges[j],
-                                             current_matching_solution)) {
-              num_candidates++;
-              candidate.emplace(v.in_edges[j]);
-            }
-          }
         }
+
         if (num_candidates == 0) {
           for (size_t i = 0; i < graph.get_num_vertexes(); i++) {
-            if (!IsInCurrentMatchingSolution(
-                    graph.localid2globalid(graph.GetVertexByIndex(i).vid),
-                    current_matching_solution)) {
-              candidate.emplace(
-                  graph.localid2globalid(graph.GetVertexByIndex(i).vid));
+            auto v_global_id = graph.localid2globalid(i);
+
+            if (!IsInCurrentMatchingSolution(v_global_id,
+                                             current_matching_solution)) {
+              candidate.emplace(v_global_id);
             }
           }
         }
       }
       return candidate;
     }
+
     bool IsDead(EDGE_LIST_T& pattern, GRAPH_T& graph, std::vector<VID_T>& meta,
                 std::vector<VID_T>& current_matching_solution) {
       return false;
@@ -142,78 +156,81 @@ class SubIsoPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
       return true;
     }
 
-    bool CompareNbrVertexes(VertexInfo& u, VertexInfo& v, EDGE_LIST_T& pattern,
-                            GRAPH_T& graph) {
-      for (size_t i = 0; i < u.outdegree; i++) {
-        auto nbr_u = pattern.GetVertexByVid(u.out_edges[i]);
-        bool tag = false;
-        for (size_t j = 0; j < v.outdegree; j++) {
-          auto nbr_v_vid = graph.globalid2localid(v.out_edges[i]);
-          if (nbr_v_vid == VID_MAX) {
-            continue;
-          }
-          auto nbr_v = graph.GetVertexByVid(nbr_v_vid);
-          if (CompareVertexes(nbr_u, nbr_v)) {
-            tag = true;
-            break;
-          }
-        }
-        if (tag) {
-          continue;
-        } else {
-          return false;
-        }
-      }
-      for (size_t i = 0; i < u.indegree; i++) {
-        auto nbr_u = pattern.GetVertexByVid(u.in_edges[i]);
-        bool tag = false;
-        for (size_t j = 0; j < v.indegree; j++) {
-          auto nbr_v_vid = graph.globalid2localid(v.in_edges[i]);
-          if (nbr_v_vid == VID_MAX) {
-            continue;
-          }
-          auto nbr_v = graph.GetVertexByVid(graph.globalid2localid(nbr_v_vid));
-
-          if (CompareVertexes(nbr_u, nbr_v)) {
-            tag = true;
-            break;
-          }
-        }
-        if (tag) {
-          continue;
-        } else {
-          return false;
-        }
-      }
-      return true;
-    }
-
-    bool IsGoal(EDGE_LIST_T& pattern, GRAPH_T& graph, std::vector<VID_T>& meta,
-                std::vector<VID_T>& current_matching_solution) {
-      if (meta.size() < pattern.get_num_vertexes() ||
-          meta.size() != current_matching_solution.size()) {
-        return false;
-      }
-
-      for (size_t i = 0; i < current_matching_solution.size(); i++) {
-        auto u = pattern.GetVertexByVid(meta.at(i));
-        auto v = graph.GetVertexByVid(
-            graph.globalid2localid(current_matching_solution.at(i)));
-        if (!CompareVertexes(u, v)) return false;
-        // if (!CompareNbrVertexes(u, v, pattern, graph)) return false;
-      }
-      return true;
-    }
-
-    bool CheckFeasibilityRules(EDGE_LIST_T& pattern, GRAPH_T& graph,
-                               std::vector<VID_T>& meta,
-                               std::vector<VID_T>& current_matching_solution) {
+    TFU CompareNbrVertexes(std::vector<VID_T>& meta,
+                           std::vector<VID_T>& current_matching_solution,
+                           EDGE_LIST_T& pattern, GRAPH_T& graph) {
       VertexInfo&& u = pattern.GetVertexByVid(meta.back());
-      VertexInfo&& v = graph.GetVertexByVid(
-          graph.globalid2localid(current_matching_solution.back()));
-      if (!CompareVertexes(u, v)) return false;
-      if (!CompareNbrVertexes(u, v, pattern, graph)) return false;
-      return true;
+      auto v_local_id =
+          graph.globalid2localid(current_matching_solution.back());
+      if (v_local_id == VID_MAX) {
+        return vf2_uncertain;
+      }
+      VertexInfo&& v = graph.GetVertexByVid(v_local_id);
+      std::vector<size_t> vec_index_meta;
+      std::vector<size_t> vec_index_current_matching_solution;
+      for (size_t i = 0; i < u.indegree; i++) {
+        auto index_nbr_u = GetIndexOfX(meta, u.in_edges[i]);
+        if (index_nbr_u == SIZE_MAX) continue;
+        vec_index_meta.push_back(index_nbr_u);
+      }
+      for (size_t i = 0; i < v.indegree; i++) {
+        auto index_nbr_v =
+            GetIndexOfX(current_matching_solution, v.in_edges[i]);
+        if (index_nbr_v == SIZE_MAX) continue;
+        vec_index_current_matching_solution.push_back(index_nbr_v);
+      }
+      bool tag = true;
+      for (auto& iter : vec_index_meta) {
+        if (!IsInVec(vec_index_current_matching_solution, iter)) {
+          tag = false;
+          break;
+        }
+      }
+      if (tag) {
+        return vf2_true;
+      } else {
+        return vf2_false;
+      }
+    }
+
+    // bool IsGoal(EDGE_LIST_T& pattern, GRAPH_T& graph, std::vector<VID_T>&
+    // meta,
+    //             std::vector<VID_T>& current_matching_solution) {
+    //   if (meta.size() < pattern.get_num_vertexes() ||
+    //       meta.size() != current_matching_solution.size()) {
+    //     return false;
+    //   }
+    //   for (size_t i = 0; i < current_matching_solution.size(); i++) {
+    //     auto u = pattern.GetVertexByVid(meta.at(i));
+
+    //    auto v_local_id =
+    //        graph.globalid2localid(current_matching_solution.at(i));
+    //    if (v_local_id == VID_MAX) {
+    //      return false;
+    //    }
+    //    auto v = graph.GetVertexByVid(v_local_id);
+    //    if (!CompareVertexes(u, v)) return false;
+    //    if (!CompareNbrVertexes(meta, current_matching_solution, pattern,
+    //                            graph) != vf2_true)
+    //      return false;
+    //  }
+    //  return true;
+    //}
+
+    TFU CheckFeasibilityRules(EDGE_LIST_T& pattern, GRAPH_T& graph,
+                              std::vector<VID_T>& meta,
+                              std::vector<VID_T>& current_matching_solution) {
+      auto v_local_id =
+          graph.globalid2localid(current_matching_solution.back());
+      if (v_local_id == VID_MAX) {
+        return vf2_uncertain;
+      }
+
+      VertexInfo&& u = pattern.GetVertexByVid(meta.back());
+      VertexInfo&& v = graph.GetVertexByVid(v_local_id);
+      if (!CompareVertexes(u, v)) return vf2_false;
+      return CompareNbrVertexes(meta, current_matching_solution, pattern,
+                                graph);
     }
 
     VID_T GetNewPredicates(EDGE_LIST_T& pattern, std::vector<VID_T>& meta) {
@@ -221,7 +238,6 @@ class SubIsoPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
         if (meta.empty()) {
           return pattern.vertexes_info_->at(0)->vid;
         } else {
-          // auto back_u = pattern.GetVertexByVid(meta.back());
           for (auto& iter : *pattern.vertexes_info_) {
             bool tag = true;
             VID_T out = iter.first;
@@ -241,57 +257,61 @@ class SubIsoPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
       }
     }
 
-    void Match(EDGE_LIST_T& pattern, GRAPH_T& graph,
-               PartialMatch<GID_T, VID_T, VDATA_T, EDATA_T>& partial_match,
-               std::vector<VID_T> meta,
+    void Match(EDGE_LIST_T& pattern, GRAPH_T& graph, std::vector<VID_T> meta,
                std::vector<VID_T> current_matching_solution, VID_T u_vid,
                VID_T v_vid,
+               std::vector<std::vector<VID_T>*>& partial_matching_solutions,
+               std::vector<std::vector<VID_T>*>& matching_solutions,
                minigraph::message::DefaultMessageManager<GID_T, VID_T, VDATA_T,
                                                          EDATA_T>& msg_mngr) {
-      if (v_vid == VID_MAX && u_vid == VID_MAX) {
+      if (u_vid == VID_MAX) {
         u_vid = GetNewPredicates(pattern, meta);
-        // v_vid = graph.localid2globalid(graph.GetVertexByIndex(0).vid);
-        v_vid = graph.localid2globalid(graph.GetVertexByIndex(0).vid);
-
         std::queue<VID_T>&& candidate =
             GetCandidates(pattern, graph, current_matching_solution);
         while (!candidate.empty()) {
-          Match(pattern, graph, partial_match, meta, current_matching_solution,
-                v_vid, candidate.front(), msg_mngr);
+          Match(pattern, graph, meta, current_matching_solution, u_vid,
+                candidate.front(), partial_matching_solutions,
+                matching_solutions, msg_mngr);
           candidate.pop();
         }
       } else {
-        if (graph.globalid2localid(v_vid) == VID_MAX) {
-          // msg_mngr_->x_;
-          LOG_INFO("!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-          msg_mngr.BufferPartialResult(current_matching_solution, graph, v_vid);
-          return;
-        }
+        // LOG_INFO("u_vid: ", u_vid, ", local: ",
+        // graph.globalid2localid(v_vid),
+        //          ", global: ", v_vid);
         meta.push_back(u_vid);
         current_matching_solution.push_back(v_vid);
-        if (meta.size() == pattern.get_num_vertexes()) {
-          if (IsGoal(pattern, graph, meta, current_matching_solution)) {
-            auto matching_solution = new std::vector<VID_T>;
-            matching_solution->swap(current_matching_solution);
-            partial_match.vec_matching_solutions->push_back(matching_solution);
+        auto tfu = CheckFeasibilityRules(pattern, graph, meta,
+                                         current_matching_solution);
+        if (tfu == vf2_true) {
+          if (meta.size() == pattern.get_num_vertexes()) {
+            auto matching_solution_instance = new std::vector<VID_T>;
+            matching_solution_instance->assign(
+                current_matching_solution.begin(),
+                current_matching_solution.end());
+            matching_solutions.push_back(matching_solution_instance);
+            //          msg_mngr.BufferResult(current_matching_solution);
           } else {
-            return;
-          }
-        } else {
-          if (CheckFeasibilityRules(pattern, graph, meta,
-                                    current_matching_solution)) {
             VID_T&& new_predicates = GetNewPredicates(pattern, meta);
             std::queue<VID_T>&& candidate =
                 GetCandidates(pattern, graph, current_matching_solution);
+            if (candidate.size() == 0) return;
             while (!candidate.empty()) {
-              Match(pattern, graph, partial_match, meta,
-                    current_matching_solution, new_predicates,
-                    candidate.front(), msg_mngr);
+              Match(pattern, graph, meta, current_matching_solution,
+                    new_predicates, candidate.front(),
+                    partial_matching_solutions, matching_solutions, msg_mngr);
               candidate.pop();
             }
-          } else {
-            return;
           }
+        } else if (tfu == vf2_false) {
+          return;
+        } else if (tfu == vf2_uncertain) {
+          auto partial_matching_solution_instance = new std::vector<VID_T>;
+          partial_matching_solution_instance->assign(
+              current_matching_solution.begin(),
+              current_matching_solution.end());
+          partial_matching_solutions.push_back(
+              partial_matching_solution_instance);
+          return;
         }
       }
     }
@@ -299,56 +319,99 @@ class SubIsoPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
   bool Init(GRAPH_T& graph) override {}
 
-  bool PEval(GRAPH_T& graph, PARTIAL_RESULT_T* partial_result,
+  bool PEval(GRAPH_T& graph, //PARTIAL_RESULT_T* partial_result,
              minigraph::executors::TaskRunner* task_runner) override {
-    auto partial_match = new PartialMatch<GID_T, VID_T, VDATA_T, EDATA_T>(
-        this->context_.pattern->get_num_vertexes(), 0);
-    bool* visited = (bool*)malloc(sizeof(bool) * graph.get_num_vertexes());
-    std::unordered_map<VID_T, bool*>* M = new std::unordered_map<VID_T, bool*>;
-
+    LOG_INFO("PEval() - Processing gid: ", graph.gid_);
+    auto partial_matching_solutions_for_next_round_of_iteration =
+        new std::vector<std::vector<VID_T>*>;
+    auto matching_solutions = new std::vector<std::vector<VID_T>*>;
     VF2 vf2_executor;
-    std::vector<VID_T>* meta = new std::vector<VID_T>;
-    std::vector<VID_T>* current_matching_solution = new std::vector<VID_T>;
-    vf2_executor.Match(*this->context_.pattern, graph, *partial_match, *meta,
-                       *current_matching_solution, VID_MAX, VID_MAX,
-                       *this->msg_mngr_);
-    size_t count = 0;
-    for (auto& iter : *partial_match->vec_matching_solutions) {
-      if (count++ > 10) {
-        break;
-      }
-      for (size_t i = 0; i < partial_match->x_; i++) {
-        std::cout << iter->at(i) << ", ";
-      }
-      std::cout << std::endl;
+    std::vector<VID_T> meta;
+    std::vector<VID_T> current_matching_solution;
+    vf2_executor.Match(*this->context_.pattern, graph, meta,
+                       current_matching_solution, VID_MAX, VID_MAX,
+                       *partial_matching_solutions_for_next_round_of_iteration,
+                       *matching_solutions, *this->msg_mngr_);
+    this->msg_mngr_->BufferResults(*matching_solutions);
+    if (partial_matching_solutions_for_next_round_of_iteration->size() == 0) {
+      this->msg_mngr_->partial_match_->ShowMatchingSolutions();
+      return false;
+    } else {
+      this->msg_mngr_->BufferPartialResults(
+          *partial_matching_solutions_for_next_round_of_iteration);
+      this->msg_mngr_->partial_match_->ShowMatchingSolutions();
+      return true;
     }
-    return true;
   }
 
-  bool IncEval(GRAPH_T& graph, PARTIAL_RESULT_T* partial_result,
+  bool IncEval(GRAPH_T& graph, //PARTIAL_RESULT_T* partial_result,
                minigraph::executors::TaskRunner* task_runner) override {
-    return false;
-  }
-
-  bool MsgAggr(PARTIAL_RESULT_T* partial_result) override {
-    if (partial_result->size() == 0) {
+    auto partial_matching_solutions =
+        this->msg_mngr_->GetPartialMatchingSolutionsofX(graph.gid_);
+    if (partial_matching_solutions == nullptr) {
+      LOG_INFO("IncEval() - Discarding gid: ", graph.gid_);
       return false;
     }
-    for (auto iter = partial_result->begin(); iter != partial_result->end();
-         iter++) {
-      auto iter_global = this->global_border_vertexes_info_->find(iter->first);
-      if (iter_global != this->global_border_vertexes_info_->end()) {
-        if (iter_global->second->vdata[0] != 1) {
-          iter_global->second->UpdateVdata(1);
-        }
-      } else {
-        VertexInfo* vertex_info = new VertexInfo(iter->second);
-        this->global_border_vertexes_info_->insert(
-            std::make_pair(iter->first, vertex_info));
-      }
+    LOG_INFO("IncEval() - Processing gid: ", graph.gid_);
+    std::vector<VID_T> meta;
+    meta.reserve(this->context_.pattern->get_num_vertexes() + 1);
+    VF2 vf2_executor;
+
+    auto partial_matching_solutions_for_next_round_of_iteration =
+        new std::vector<std::vector<VID_T>*>;
+    auto matching_solutions = new std::vector<std::vector<VID_T>*>;
+
+    for (size_t j = 0; j < this->context_.pattern->get_num_vertexes(); j++) {
+      auto u_vid = vf2_executor.GetNewPredicates(*this->context_.pattern, meta);
+      meta.push_back(u_vid);
     }
-    return true;
+    for (size_t i = 0; i < partial_matching_solutions->size(); i++) {
+      auto v_vid = partial_matching_solutions->at(i)->back();
+      partial_matching_solutions->at(i)->pop_back();
+      std::vector<VID_T> current_meta;
+      current_meta.assign(
+          meta.begin(),
+          meta.begin() + partial_matching_solutions->at(i)->size());
+      auto u_vid =
+          vf2_executor.GetNewPredicates(*this->context_.pattern, current_meta);
+      vf2_executor.Match(
+          *this->context_.pattern, graph, current_meta,
+          *partial_matching_solutions->at(i), u_vid, v_vid,
+          *partial_matching_solutions_for_next_round_of_iteration,
+          *matching_solutions, *this->msg_mngr_);
+    }
+    this->msg_mngr_->BufferResults(*matching_solutions);
+
+    if (partial_matching_solutions_for_next_round_of_iteration->size() == 0) {
+      this->msg_mngr_->partial_match_->ShowMatchingSolutions();
+      return false;
+    } else {
+      this->msg_mngr_->BufferPartialResults(
+          *partial_matching_solutions_for_next_round_of_iteration);
+      this->msg_mngr_->partial_match_->ShowMatchingSolutions();
+      return true;
+    }
   }
+
+  //bool MsgAggr(PARTIAL_RESULT_T* partial_result) override {
+  //  if (partial_result->size() == 0) {
+  //    return false;
+  //  }
+  //  for (auto iter = partial_result->begin(); iter != partial_result->end();
+  //       iter++) {
+  //    auto iter_global = this->global_border_vertexes_info_->find(iter->first);
+  //    if (iter_global != this->global_border_vertexes_info_->end()) {
+  //      if (iter_global->second->vdata[0] != 1) {
+  //        iter_global->second->UpdateVdata(1);
+  //      }
+  //    } else {
+  //      VertexInfo* vertex_info = new VertexInfo(iter->second);
+  //      this->global_border_vertexes_info_->insert(
+  //          std::make_pair(iter->first, vertex_info));
+  //    }
+  //  }
+  //  return true;
+  //}
 };
 
 struct Context {
