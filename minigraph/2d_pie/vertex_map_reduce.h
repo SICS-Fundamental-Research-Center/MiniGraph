@@ -73,7 +73,6 @@ class VMapBase {
     task_runner->Run(tasks, false);
     LOG_INFO("#");
     delete frontier_in;
-    //LOG_INFO("#");
     return frontier_out;
   }
 
@@ -95,10 +94,6 @@ class VMapBase {
       }
     }
   }
-
-  template <class F, class... Args>
-  void ReduceF(VertexInfo& u, GRAPH_T* graph, Frontier* frontier_out,
-               bool* visited, F) {}
 };
 
 }  // namespace minigraph

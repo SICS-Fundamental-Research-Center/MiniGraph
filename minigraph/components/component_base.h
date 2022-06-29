@@ -17,7 +17,6 @@ class ComponentBase {
  public:
   ComponentBase<GID_T>(
       utility::EDFThreadPool* thread_pool,
-      // folly::AtomicHashMap<GID_T, std::atomic<size_t>*>* superstep_by_gid,
       std::unordered_map<GID_T, std::atomic<size_t>*>* superstep_by_gid,
       std::atomic<size_t>* global_superstep,
       utility::StateMachine<GID_T>* state_machine) {
@@ -40,7 +39,7 @@ class ComponentBase {
     if (iter == superstep_by_gid_->end())
       LOG_ERROR("get_super_via_gid Error: ", "gid not found.");
     else {
-      auto step = iter->second->load(std::memory_order_acquire);
+      auto step = iter->second->load();
       out = step;
     }
     this->super_step_by_gid_mtx_->unlock();
@@ -73,7 +72,7 @@ class ComponentBase {
 
   size_t get_global_superstep() {
     global_superstep_mtx_->lock();
-    auto global_superstep = global_superstep_->load(std::memory_order_acquire);
+    auto global_superstep = global_superstep_->load();
     global_superstep_mtx_->unlock();
     return global_superstep;
   };
@@ -91,9 +90,7 @@ class ComponentBase {
     super_step_by_gid_mtx_->lock();
     auto tag = true;
     for (auto& iter : *this->superstep_by_gid_) {
-      if (iter.second->load(std::memory_order_acquire) <=
-          this->global_superstep_->load(std::memory_order_acquire))
-        tag = false;
+      if (iter.second->load() <= this->global_superstep_->load()) tag = false;
     }
     if (tag) this->global_superstep_->fetch_add(1);
     super_step_by_gid_mtx_->unlock();
@@ -118,24 +115,20 @@ class ComponentBase {
   }
 
   void ShowSuperStepByGid() {
-    LOG_INFO("ShowSuperStep");
+    LOG_INFO("-------ShowSuperStep--------");
     for (auto& iter : *this->superstep_by_gid_) {
       LOG_INFO("gid: ", iter.first, ", step: ", iter.second->load());
     }
-    LOG_INFO("ShowSuperStep");
   }
 
  protected:
   // contral switch.
-  std::atomic<bool> switch_ = true;
+  bool switch_ = true;
 
   // thread pool.
   utility::EDFThreadPool* thread_pool_ = nullptr;
 
   // superstep
-  // folly::AtomicHashMap<GID_T, std::atomic<size_t>*>* superstep_by_gid_ =
-  //    nullptr;
-  //  folly::AtomicHashMap<GID_T, std::atomic<size_t>*>
   std::unordered_map<GID_T, std::atomic<size_t>*>* superstep_by_gid_ = nullptr;
   std::atomic<size_t>* global_superstep_ = nullptr;
 

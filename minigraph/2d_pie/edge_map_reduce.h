@@ -88,7 +88,7 @@ class EMapBase {
     size_t tid = 0;
     while (!frontier_in->empty()) {
       frontier_in->dequeue(t);
-      auto task = std::bind(f, tid++, t,  args...);
+      auto task = std::bind(f, tid++, t, args...);
       tasks.push_back(task);
     }
     LOG_INFO("EMap Run: ", tasks.size());

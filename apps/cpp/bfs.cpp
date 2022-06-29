@@ -63,13 +63,13 @@ class BFSEMap : public minigraph::EMapBase<GRAPH_T, CONTEXT_T> {
       if (iter != global_border_vertexes_vdata.end()) {
         if (iter->second == 1) {
           tag = true;
-          *u.vdata = iter->second;
+          //*u.vdata = iter->second;
           u.vdata[0] = 1;
           visited[u.vid] = 1;
         }
       }
     }
-    u.vdata[0]++;
+    //  u.vdata[0]++;
     if (tag) frontier_out->enqueue(u);
     return tag;
   }
@@ -122,7 +122,6 @@ class BFSPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     }
     bool* visited = (bool*)malloc(graph.get_num_vertexes());
     memset(visited, 0, sizeof(bool) * graph.get_num_vertexes());
-    LOG_INFO("END: ", graph.gid_);
     frontier_in = this->vmap_->Map(
         frontier_in, visited, graph, task_runner,
         BFSEMap<GRAPH_T, CONTEXT_T>::kernel_pull_border_vertexes, &graph,

@@ -130,9 +130,7 @@ class DefaultMessageManager : public MessageManagerBase {
     return this->border_vertexes_->UpdateBorderVertexes(graph, visited);
   }
 
-  bool GetBorderVertexes(){
-
-  }
+  bool GetBorderVertexes() {}
 
   std::vector<std::vector<VID_T>*>* GetPartialMatchingSolutionsofX(GID_T gid) {
     return this->partial_match_->GetPartialMatchingSolutionsofX(gid);

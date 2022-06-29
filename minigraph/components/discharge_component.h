@@ -32,8 +32,7 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       std::unique_lock<std::mutex>* partial_result_lck,
       std::unique_lock<std::mutex>* read_trigger_lck,
       std::condition_variable* partial_result_cv,
-      std::condition_variable* read_trigger_cv,
-      std::atomic<bool>* system_switch,
+      std::condition_variable* read_trigger_cv, bool* system_switch,
       std::unique_lock<std::mutex>* system_switch_lck,
       std::condition_variable* system_switch_cv, bool* communication_matrix)
       : ComponentBase<GID_T>(thread_pool, superstep_by_gid, global_superstep,
@@ -56,33 +55,21 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   ~DischargeComponent() = default;
 
   void Run() override {
-    while (this->switch_.load()) {
-      std::vector<GID_T> *vec_gid = new std::vector<GID_T>;
+    while (switch_) {
+      std::vector<GID_T> vec_gid;
       GID_T gid = MINIGRAPH_GID_MAX;
       partial_result_cv_->wait(*partial_result_lck_, [&] { return true; });
       while (!partial_result_queue_->empty()) {
         gid = partial_result_queue_->front();
         partial_result_queue_->pop();
-        vec_gid->push_back(gid);
-        LOG_INFO(gid);
+        vec_gid.push_back(gid);
       }
-      // while (!partial_result_queue_->isEmpty()) {
-      //   while (!partial_result_queue_->read(gid)) {
-      //     continue;
-      //   }
-      //   vec_gid.push_back(gid);
-      // }
-      for (size_t i = 0; i < vec_gid->size(); i++) {
-        gid = vec_gid->at(i);
+      for (size_t i = 0; i < vec_gid.size(); i++) {
+        gid = vec_gid.at(i);
         CheckRTRule(gid);
-        LOG_INFO("DC: ", gid);
-
-        this->state_machine_->ShowGraphState(gid);
-       // this->ShowSuperStepByGid();
         if (this->TrySync()) {
-
           if (this->state_machine_->IsTerminated() ||
-              this->get_global_superstep() > 10000) {
+              this->get_global_superstep() > 1000) {
             auto out_rts = this->state_machine_->EvokeAllX(RTS);
             if (out_rts.size() != 0) {
               for (auto& iter : out_rts) {
@@ -93,9 +80,9 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
             } else {
             }
             system_switch_cv_->wait(*system_switch_lck_,
-                                    [&] { return system_switch_->load(); });
-            system_switch_->store(false);
-            system_switch_cv_->notify_all();
+                                    [&] { return *system_switch_; });
+            *system_switch_ = false;
+            system_switch_cv_->notify_one();
             LOG_INFO("DC exit");
             return;
           } else {
@@ -106,11 +93,11 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
     }
   }
 
-  void Stop() override { this->switch_.store(false); }
+  void Stop() override { switch_ = false; }
 
  private:
   std::atomic<size_t> num_workers_;
-  std::atomic<bool> switch_ = true;
+  bool switch_ = true;
   std::queue<GID_T>* partial_result_queue_ = nullptr;
   std::queue<GID_T>* read_trigger_ = nullptr;
   utility::io::DataMngr<GID_T, VID_T, VDATA_T, EDATA_T>* data_mngr_ = nullptr;
@@ -121,7 +108,7 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   std::condition_variable* partial_result_cv_;
   std::unique_lock<std::mutex>* system_switch_lck_;
   std::condition_variable* system_switch_cv_;
-  std::atomic<bool>* system_switch_;
+  bool* system_switch_;
   bool* communication_matrix_;
 
   void WriteAllGraphsBack() {
@@ -131,8 +118,6 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       auto out_rc = this->state_machine_->EvokeAllX(RC);
       auto out_rt = this->state_machine_->EvokeAllX(RT);
       auto out_rts = this->state_machine_->EvokeAllX(RTS);
-      //read_trigger_cv_->wait(*read_trigger_lck_,
-      //                       [&] { return !read_trigger_->empty(); });
       for (auto& iter : out_rt) {
         GID_T gid = iter;
         data_mngr_->EraseGraph(gid);
@@ -166,7 +151,6 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       }
       if (tag) {
         this->state_machine_->ProcessEvent(gid, SHORTCUT);
-        LOG_INFO("SHORT CUT", gid);
       }
     } else {
       return false;

@@ -155,7 +155,8 @@ int main(int argc, char* argv[]) {
           sssp_pie);
 
   minigraph::MiniGraphSys<CSR_T, SSSPPIE_T> minigraph_sys(
-      work_space, num_workers_lc, num_workers_cc, num_workers_dc, num_cores, app_wrapper);
+      work_space, num_workers_lc, num_workers_cc, num_workers_dc, num_cores,
+      app_wrapper);
   minigraph_sys.RunSys();
   minigraph_sys.ShowResult();
   gflags::ShutDownCommandLineFlags();

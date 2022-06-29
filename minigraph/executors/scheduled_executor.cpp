@@ -66,7 +66,6 @@ TaskRunner* ScheduledExecutor::RequestTaskRunner(
 }
 
 void ScheduledExecutor::RecycleTaskRunner(TaskRunner* runner) {
-  // erase_mtx_.lock();
   ThrottlePtr throttle = nullptr;
   Schedulable::ID_Type id = dynamic_cast<Throttle*>(runner)->id();
   std::lock_guard<std::mutex> grd(map_mtx_);
@@ -74,11 +73,7 @@ void ScheduledExecutor::RecycleTaskRunner(TaskRunner* runner) {
     LOG_ERROR("Trying to recycle TaskRunner whose ID is unknown.");
     return;
   }
-  LOG_INFO("erase: ", id);
-  //  scheduler_->RecycleAllThreads(recycler->second.get());
   throttles_.erase(id);
-  LOG_INFO("erase: ", id);
-  // erase_mtx_.unlock();
   //  throttle will destruct here, and get removed from Scheduler automatically.
 }
 

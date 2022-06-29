@@ -88,7 +88,7 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
   bool Init(GRAPH_T& graph) override {}
 
-  bool PEval(GRAPH_T& graph, //PARTIAL_RESULT_T* partial_result,
+  bool PEval(GRAPH_T& graph,  // PARTIAL_RESULT_T* partial_result,
              minigraph::executors::TaskRunner* task_runner) override {
     auto local_id = graph.globalid2localid(this->context_.root_id);
     if (local_id == VID_MAX) {
@@ -106,14 +106,14 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     while (!frontier_in->empty()) {
       frontier_in = this->emap_->Map(frontier_in, visited, graph, task_runner);
     }
-    //bool tag = this->GetPartialBorderResult(graph, visited, partial_result);
-    //MsgAggr(partial_result);
+    // bool tag = this->GetPartialBorderResult(graph, visited, partial_result);
+    // MsgAggr(partial_result);
     auto tag = this->msg_mngr_->UpdateBorderVertexes(graph, visited);
     free(visited);
     return tag;
   }
 
-  bool IncEval(GRAPH_T& graph,// PARTIAL_RESULT_T* partial_result,
+  bool IncEval(GRAPH_T& graph,  // PARTIAL_RESULT_T* partial_result,
                minigraph::executors::TaskRunner* task_runner) override {
     Frontier* frontier_in = new Frontier(graph.get_num_vertexes());
 
@@ -143,25 +143,26 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     return tag;
   }
 
- // bool MsgAggr(PARTIAL_RESULT_T* partial_result) override {
- //   if (partial_result->size() == 0) {
- //     return false;
- //   }
- //   for (auto iter = partial_result->begin(); iter != partial_result->end();
- //        iter++) {
- //     auto iter_global = this->global_border_vertexes_info_->find(iter->first);
- //     if (iter_global != this->global_border_vertexes_info_->end()) {
- //       if (iter_global->second->vdata[0] != 1) {
- //         iter_global->second->UpdateVdata(1);
- //       }
- //     } else {
- //       VertexInfo* vertex_info = new VertexInfo(iter->second);
- //       this->global_border_vertexes_info_->insert(
- //           std::make_pair(iter->first, vertex_info));
- //     }
- //   }
- //   return true;
- // }
+  // bool MsgAggr(PARTIAL_RESULT_T* partial_result) override {
+  //   if (partial_result->size() == 0) {
+  //     return false;
+  //   }
+  //   for (auto iter = partial_result->begin(); iter != partial_result->end();
+  //        iter++) {
+  //     auto iter_global =
+  //     this->global_border_vertexes_info_->find(iter->first); if (iter_global
+  //     != this->global_border_vertexes_info_->end()) {
+  //       if (iter_global->second->vdata[0] != 1) {
+  //         iter_global->second->UpdateVdata(1);
+  //       }
+  //     } else {
+  //       VertexInfo* vertex_info = new VertexInfo(iter->second);
+  //       this->global_border_vertexes_info_->insert(
+  //           std::make_pair(iter->first, vertex_info));
+  //     }
+  //   }
+  //   return true;
+  // }
 };
 
 struct Context {

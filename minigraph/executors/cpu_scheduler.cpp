@@ -15,13 +15,13 @@ std::unique_ptr<Throttle> CPUScheduler::AllocateNew(
     Schedulable::Metadata&& metadata) {
   std::lock_guard<std::mutex> grd(mtx_);
   if (q_.empty()) {
-    //std::unique_ptr<Throttle> throttle = factory->New(
-    //    metadata.parallelism, std::forward<Schedulable::Metadata>(metadata));
+    // std::unique_ptr<Throttle> throttle = factory->New(
+    //     metadata.parallelism, std::forward<Schedulable::Metadata>(metadata));
     std::unique_ptr<Throttle> throttle = factory->New(
         total_threads_, std::forward<Schedulable::Metadata>(metadata));
     q_.push_back(throttle.get());
-    //num_free_threads_ -= metadata.parallelism;
-    num_free_threads_  = 0;
+    // num_free_threads_ -= metadata.parallelism;
+    num_free_threads_ = 0;
     return throttle;
   } else {
     std::unique_ptr<Throttle> throttle = factory->New(
@@ -115,7 +115,7 @@ void CPUScheduler::Remove(Throttle* throttle) {
     if (throttle->GetParallelism() > 0) {
       LOG_WARN("Removing a Throttle without recycling allocated threads.");
       RecycleAllThreads(throttle);
-//      RecycleNThreads(throttle, 11);
+      //      RecycleNThreads(throttle, 11);
     }
     std::lock_guard<std::mutex> grd(mtx_);
     for (auto it = q_.cbegin(); it != q_.cend(); it++) {

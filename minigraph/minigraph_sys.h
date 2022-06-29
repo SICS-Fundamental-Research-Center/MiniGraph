@@ -131,7 +131,7 @@ class MiniGraphSys {
     task_queue_cv_ = std::make_unique<std::condition_variable>();
     partial_result_cv_ = std::make_unique<std::condition_variable>();
 
-    system_switch_ = std::make_unique<std::atomic<bool>>(true);
+    system_switch_ = new bool(true);
     system_switch_mtx_ = std::make_unique<std::mutex>();
     system_switch_lck_ = std::make_unique<std::unique_lock<std::mutex>>(
         *system_switch_mtx_.get());
@@ -157,9 +157,9 @@ class MiniGraphSys {
             global_superstep_, state_machine_, partial_result_queue_.get(),
             read_trigger_.get(), pt_by_gid_, data_mngr_.get(),
             partial_result_lck_.get(), read_trigger_lck_.get(),
-            partial_result_cv_.get(), read_trigger_cv_.get(),
-            system_switch_.get(), system_switch_lck_.get(),
-            system_switch_cv_.get(), communication_matrix);
+            partial_result_cv_.get(), read_trigger_cv_.get(), system_switch_,
+            system_switch_lck_.get(), system_switch_cv_.get(),
+            communication_matrix);
     LOG_INFO("Init MiniGraphSys: Finish.");
   };
 
@@ -198,7 +198,7 @@ class MiniGraphSys {
     task_queue_cv_->notify_all();
     partial_result_cv_->notify_all();
     system_switch_cv_->wait(*system_switch_lck_,
-                            [&] { return !system_switch_->load(); });
+                            [&] { return !*system_switch_; });
     auto end_time = std::chrono::system_clock::now();
     data_mngr_->CleanUp();
 
@@ -279,7 +279,8 @@ class MiniGraphSys {
   std::unique_ptr<std::condition_variable> partial_result_cv_;
 
   // system switch
-  std::unique_ptr<std::atomic<bool>> system_switch_;
+  // std::unique_ptr<std::atomic<bool>> system_switch_;
+  bool* system_switch_ = nullptr;
   std::unique_ptr<std::mutex> system_switch_mtx_;
   std::unique_ptr<std::unique_lock<std::mutex>> system_switch_lck_;
   std::unique_ptr<std::condition_variable> system_switch_cv_;

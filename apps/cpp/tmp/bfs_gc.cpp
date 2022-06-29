@@ -72,9 +72,9 @@ class BFSPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
           continue;
         }
         VertexInfo&& v = graph.GetVertexByVid(nbr_id);
-        if(visited[nbr_id]){
+        if (visited[nbr_id]) {
           continue;
-        }else {
+        } else {
           v.vdata[0] = 1;
           frontier_in->enqueue(v);
           visited[nbr_id] = 1;

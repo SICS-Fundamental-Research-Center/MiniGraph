@@ -1,8 +1,7 @@
 #pragma once
 
-#include <sys/types.h>
-
 #include <gflags/gflags.h>
+#include <sys/types.h>
 
 using gid_t = unsigned;
 using vid_t = unsigned;
