@@ -1,6 +1,9 @@
 #include "executors/cpu_scheduler.h"
-#include "utility/logging.h"
+
 #include <algorithm>
+
+#include "utility/logging.h"
+
 
 namespace minigraph {
 namespace executors {
@@ -15,13 +18,13 @@ std::unique_ptr<Throttle> CPUScheduler::AllocateNew(
     Schedulable::Metadata&& metadata) {
   std::lock_guard<std::mutex> grd(mtx_);
   if (q_.empty()) {
-    // std::unique_ptr<Throttle> throttle = factory->New(
-    //     metadata.parallelism, std::forward<Schedulable::Metadata>(metadata));
     std::unique_ptr<Throttle> throttle = factory->New(
-        total_threads_, std::forward<Schedulable::Metadata>(metadata));
+        metadata.parallelism, std::forward<Schedulable::Metadata>(metadata));
+    // std::unique_ptr<Throttle> throttle = factory->New(
+    //     total_threads_, std::forward<Schedulable::Metadata>(metadata));
     q_.push_back(throttle.get());
-    // num_free_threads_ -= metadata.parallelism;
-    num_free_threads_ = 0;
+    num_free_threads_ -= metadata.parallelism;
+    // num_free_threads_ = 0;
     return throttle;
   } else {
     std::unique_ptr<Throttle> throttle = factory->New(

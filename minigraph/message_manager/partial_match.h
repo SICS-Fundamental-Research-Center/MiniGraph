@@ -1,11 +1,13 @@
 #ifndef MINIGRAPH_PARTIAL_MATCH_H
 #define MINIGRAPH_PARTIAL_MATCH_H
 
+#include <unordered_map>
+#include <vector>
+
 #include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
 #include "utility/logging.h"
-#include <unordered_map>
-#include <vector>
+
 
 namespace minigraph {
 namespace message {
@@ -61,24 +63,6 @@ class PartialMatch {
     mtx_ = new std::mutex;
     globalid2gid_ = globalid2gid;
   }
-
-  // PartialMatch(size_t x, size_t maximum_vid = 0,
-  //              GID_T* globalid2gid = nullptr) {
-  //   x_ = x;
-  //   meta_ = (VID_T*)malloc(sizeof(VID_T) * x_);
-  //   memset(meta_, 0, sizeof(VID_T) * x_);
-  //   meta_to_add_ = new VID_T;
-  //   *meta_to_add_ = VID_MAX;
-
-  //  vec_meta_ = new std::vector<VID_T>;
-  //  vec_matching_solutions = new std::vector<std::vector<VID_T>*>;
-
-  //  partial_matching_solutions_by_gid_ =
-  //      new std::unordered_map<GID_T, std::vector<std::vector<VID_T>*>*>;
-  //  mtx_ = new std::mutex;
-  //  maximum_vid_ = maximum_vid;
-  //  globalid2gid_ = globalid2gid;
-  //}
 
   ~PartialMatch() = default;
 
@@ -146,9 +130,12 @@ class PartialMatch {
     }
   }
 
-  void ShowMatchingSolutions() {
-    LOG_INFO("Show Matched Solutions: ", vec_matching_solutions->size());
+  void ShowMatchingSolutions(size_t count = 10) {
+    LOG_INFO("*********Show Matched Solutions: ", vec_matching_solutions->size(), "***************");
     for (auto& iter : *vec_matching_solutions) {
+      if(count-- < 0)
+        break;
+      std::cout << "          ";
       for (size_t i = 0; i < iter->size(); i++) {
         std::cout << iter->at(i) << ", ";
       }

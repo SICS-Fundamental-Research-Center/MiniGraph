@@ -60,7 +60,7 @@ class WCCEMap : public minigraph::EMapBase<GRAPH_T, CONTEXT_T> {
       if (iter != global_border_vertexes_vdata->end()) {
         if (*u.vdata > iter->second) {
           tag = true;
-          *u.vdata = iter->second + 1;
+          *u.vdata = iter->second;
           visited[u.vid] = 1;
         }
       }
@@ -83,12 +83,10 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
       : minigraph::AutoAppBase<GRAPH_T, CONTEXT_T>(vmap, emap, context) {}
 
   using Frontier = folly::DMPMCQueue<VertexInfo, false>;
-  using PARTIAL_RESULT_T =
-      std::unordered_map<typename GRAPH_T::vid_t, VertexInfo*>;
 
-  bool Init(GRAPH_T& graph) override {}
+  bool Init(GRAPH_T& graph) override { return true; }
 
-  bool PEval(GRAPH_T& graph, //PARTIAL_RESULT_T* partial_result,
+  bool PEval(GRAPH_T& graph,
              minigraph::executors::TaskRunner* task_runner) override {
     LOG_INFO("PEval() - Processing gid: ", graph.gid_);
     bool* visited = (bool*)malloc(graph.get_num_vertexes());
@@ -106,59 +104,34 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     return tag;
   }
 
-  bool IncEval(GRAPH_T& graph, //PARTIAL_RESULT_T* partial_result,
+  bool IncEval(GRAPH_T& graph,
                minigraph::executors::TaskRunner* task_runner) override {
-    //bool* visited = (bool*)malloc(graph.get_num_vertexes());
-    //memset(visited, 0, sizeof(bool) * graph.get_num_vertexes());
-    //if (this->global_border_vertexes_info_->size() == 0) {
-    //  LOG_INFO("IncEval() - Discarding gid: ", graph.gid_);
-    //  return false;
-    //}
-    //Frontier* frontier_in = new Frontier(graph.get_num_vertexes() + 1);
-    //for (size_t i = 0; i < graph.get_num_vertexes(); i++) {
-    //  frontier_in->enqueue(graph.GetVertexByIndex(i));
-    //}
-    //frontier_in = this->vmap_->Map(
-    //    frontier_in, visited, graph, task_runner,
-    //    WCCEMap<GRAPH_T, CONTEXT_T>::kernel_pull_border_vertexes, &graph,
-    //    this->msg_mngr_->border_vertexes_->GetBorderVertexVdata(), visited);
-    //bool tag = false;
-    //if (frontier_in->size() == 0) {
-    //  LOG_INFO("IncEval() - Discarding gid: ", graph.gid_);
-    //  tag = false;
-    //} else {
-    //  LOG_INFO("IncEval() - Processing gid: ", graph.gid_);
-    //  while (!frontier_in->empty()) {
-    //    frontier_in =
-    //        this->emap_->Map(frontier_in, visited, graph, task_runner);
-    //  }
-    //  tag = this->msg_mngr_->UpdateBorderVertexes(graph, visited);
-    //}
-    //free(visited);
-    //LOG_INFO("###");
-    //return tag;
-    return false;
-  }
+    bool* visited = (bool*)malloc(graph.get_num_vertexes());
+    memset(visited, 0, sizeof(bool) * graph.get_num_vertexes());
+    Frontier* frontier_in = new Frontier(graph.get_num_vertexes() + 1);
+    for (size_t i = 0; i < graph.get_num_vertexes(); i++) {
+      frontier_in->enqueue(graph.GetVertexByIndex(i));
+    }
+    frontier_in = this->vmap_->Map(
+        frontier_in, visited, graph, task_runner,
+        WCCEMap<GRAPH_T, CONTEXT_T>::kernel_pull_border_vertexes, &graph,
+        this->msg_mngr_->border_vertexes_->GetBorderVertexVdata(), visited);
+    bool tag = false;
 
-  //bool MsgAggr(PARTIAL_RESULT_T* partial_result) override {
-  //  if (partial_result->size() == 0) {
-  //    return false;
-  //  }
-  //  for (auto iter = partial_result->begin(); iter != partial_result->end();
-  //       iter++) {
-  //    auto iter_global = this->global_border_vertexes_info_->find(iter->first);
-  //    if (iter_global != this->global_border_vertexes_info_->end()) {
-  //      if (iter_global->second->vdata[0] != 1) {
-  //        iter_global->second->UpdateVdata(1);
-  //      }
-  //    } else {
-  //      VertexInfo* vertex_info = new VertexInfo(iter->second);
-  //      this->global_border_vertexes_info_->insert(
-  //          std::make_pair(iter->first, vertex_info));
-  //    }
-  //  }
-  //  return true;
-  //}
+    if (frontier_in->size() == 0) {
+      LOG_INFO("IncEval() - Discarding gid: ", graph.gid_);
+      tag = false;
+    } else {
+      LOG_INFO("IncEval() - Processing gid: ", graph.gid_);
+      while (!frontier_in->empty()) {
+        frontier_in =
+            this->emap_->Map(frontier_in, visited, graph, task_runner);
+      }
+      tag = this->msg_mngr_->UpdateBorderVertexes(graph, visited);
+    }
+    free(visited);
+    return tag;
+  }
 };
 
 struct Context {
@@ -186,7 +159,7 @@ int main(int argc, char* argv[]) {
   minigraph::MiniGraphSys<CSR_T, WCCPIE_T> minigraph_sys(
       work_space, num_workers_lc, num_workers_cc, num_workers_dc, num_cores,
       app_wrapper);
-  //minigraph_sys.RunSys();
-  //minigraph_sys.ShowResult();
+  minigraph_sys.RunSys();
+  minigraph_sys.ShowResult();
   gflags::ShutDownCommandLineFlags();
 }

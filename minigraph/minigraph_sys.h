@@ -1,6 +1,21 @@
 #ifndef MINIGRAPH_MINIGRAPH_SYS_H
 #define MINIGRAPH_MINIGRAPH_SYS_H
 
+#include <dirent.h>
+
+#include <condition_variable>
+#include <filesystem>
+#include <fstream>
+#include <iostream>
+#include <memory>
+#include <mutex>
+#include <sstream>
+#include <string>
+#include <thread>
+#include <vector>
+
+#include <folly/AtomicHashMap.h>
+
 #include "2d_pie/auto_app_base.h"
 #include "2d_pie/edge_map_reduce.h"
 #include "2d_pie/vertex_map_reduce.h"
@@ -11,18 +26,7 @@
 #include "utility/io/data_mngr.h"
 #include "utility/paritioner/edge_cut_partitioner.h"
 #include "utility/state_machine.h"
-#include <folly/AtomicHashMap.h>
-#include <condition_variable>
-#include <dirent.h>
-#include <filesystem>
-#include <fstream>
-#include <iostream>
-#include <memory>
-#include <mutex>
-#include <sstream>
-#include <string>
-#include <thread>
-#include <vector>
+
 
 namespace minigraph {
 
@@ -69,10 +73,7 @@ class MiniGraphSys {
 
     // init superstep of fragments as all 0;
     std::vector<GID_T> vec_gid;
-    // superstep_by_gid_ =
-    //     new folly::AtomicHashMap<GID_T, std::atomic<size_t>*>(64);
     superstep_by_gid_ = new std::unordered_map<GID_T, std::atomic<size_t>*>;
-    //        new folly::AtomicHashMap<GID_T, std::atomic<size_t>*>(64);
     for (auto& iter : *pt_by_gid_) {
       superstep_by_gid_->insert(
           std::make_pair(iter.first, new std::atomic<size_t>(0)));
@@ -97,17 +98,12 @@ class MiniGraphSys {
     // init state_machine
     state_machine_ = new utility::StateMachine<GID_T>(vec_gid);
 
-    // Read BorderVertexes, Communication Matrix, Graphs Dependencies.
-    auto global_border_vertexes = data_mngr_->ReadBorderVertexes(
-        work_space + "border_vertexes/global.bv");
+    // Read Communication Matrix.
     auto communication_matrix =
         data_mngr_
             ->ReadCommunicationMatrix(
                 work_space + "border_vertexes/communication_matrix.bin")
             .second;
-    auto global_border_vertexes_with_dependencies =
-        data_mngr_->ReadGraphDependencies(
-            work_space + "border_vertexes/graph_dependencies.bin");
 
     // init auto_app.
     app_wrapper_ = std::make_unique<
@@ -131,7 +127,7 @@ class MiniGraphSys {
     task_queue_cv_ = std::make_unique<std::condition_variable>();
     partial_result_cv_ = std::make_unique<std::condition_variable>();
 
-    system_switch_ = new bool(true);
+    system_switch_ = std::make_unique<std::atomic<bool>>(true);
     system_switch_mtx_ = std::make_unique<std::mutex>();
     system_switch_lck_ = std::make_unique<std::unique_lock<std::mutex>>(
         *system_switch_mtx_.get());
@@ -157,9 +153,9 @@ class MiniGraphSys {
             global_superstep_, state_machine_, partial_result_queue_.get(),
             read_trigger_.get(), pt_by_gid_, data_mngr_.get(),
             partial_result_lck_.get(), read_trigger_lck_.get(),
-            partial_result_cv_.get(), read_trigger_cv_.get(), system_switch_,
-            system_switch_lck_.get(), system_switch_cv_.get(),
-            communication_matrix);
+            partial_result_cv_.get(), read_trigger_cv_.get(),
+            system_switch_.get(), system_switch_lck_.get(),
+            system_switch_cv_.get(), communication_matrix);
     LOG_INFO("Init MiniGraphSys: Finish.");
   };
 
@@ -198,7 +194,7 @@ class MiniGraphSys {
     task_queue_cv_->notify_all();
     partial_result_cv_->notify_all();
     system_switch_cv_->wait(*system_switch_lck_,
-                            [&] { return !*system_switch_; });
+                            [&] { return !system_switch_->load(); });
     auto end_time = std::chrono::system_clock::now();
     data_mngr_->CleanUp();
 
@@ -221,8 +217,9 @@ class MiniGraphSys {
       auto graph = new GRAPH_T;
       data_mngr_->csr_io_adapter_->Read((GRAPH_BASE_T*)graph, csr_bin, gid,
                                         csr_pt.meta_pt, csr_pt.data_pt);
-      graph->ShowGraphAbs(99);
+      graph->ShowGraphAbs(30);
     }
+    msg_mngr_->partial_match_->ShowMatchingSolutions();
   }
 
  private:
@@ -279,8 +276,7 @@ class MiniGraphSys {
   std::unique_ptr<std::condition_variable> partial_result_cv_;
 
   // system switch
-  // std::unique_ptr<std::atomic<bool>> system_switch_;
-  bool* system_switch_ = nullptr;
+  std::unique_ptr<std::atomic<bool>> system_switch_;
   std::unique_ptr<std::mutex> system_switch_mtx_;
   std::unique_ptr<std::unique_lock<std::mutex>> system_switch_lck_;
   std::unique_ptr<std::condition_variable> system_switch_cv_;

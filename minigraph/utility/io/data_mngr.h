@@ -273,7 +273,8 @@ class DataMngr {
     size_t num_graph = global_border_vertexes_by_gid.size();
     size_t* num_vertexes_for_each_graph =
         (size_t*)malloc(sizeof(size_t) * num_graph);
-    size_t* offset = (size_t*)malloc(sizeof(size_t) * num_graph);
+    size_t* offset =
+        (size_t*)malloc(sizeof(size_t) * num_graph);
     size_t i = 0;
     size_t count = 0;
 
@@ -293,8 +294,7 @@ class DataMngr {
 
     std::ofstream output_file(output_pt, std::ios::binary);
     output_file.write((char*)&num_graph, sizeof(size_t));
-    output_file.write((char*)num_vertexes_for_each_graph,
-                      sizeof(size_t) * num_graph);
+    output_file.write((char*)num_vertexes_for_each_graph, sizeof(size_t) * num_graph);
     output_file.write((char*)offset, sizeof(size_t) * num_graph);
     output_file.write((char*)buf_vid, sizeof(VID_T) * count);
 
@@ -357,7 +357,6 @@ class DataMngr {
     if (IsExist(output_pt)) {
       remove(output_pt.c_str());
     }
-
     VID_T maximum_vid = 0;
     for (auto& iter : globalid2gid)
       iter.first > maximum_vid ? maximum_vid = iter.first : 0;
@@ -371,6 +370,7 @@ class DataMngr {
     output_file.write((char*)buf_globalid2gid, sizeof(GID_T) * maximum_vid);
     free(buf_globalid2gid);
     output_file.close();
+    return true;
   }
 
   GRAPH_BASE_T* GetGraph(const GID_T& gid) {

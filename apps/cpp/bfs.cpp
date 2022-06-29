@@ -55,21 +55,19 @@ class BFSEMap : public minigraph::EMapBase<GRAPH_T, CONTEXT_T> {
       const std::unordered_map<VID_T, VDATA_T>& global_border_vertexes_vdata,
       bool* visited) {
     bool tag = false;
+    if (u.vdata[0] == 1) {
+      return false;
+    }
     for (size_t i = 0; i < u.indegree; i++) {
-      if (u.vdata[0] == 1) {
-        continue;
-      }
       auto iter = global_border_vertexes_vdata.find(u.in_edges[i]);
       if (iter != global_border_vertexes_vdata.end()) {
         if (iter->second == 1) {
           tag = true;
-          //*u.vdata = iter->second;
           u.vdata[0] = 1;
           visited[u.vid] = 1;
         }
       }
     }
-    //  u.vdata[0]++;
     if (tag) frontier_out->enqueue(u);
     return tag;
   }
@@ -89,7 +87,7 @@ class BFSPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
   using Frontier = folly::DMPMCQueue<VertexInfo, false>;
 
-  bool Init(GRAPH_T& graph) override{};
+  bool Init(GRAPH_T& graph) override { return true; };
 
   bool PEval(GRAPH_T& graph,
              minigraph::executors::TaskRunner* task_runner) override {
@@ -111,7 +109,7 @@ class BFSPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     }
     auto tag = this->msg_mngr_->UpdateBorderVertexes(graph, visited);
     free(visited);
-    return true;
+    return tag;
   }
 
   bool IncEval(GRAPH_T& graph,
@@ -139,7 +137,7 @@ class BFSPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
       tag = this->msg_mngr_->UpdateBorderVertexes(graph, visited);
     }
     free(visited);
-    return true;
+    return tag;
   }
 };
 

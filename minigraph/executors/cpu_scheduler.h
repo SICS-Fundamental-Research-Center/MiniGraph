@@ -1,11 +1,13 @@
 #ifndef MINIGRAPH_CPU_SCHEDULER_H_
 #define MINIGRAPH_CPU_SCHEDULER_H_
 
-#include "executors/scheduler.h"
-#include "executors/throttle.h"
 #include <deque>
 #include <mutex>
 #include <thread>
+
+#include "executors/scheduler.h"
+#include "executors/throttle.h"
+
 
 namespace minigraph {
 namespace executors {

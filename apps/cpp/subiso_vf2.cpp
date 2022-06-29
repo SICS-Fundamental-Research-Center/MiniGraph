@@ -255,6 +255,7 @@ class SubIsoPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
       } else {
         return VID_MAX;
       }
+      return VID_MAX;
     }
 
     void Match(EDGE_LIST_T& pattern, GRAPH_T& graph, std::vector<VID_T> meta,
@@ -317,9 +318,9 @@ class SubIsoPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     }
   };
 
-  bool Init(GRAPH_T& graph) override {}
+  bool Init(GRAPH_T& graph) override { return true; }
 
-  bool PEval(GRAPH_T& graph, //PARTIAL_RESULT_T* partial_result,
+  bool PEval(GRAPH_T& graph,
              minigraph::executors::TaskRunner* task_runner) override {
     LOG_INFO("PEval() - Processing gid: ", graph.gid_);
     auto partial_matching_solutions_for_next_round_of_iteration =
@@ -334,17 +335,16 @@ class SubIsoPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
                        *matching_solutions, *this->msg_mngr_);
     this->msg_mngr_->BufferResults(*matching_solutions);
     if (partial_matching_solutions_for_next_round_of_iteration->size() == 0) {
-      this->msg_mngr_->partial_match_->ShowMatchingSolutions();
+      //this->msg_mngr_->partial_match_->ShowMatchingSolutions();
       return false;
     } else {
       this->msg_mngr_->BufferPartialResults(
           *partial_matching_solutions_for_next_round_of_iteration);
-      this->msg_mngr_->partial_match_->ShowMatchingSolutions();
       return true;
     }
   }
 
-  bool IncEval(GRAPH_T& graph, //PARTIAL_RESULT_T* partial_result,
+  bool IncEval(GRAPH_T& graph,
                minigraph::executors::TaskRunner* task_runner) override {
     auto partial_matching_solutions =
         this->msg_mngr_->GetPartialMatchingSolutionsofX(graph.gid_);
@@ -383,35 +383,14 @@ class SubIsoPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     this->msg_mngr_->BufferResults(*matching_solutions);
 
     if (partial_matching_solutions_for_next_round_of_iteration->size() == 0) {
-      this->msg_mngr_->partial_match_->ShowMatchingSolutions();
+      //this->msg_mngr_->partial_match_->ShowMatchingSolutions();
       return false;
     } else {
       this->msg_mngr_->BufferPartialResults(
           *partial_matching_solutions_for_next_round_of_iteration);
-      this->msg_mngr_->partial_match_->ShowMatchingSolutions();
       return true;
     }
   }
-
-  //bool MsgAggr(PARTIAL_RESULT_T* partial_result) override {
-  //  if (partial_result->size() == 0) {
-  //    return false;
-  //  }
-  //  for (auto iter = partial_result->begin(); iter != partial_result->end();
-  //       iter++) {
-  //    auto iter_global = this->global_border_vertexes_info_->find(iter->first);
-  //    if (iter_global != this->global_border_vertexes_info_->end()) {
-  //      if (iter_global->second->vdata[0] != 1) {
-  //        iter_global->second->UpdateVdata(1);
-  //      }
-  //    } else {
-  //      VertexInfo* vertex_info = new VertexInfo(iter->second);
-  //      this->global_border_vertexes_info_->insert(
-  //          std::make_pair(iter->first, vertex_info));
-  //    }
-  //  }
-  //  return true;
-  //}
 };
 
 struct Context {

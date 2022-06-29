@@ -1,3 +1,10 @@
+#include <sys/stat.h>
+
+#include <iostream>
+#include <string>
+
+#include <gflags/gflags.h>
+
 #include "graphs/edge_list.h"
 #include "graphs/immutable_csr.h"
 #include "portability/sys_data_structure.h"
@@ -5,10 +12,6 @@
 #include "utility/io/data_mngr.h"
 #include "utility/io/edge_list_io_adapter.h"
 #include "utility/paritioner/edge_cut_partitioner.h"
-#include <gflags/gflags.h>
-#include <sys/stat.h>
-#include <iostream>
-#include <string>
 
 using CSR_T = minigraph::graphs::ImmutableCSR<gid_t, vid_t, vdata_t, edata_t>;
 using GRAPH_BASE_T = minigraph::graphs::Graph<gid_t, vid_t, vdata_t, edata_t>;

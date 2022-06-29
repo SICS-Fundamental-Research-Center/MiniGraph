@@ -1,17 +1,20 @@
 #ifndef MINIGRAPH_LOAD_COMPONENT_H
 #define MINIGRAPH_LOAD_COMPONENT_H
 
-#include "components/component_base.h"
-#include "portability/sys_data_structure.h"
+#include <condition_variable>
+#include <memory>
+#include <queue>
+#include <string>
+
 #include "utility/io/csr_io_adapter.h"
 #include "utility/io/data_mngr.h"
 #include "utility/state_machine.h"
 #include "utility/thread_pool.h"
 #include <folly/ProducerConsumerQueue.h>
-#include <condition_variable>
-#include <memory>
-#include <queue>
-#include <string>
+
+#include "components/component_base.h"
+#include "portability/sys_data_structure.h"
+
 
 namespace minigraph::components {
 

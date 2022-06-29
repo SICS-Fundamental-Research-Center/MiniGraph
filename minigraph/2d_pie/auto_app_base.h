@@ -1,6 +1,12 @@
 #ifndef MINIGRAPH_2D_PIE_AUTO_APP_BASE_H
 #define MINIGRAPH_2D_PIE_AUTO_APP_BASE_H
 
+#include <memory>
+#include <unordered_map>
+
+#include <folly/MPMCQueue.h>
+#include <folly/concurrency/DynamicBoundedQueue.h>
+
 #include "2d_pie/edge_map_reduce.h"
 #include "2d_pie/vertex_map_reduce.h"
 #include "executors/scheduled_executor.h"
@@ -11,10 +17,7 @@
 #include "graphs/immutable_csr.h"
 #include "message_manager/default_message_manager.h"
 #include "utility/thread_pool.h"
-#include <folly/MPMCQueue.h>
-#include <folly/concurrency/DynamicBoundedQueue.h>
-#include <memory>
-#include <unordered_map>
+
 
 namespace minigraph {
 
@@ -35,7 +38,6 @@ class AutoAppBase {
     context_ = context;
   }
 
-  //
   // @brief Partial evaluation to implement.
   // @note: This pure virtual function works as an interface, instructing users
   // to implement in the specific app. The Init in the inherited apps would be
@@ -44,13 +46,12 @@ class AutoAppBase {
   // @param graph
   virtual bool Init(GRAPH_T& graph) = 0;
 
-  //
   // @brief Partial evaluation to implement.
   // @note: This pure virtual function works as an interface, instructing users
   // to implement in the specific app. The PEval in the inherited apps would be
   // invoked directly, not via virtual functions.
   //
-  // @param graph, partial_result
+  // @param graph
   virtual bool PEval(GRAPH_T& graph, executors::TaskRunner* task_runner) = 0;
 
   // @brief Incremental evaluation to implement.
@@ -60,29 +61,7 @@ class AutoAppBase {
   // @param graph, partial_result
   virtual bool IncEval(GRAPH_T& graph, executors::TaskRunner* task_runner) = 0;
 
-  // @brief Incremental evaluation to implement.
-  // @note: This pure virtual function works as an interface, instructing users
-  // to implement in the specific app. The MsgAggr in the inherited apps would
-  // be invoked directly, not via virtual functions.
-  // @param Message
-
-  //void Bind(std::unordered_map<typename GRAPH_T::vid_t,
-  //                             std::vector<typename GRAPH_T::gid_t>*>*
-  //              global_border_vertexes,
-  //          std::unordered_map<typename GRAPH_T::vid_t, VertexInfo*>*
-  //              global_border_vertexes_info,
-  //          std::unordered_map<typename GRAPH_T::vid_t,
-  //                             VertexDependencies<typename GRAPH_T::vid_t,
-  //                                                typename GRAPH_T::gid_t>*>*
-  //              global_border_vertexes_with_dependencies,
-  //          bool* communication_matrix) {
-  //  global_border_vertexes_info_ = global_border_vertexes_info;
-  //  global_border_vertexes_ = global_border_vertexes;
-  //  global_border_vertexes_with_dependencies_ =
-  //      global_border_vertexes_with_dependencies;
-  //  communication_matrix_ = communication_matrix;
-  //}
-
+  // Bind message manager that necessary to auto app.
   void Bind(message::DefaultMessageManager<
             typename GRAPH_T::gid_t, typename GRAPH_T::vid_t,
             typename GRAPH_T::vdata_t, typename GRAPH_T::edata_t>* msg_mngr) {
@@ -93,44 +72,11 @@ class AutoAppBase {
   VMap_T* vmap_ = nullptr;
 
   CONTEXT_T context_;
-  //std::unordered_map<typename GRAPH_T::vid_t, VertexInfo*>*
-  //    global_border_vertexes_info_ = nullptr;
-  //std::unordered_map<typename GRAPH_T::vid_t,
-  //                   std::vector<typename GRAPH_T::gid_t>*>*
-  //    global_border_vertexes_ = nullptr;
-  //std::unordered_map<
-  //    typename GRAPH_T::vid_t,
-  //    VertexDependencies<typename GRAPH_T::vid_t, typename GRAPH_T::gid_t>*>*
-  //    global_border_vertexes_with_dependencies_ = nullptr;
 
   message::DefaultMessageManager<
       typename GRAPH_T::gid_t, typename GRAPH_T::vid_t,
       typename GRAPH_T::vdata_t, typename GRAPH_T::edata_t>* msg_mngr_ =
       nullptr;
-
-  //bool* communication_matrix_ = nullptr;
-
- protected:
-  // bool GetPartialBorderResult(GRAPH_T& graph, bool* visited,
-  //                             PARTIAL_RESULT_T* partial_result) {
-  //   assert(visited != nullptr);
-  //   bool tag = false;
-  //   if (global_border_vertexes_->size() == 0) {
-  //     return true;
-  //   }
-  //   for (size_t i = 0; i < graph.get_num_vertexes(); i++) {
-  //     if (visited[i] == true) {
-  //       tag == false ? tag = true : 0;
-  //       auto globalid = graph.Index2Globalid(i);
-  //       if (global_border_vertexes_->find(globalid) !=
-  //           global_border_vertexes_->end()) {
-  //         partial_result->insert(
-  //             std::make_pair(globalid, graph.GetPVertexByIndex(i)));
-  //       }
-  //     }
-  //   }
-  //   return tag;
-  // }
 };
 
 template <typename AutoApp, typename GID_T, typename VID_T, typename VDATA_T,

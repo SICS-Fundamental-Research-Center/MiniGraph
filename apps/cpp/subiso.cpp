@@ -99,7 +99,6 @@ class SubIsoVMap : public minigraph::VMapBase<GRAPH_T, CONTEXT_T> {
       if (!*(c_set + u.vid * graph->get_num_vertexes() + candidate_u_vid)) {
         continue;
       }
-      bool tag = false;
       size_t count = 0;
       VertexInfo&& candidate = graph->GetVertexByVid(candidate_u_vid);
 
@@ -447,13 +446,14 @@ class SubIsoPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
                        offset);
       delete partial_match;
       partial_match = new_partial_match;
-      partial_match->ShowPartialMatch();
+      //partial_match->ShowPartialMatch();
     }
+    return true;
   };
 
-  bool Init(GRAPH_T& graph) override {}
+  bool Init(GRAPH_T& graph) override { return true; }
 
-  bool PEval(GRAPH_T& graph, //PARTIAL_RESULT_T* partial_result,
+  bool PEval(GRAPH_T& graph,  // PARTIAL_RESULT_T* partial_result,
              minigraph::executors::TaskRunner* task_runner) override {
     auto c_set = InitializeCandidateVertices(*this->context_.pattern, graph,
                                              task_runner);
@@ -473,30 +473,10 @@ class SubIsoPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     return true;
   }
 
-  bool IncEval(GRAPH_T& graph,// PARTIAL_RESULT_T* partial_result,
+  bool IncEval(GRAPH_T& graph,  // PARTIAL_RESULT_T* partial_result,
                minigraph::executors::TaskRunner* task_runner) override {
     return false;
   }
-
-  //bool MsgAggr(PARTIAL_RESULT_T* partial_result) override {
-  //  if (partial_result->size() == 0) {
-  //    return false;
-  //  }
-  //  for (auto iter = partial_result->begin(); iter != partial_result->end();
-  //       iter++) {
-  //    auto iter_global = this->global_border_vertexes_info_->find(iter->first);
-  //    if (iter_global != this->global_border_vertexes_info_->end()) {
-  //      if (iter_global->second->vdata[0] != 1) {
-  //        iter_global->second->UpdateVdata(1);
-  //      }
-  //    } else {
-  //      VertexInfo* vertex_info = new VertexInfo(iter->second);
-  //      this->global_border_vertexes_info_->insert(
-  //          std::make_pair(iter->first, vertex_info));
-  //    }
-  //  }
-  //  return true;
-  //}
 };
 
 struct Context {

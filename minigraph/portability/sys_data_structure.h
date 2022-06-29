@@ -1,15 +1,16 @@
 #pragma once
 
+#include <math.h>
+
+#include <condition_variable>
+#include <string>
+#include <vector>
+
 #include "graphs/graph.h"
 #include "graphs/immutable_csr.h"
 #include "portability/sys_data_structure.h"
 #include "utility/thread_pool.h"
 #include <folly/AtomicHashMap.h>
-#include <condition_variable>
-#include <math.h>
-#include <string>
-#include <vector>
-//#include "message_manager/default_message_manager.h"
 
 struct CSRPt {
   std::string meta_pt;

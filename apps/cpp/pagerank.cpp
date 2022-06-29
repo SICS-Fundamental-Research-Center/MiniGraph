@@ -97,9 +97,9 @@ class PRPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
   using PARTIAL_RESULT_T =
       std::unordered_map<typename GRAPH_T::vid_t, VertexInfo*>;
 
-  bool Init(GRAPH_T& graph) override {}
+  bool Init(GRAPH_T& graph) override { return true; }
 
-  bool PEval(GRAPH_T& graph,  // PARTIAL_RESULT_T* partial_result,
+  bool PEval(GRAPH_T& graph,
              minigraph::executors::TaskRunner* task_runner) override {
     LOG_INFO("PEval() - Processing gid: ", graph.gid_);
     bool* visited = (bool*)malloc(graph.get_num_vertexes());
@@ -120,33 +120,36 @@ class PRPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     return tag;
   }
 
-  bool IncEval(GRAPH_T& graph,  // PARTIAL_RESULT_T* partial_result,
+  bool IncEval(GRAPH_T& graph,
                minigraph::executors::TaskRunner* task_runner) override {
-    //if (this->global_border_vertexes_info_->size() == 0) {
-    //  LOG_INFO("IncEval() - Discarding gid: ", graph.gid_);
-    //  return false;
-    //}
-    //LOG_INFO("IncEval() - Processing gid: ", graph.gid_);
-    //Frontier* frontier_in = new Frontier(graph.get_num_vertexes() + 1);
+    LOG_INFO("IncEval() - Processing gid: ", graph.gid_);
+    Frontier* frontier_in = new Frontier(graph.get_num_vertexes() + 1);
 
-    //bool* visited = (bool*)malloc(graph.get_num_vertexes());
-    //memset(visited, 0, sizeof(bool) * graph.get_num_vertexes());
-    //for (size_t i = 0; i < graph.get_num_vertexes(); i++) {
-    //  frontier_in->enqueue(graph.GetVertexByIndex(i));
-    //}
+    bool* visited = (bool*)malloc(graph.get_num_vertexes());
+    memset(visited, 0, sizeof(bool) * graph.get_num_vertexes());
+    for (size_t i = 0; i < graph.get_num_vertexes(); i++) {
+      frontier_in->enqueue(graph.GetVertexByIndex(i));
+    }
 
-    //frontier_in = this->vmap_->Map(
-    //    frontier_in, visited, graph, task_runner,
-    //    PREMap<GRAPH_T, CONTEXT_T>::kernel_pull_border_vertexes, &graph,
-    //    this->msg_mngr_->border_vertexes_->GetBorderVertexVdata(), visited,
-    //    this->context_.gamma, this->context_.epsilon);
-    //while (!frontier_in->empty()) {
-    //  frontier_in = this->emap_->Map(frontier_in, visited, graph, task_runner);
-    //}
-    //auto tag = this->msg_mngr_->UpdateBorderVertexes(graph, visited);
-    //free(visited);
-    //return tag;
-    return false;
+    frontier_in = this->vmap_->Map(
+        frontier_in, visited, graph, task_runner,
+        PREMap<GRAPH_T, CONTEXT_T>::kernel_pull_border_vertexes, &graph,
+        this->msg_mngr_->border_vertexes_->GetBorderVertexVdata(), visited,
+        this->context_.gamma, this->context_.epsilon);
+    auto tag = false;
+    if (frontier_in->size() == 0) {
+      LOG_INFO("IncEval() - Discarding gid: ", graph.gid_);
+      tag = false;
+    } else {
+      LOG_INFO("IncEval() - Processing gid: ", graph.gid_);
+      while (!frontier_in->empty()) {
+        frontier_in =
+            this->emap_->Map(frontier_in, visited, graph, task_runner);
+      }
+      tag = this->msg_mngr_->UpdateBorderVertexes(graph, visited);
+    }
+    free(visited);
+    return tag;
   }
 };
 

@@ -2,12 +2,14 @@
 #ifndef MINIGRAPH_COMPONENT_BASE_H
 #define MINIGRAPH_COMPONENT_BASE_H
 
+#include <atomic>
+#include <memory>
+
+#include <folly/AtomicHashMap.h>
+
 #include "utility/logging.h"
 #include "utility/state_machine.h"
 #include "utility/thread_pool.h"
-#include <folly/AtomicHashMap.h>
-#include <atomic>
-#include <memory>
 
 namespace minigraph {
 namespace components {
@@ -39,7 +41,7 @@ class ComponentBase {
     if (iter == superstep_by_gid_->end())
       LOG_ERROR("get_super_via_gid Error: ", "gid not found.");
     else {
-      auto step = iter->second->load();
+      auto step = iter->second->load(std::memory_order_acquire);
       out = step;
     }
     this->super_step_by_gid_mtx_->unlock();
@@ -72,7 +74,7 @@ class ComponentBase {
 
   size_t get_global_superstep() {
     global_superstep_mtx_->lock();
-    auto global_superstep = global_superstep_->load();
+    auto global_superstep = global_superstep_->load(std::memory_order_acquire);
     global_superstep_mtx_->unlock();
     return global_superstep;
   };
@@ -85,12 +87,13 @@ class ComponentBase {
   }
 
   bool TrySync() {
-    size_t count = 0;
     global_superstep_mtx_->lock();
     super_step_by_gid_mtx_->lock();
     auto tag = true;
     for (auto& iter : *this->superstep_by_gid_) {
-      if (iter.second->load() <= this->global_superstep_->load()) tag = false;
+      if (iter.second->load(std::memory_order_acquire) <=
+          this->global_superstep_->load(std::memory_order_acquire))
+        tag = false;
     }
     if (tag) this->global_superstep_->fetch_add(1);
     super_step_by_gid_mtx_->unlock();
@@ -115,15 +118,16 @@ class ComponentBase {
   }
 
   void ShowSuperStepByGid() {
-    LOG_INFO("-------ShowSuperStep--------");
+    LOG_INFO("ShowSuperStep");
     for (auto& iter : *this->superstep_by_gid_) {
       LOG_INFO("gid: ", iter.first, ", step: ", iter.second->load());
     }
+    LOG_INFO("ShowSuperStep");
   }
 
  protected:
   // contral switch.
-  bool switch_ = true;
+  std::atomic<bool> switch_ = true;
 
   // thread pool.
   utility::EDFThreadPool* thread_pool_ = nullptr;

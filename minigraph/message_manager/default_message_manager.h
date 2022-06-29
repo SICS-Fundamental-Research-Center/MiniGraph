@@ -1,14 +1,15 @@
 #ifndef MINIGRAPH_DEFAULT_MESSAGE_MANAGER_H
 #define MINIGRAPH_DEFAULT_MESSAGE_MANAGER_H
 
+#include <unordered_map>
+#include <vector>
+
 #include "graphs/graph.h"
 #include "message_manager/border_vertexes.h"
 #include "message_manager/message_manager_base.h"
 #include "message_manager/partial_match.h"
 #include "portability/sys_data_structure.h"
 #include "utility/io/data_mngr.h"
-#include <unordered_map>
-#include <vector>
 
 namespace minigraph {
 namespace message {
@@ -82,32 +83,6 @@ class DefaultMessageManager : public MessageManagerBase {
     }
   };
 
-  // void BufferPartialResult(std::vector<VID_T>& meta,
-  //                          std::vector<VID_T>& current_matching_solution,
-  //                          CSR_T& graph) {
-  //   auto partial_matching_solutions = new std::vector<VID_T>;
-  //   for (auto& iter : current_matching_solution) {
-  //     partial_matching_solutions->push_back(iter);
-  //   }
-  //   auto v_vid = current_matching_solution.back();
-  //   GID_T&& gid = Globalvid2Gid(v_vid);
-  //   mtx_->lock();
-  //   auto iter =
-  //       this->partial_match_->partial_matching_solutions_by_gid_->find(gid);
-
-  //  if (iter != partial_match_->partial_matching_solutions_by_gid_->end()) {
-  //    iter->second->push_back(partial_matching_solutions);
-  //  } else {
-  //    auto partial_matching_solution_of_X =
-  //        new std::vector<std::vector<VID_T>*>;
-  //    partial_matching_solution_of_X->push_back(partial_matching_solutions);
-  //    this->partial_match_->partial_matching_solutions_by_gid_->insert(
-  //        std::make_pair(gid, partial_matching_solution_of_X));
-  //  }
-  //  mtx_->unlock();
-  //  return;
-  //}
-
   void BufferPartialResults(
       std::vector<std::vector<VID_T>*>& partial_matching_solutions) {
     this->partial_match_->BufferPartialResults(partial_matching_solutions);
@@ -117,30 +92,16 @@ class DefaultMessageManager : public MessageManagerBase {
     this->partial_match_->BufferResults(matching_solutions);
   }
 
-  // void BufferResult(std::vector<VID_T>& matching_solution) {
-  //   auto empty_matching_solution = new std::vector<VID_T>;
-  //   empty_matching_solution->swap(matching_solution);
-  //   mtx_->lock();
-  //   this->partial_match_->vec_matching_solutions->push_back(
-  //       empty_matching_solution);
-  //   mtx_->unlock();
-  //   return;
-  // }
   bool UpdateBorderVertexes(CSR_T& graph, bool* visited) {
     return this->border_vertexes_->UpdateBorderVertexes(graph, visited);
   }
-
-  bool GetBorderVertexes() {}
 
   std::vector<std::vector<VID_T>*>* GetPartialMatchingSolutionsofX(GID_T gid) {
     return this->partial_match_->GetPartialMatchingSolutionsofX(gid);
   }
 
-  void FlashMessageToSecondStorage() override{
+  void FlashMessageToSecondStorage() override{};
 
-  };
-
- private:
 };
 
 }  // namespace message

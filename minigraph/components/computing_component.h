@@ -1,6 +1,11 @@
 #ifndef MINIGRAPH_COMPUTING_COMPONENT_H
 #define MINIGRAPH_COMPUTING_COMPONENT_H
 
+#include <condition_variable>
+#include <memory>
+
+#include <folly/ProducerConsumerQueue.h>
+
 #include "components/component_base.h"
 #include "executors/scheduled_executor.h"
 #include "executors/scheduler.h"
@@ -8,9 +13,6 @@
 #include "graphs/immutable_csr.h"
 #include "utility/io/data_mngr.h"
 #include "utility/thread_pool.h"
-#include <folly/ProducerConsumerQueue.h>
-#include <condition_variable>
-#include <memory>
 
 namespace minigraph {
 namespace components {
@@ -44,9 +46,12 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       std::unique_lock<std::mutex>* task_queue_lck,
       std::unique_lock<std::mutex>* partial_result_lck,
       std::condition_variable* task_queue_cv,
-      std::condition_variable* partial_result_cv)
+      std::condition_variable* partial_result_cv
+
+      )
       : ComponentBase<GID_T>(thread_pool, superstep_by_gid, global_superstep,
                              state_machine) {
+    //    num_workers_.store(num_workers);
     num_workers_ = num_workers;
     num_cores_ = num_cores;
     data_mngr_ = data_mngr;
@@ -71,11 +76,15 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   ~ComputingComponent() = default;
 
   void Run() override {
-    while (switch_) {
+    while (this->switch_.load()) {
       std::vector<GID_T> vec_gid;
       GID_T gid = MINIGRAPH_GID_MAX;
-      task_queue_cv_->wait(*task_queue_lck_, [&] { return true; });
-      if (!switch_) {
+      task_queue_cv_->wait(*task_queue_lck_, [&] {
+        return true;
+        // return !task_queue_->empty() &&
+        //    this->switch_.load(std::memory_order_relaxed);
+      });
+      if (!this->switch_.load()) {
         return;
       }
 
@@ -86,21 +95,22 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       }
       for (size_t i = 0; i < vec_gid.size(); i++) {
         gid = vec_gid.at(i);
+        // this->ProcessGraph(gid);
         auto task = std::bind(
             &components::ComputingComponent<GRAPH_T, AUTOAPP_T>::ProcessGraph,
             this, gid);
         this->thread_pool_->Commit(task);
       }
-      this->executor_cv_->notify_all();
     }
   }
 
-  void Stop() override { switch_ = false; }
+  void Stop() override { this->switch_.store(false); }
 
  private:
+  //  std::atomic<size_t> num_workers_;
   size_t num_workers_ = 0;
   size_t num_cores_ = 0;
-  bool switch_ = true;
+  std::atomic<bool> switch_ = true;
 
   // task_queue.
   std::queue<GID_T>* task_queue_;
@@ -124,10 +134,10 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   std::unique_ptr<std::condition_variable> executor_cv_;
 
   void ProcessGraph(const GID_T& gid) {
-    executor_cv_->wait(*executor_lck_);
+    // executor_cv_->wait(*executor_lck_, [&] { return true; });
     GRAPH_T* graph = (GRAPH_T*)data_mngr_->GetGraph(gid);
-    executors::TaskRunner* task_runner =
-        scheduled_executor_->RequestTaskRunner({1, num_cores_ / num_workers_});
+    executors::TaskRunner* task_runner = scheduled_executor_->RequestTaskRunner(
+        {1, (unsigned)(num_cores_ / num_workers_)});
     if (this->get_superstep_via_gid(gid) == 0) {
       app_wrapper_->auto_app_->PEval(*graph, task_runner)
           ? this->state_machine_->ProcessEvent(gid, CHANGED)
@@ -140,7 +150,9 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
     scheduled_executor_->RecycleTaskRunner(task_runner);
     this->add_superstep_via_gid(gid);
     partial_result_queue_->push(gid);
+    // this->num_workers_.fetch_add(1);
     partial_result_cv_->notify_all();
+    // executor_cv_->notify_all();
     return;
   }
 };
