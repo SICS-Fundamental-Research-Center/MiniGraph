@@ -178,7 +178,7 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     assert(is_serialized_);
     for (size_t i = 0; i < num_vertexes_; i++) {
       auto u = GetVertexByIndex(i);
-      u.vdata[0] = num_vertexes_;
+      u.vdata[0] = 0xffffffff;
     }
   }
 

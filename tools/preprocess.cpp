@@ -1,10 +1,3 @@
-#include <sys/stat.h>
-
-#include <iostream>
-#include <string>
-
-#include <gflags/gflags.h>
-
 #include "graphs/edge_list.h"
 #include "graphs/immutable_csr.h"
 #include "portability/sys_data_structure.h"
@@ -12,7 +5,10 @@
 #include "utility/io/data_mngr.h"
 #include "utility/io/edge_list_io_adapter.h"
 #include "utility/paritioner/edge_cut_partitioner.h"
-
+#include <gflags/gflags.h>
+#include <sys/stat.h>
+#include <iostream>
+#include <string>
 
 using CSR_T = minigraph::graphs::ImmutableCSR<gid_t, vid_t, vdata_t, edata_t>;
 using GRAPH_BASE_T = minigraph::graphs::Graph<gid_t, vid_t, vdata_t, edata_t>;
@@ -61,12 +57,27 @@ int main(int argc, char* argv[]) {
 
     if (!data_mngr.IsExist(dst_pt + "/meta/")) {
       data_mngr.MakeDirectory(dst_pt + "/meta/");
+    } else {
+      remove((dst_pt + "/meta/").c_str());
+      data_mngr.MakeDirectory(dst_pt + "/meta/");
     }
     if (!data_mngr.IsExist(dst_pt + "/data/")) {
+      data_mngr.MakeDirectory(dst_pt + "/data/");
+    } else {
+      remove((dst_pt + "/data/").c_str());
       data_mngr.MakeDirectory(dst_pt + "/data/");
     }
     if (!data_mngr.IsExist(dst_pt + "/border_vertexes/")) {
       data_mngr.MakeDirectory(dst_pt + "/border_vertexes/");
+    } else {
+      remove((dst_pt + "/border_vertexes/").c_str());
+      data_mngr.MakeDirectory(dst_pt + "/border_vertexes/");
+    }
+    if (!data_mngr.IsExist(dst_pt + "/message/")) {
+      data_mngr.MakeDirectory(dst_pt + "/message/");
+    } else {
+      remove((dst_pt + "/message/").c_str());
+      data_mngr.MakeDirectory(dst_pt + "/message/");
     }
 
     auto fragments = edge_cut_partitioner.GetFragments();
@@ -98,8 +109,19 @@ int main(int argc, char* argv[]) {
         dst_pt + "/border_vertexes/communication_matrix.bin",
         pair_communication_matrix.second, pair_communication_matrix.first);
 
-    data_mngr.ReadCommunicationMatrix(
-        dst_pt + "/border_vertexes/communication_matrix.bin");
+    auto globalid2gid = edge_cut_partitioner.GetGlobalid2Gid();
+    data_mngr.WriteGlobalid2Gid(*globalid2gid,
+                                dst_pt + "/message/globalid2gid.bin");
+
+    auto global_border_vertexes_by_gid =
+        edge_cut_partitioner.GetGlobalBorderVertexesbyGid();
+    data_mngr.WriteGlobalBorderVertexesbyGid(
+        *global_border_vertexes_by_gid,
+        dst_pt + "/message/border_vertexes_by_gid.bin");
+
+    // data_mngr.ReadCommunicationMatrix(
+    //     dst_pt + "/border_vertexes/communication_matrix.bin");
+    auto out = data_mngr.ReadGlobalid2Gid(dst_pt + "/message/globalid2gid.bin");
     std::cout << " # end Partitioning: n = " << FLAGS_n << std::endl;
   }
   gflags::ShutDownCommandLineFlags();

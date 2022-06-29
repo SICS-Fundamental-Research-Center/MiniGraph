@@ -2,14 +2,12 @@
 #ifndef MINIGRAPH_COMPONENT_BASE_H
 #define MINIGRAPH_COMPONENT_BASE_H
 
-#include <atomic>
-#include <memory>
-
-#include <folly/AtomicHashMap.h>
-
 #include "utility/logging.h"
 #include "utility/state_machine.h"
 #include "utility/thread_pool.h"
+#include <folly/AtomicHashMap.h>
+#include <atomic>
+#include <memory>
 
 namespace minigraph {
 namespace components {
@@ -19,7 +17,7 @@ class ComponentBase {
  public:
   ComponentBase<GID_T>(
       utility::EDFThreadPool* thread_pool,
-      folly::AtomicHashMap<GID_T, std::atomic<size_t>*>* superstep_by_gid,
+      std::unordered_map<GID_T, std::atomic<size_t>*>* superstep_by_gid,
       std::atomic<size_t>* global_superstep,
       utility::StateMachine<GID_T>* state_machine) {
     thread_pool_ = thread_pool;
@@ -37,15 +35,15 @@ class ComponentBase {
   size_t get_superstep_via_gid(const GID_T& gid) const {
     this->super_step_by_gid_mtx_->lock();
     auto iter = superstep_by_gid_->find(gid);
-    if (iter == superstep_by_gid_->end()) {
-      XLOG(INFO, "get_super_via_gid Error: ", "gid not found.");
-      this->super_step_by_gid_mtx_->unlock();
-      return -1;
-    } else {
+    auto out = 0;
+    if (iter == superstep_by_gid_->end())
+      LOG_ERROR("get_super_via_gid Error: ", "gid not found.");
+    else {
       auto step = iter->second->load();
-      this->super_step_by_gid_mtx_->unlock();
-      return step;
+      out = step;
     }
+    this->super_step_by_gid_mtx_->unlock();
+    return out;
   };
 
   void add_superstep_via_gid(const GID_T& gid, const size_t val = 1) {
@@ -53,13 +51,11 @@ class ComponentBase {
     auto iter = superstep_by_gid_->find(gid);
     if (iter == superstep_by_gid_->end()) {
       LOG_ERROR("get_super_via_gid Error: ", "gid not found.");
-      this->super_step_by_gid_mtx_->unlock();
-      return;
     } else {
-      iter->second->fetch_add(1);
-      //iter->second->store(iter->second->load() + val);
+      iter->second->fetch_add(val);
     }
     this->super_step_by_gid_mtx_->unlock();
+    return;
   }
 
   GID_T get_slowest_gid() {
@@ -81,6 +77,7 @@ class ComponentBase {
     return global_superstep;
   };
 
+  size_t get_num_graphs() { return this->superstep_by_gid_->size(); }
   void add_global_superstep() {
     global_superstep_mtx_->lock();
     global_superstep_->fetch_add(1);
@@ -89,15 +86,16 @@ class ComponentBase {
 
   bool TrySync() {
     size_t count = 0;
+    global_superstep_mtx_->lock();
+    super_step_by_gid_mtx_->lock();
+    auto tag = true;
     for (auto& iter : *this->superstep_by_gid_) {
-      if (iter.second->load() > this->get_global_superstep()) ++count;
+      if (iter.second->load() <= this->global_superstep_->load()) tag = false;
     }
-    if (count == this->superstep_by_gid_->size()) {
-      this->add_global_superstep();
-      return true;
-    } else {
-      return false;
-    }
+    if (tag) this->global_superstep_->fetch_add(1);
+    super_step_by_gid_mtx_->unlock();
+    global_superstep_mtx_->unlock();
+    return tag;
   }
 
   bool CheckSuperstep() {
@@ -117,6 +115,7 @@ class ComponentBase {
   }
 
   void ShowSuperStepByGid() {
+    LOG_INFO("-------ShowSuperStep--------");
     for (auto& iter : *this->superstep_by_gid_) {
       LOG_INFO("gid: ", iter.first, ", step: ", iter.second->load());
     }
@@ -124,14 +123,13 @@ class ComponentBase {
 
  protected:
   // contral switch.
-  std::atomic<bool> switch_ = true;
+  bool switch_ = true;
 
   // thread pool.
   utility::EDFThreadPool* thread_pool_ = nullptr;
 
   // superstep
-  folly::AtomicHashMap<GID_T, std::atomic<size_t>*>* superstep_by_gid_ =
-      nullptr;
+  std::unordered_map<GID_T, std::atomic<size_t>*>* superstep_by_gid_ = nullptr;
   std::atomic<size_t>* global_superstep_ = nullptr;
 
   // state machine.

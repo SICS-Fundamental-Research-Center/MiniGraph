@@ -90,6 +90,7 @@ class ScheduledExecutor {
   // the value is the unique_ptr to the Throttle.
   // This indicates full ownership of all active Throttles.
   std::mutex map_mtx_;
+  std::mutex erase_mtx_;
   std::unordered_map<Schedulable::ID_Type, ThrottlePtr> throttles_;
 };
 

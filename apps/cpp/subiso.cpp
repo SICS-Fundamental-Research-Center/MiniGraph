@@ -3,6 +3,9 @@
 #include "2d_pie/vertex_map_reduce.h"
 #include "executors/task_runner.h"
 #include "graphs/graph.h"
+#include "message_manager/border_vertexes.h"
+#include "message_manager/default_message_manager.h"
+#include "message_manager/partial_match.h"
 #include "minigraph_sys.h"
 #include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
@@ -152,11 +155,12 @@ class SubIsoEMap : public minigraph::EMapBase<GRAPH_T, CONTEXT_T> {
   bool C(const VertexInfo& u, const VertexInfo& v) override { return false; }
   bool F(const VertexInfo& u, VertexInfo& v) override { return false; }
 
-  static void kernel_first_join(size_t tid, size_t t,
-                                std::pair<size_t, size_t>& pos_to_hash,
-                                std::vector<std::pair<VID_T, VID_T>>* candidate,
-                                PartialMatch<VID_T>& partial_match,
-                                size_t* config_for_join) {
+  static void kernel_first_join(
+      size_t tid, size_t t, std::pair<size_t, size_t>& pos_to_hash,
+      std::vector<std::pair<VID_T, VID_T>>* candidate,
+      minigraph::message::PartialMatch<GID_T, VID_T, VDATA_T, EDATA_T>&
+          partial_match,
+      size_t* config_for_join) {
     auto base_to_join =
         (partial_match.matching_solutions_ + partial_match.x_ * t);
     size_t count = 0;
@@ -175,8 +179,11 @@ class SubIsoEMap : public minigraph::EMapBase<GRAPH_T, CONTEXT_T> {
       size_t tid, size_t t, std::pair<size_t, size_t>& pos_to_hash,
       VID_T* candidate_meta_to_join,
       std::vector<std::pair<VID_T, VID_T>>* candidate, size_t* config_for_join,
-      PartialMatch<VID_T>& new_partial_match,
-      PartialMatch<VID_T>& partial_match, std::atomic<size_t>* offset) {
+      minigraph::message::PartialMatch<GID_T, VID_T, VDATA_T, EDATA_T>&
+          new_partial_match,
+      minigraph::message::PartialMatch<GID_T, VID_T, VDATA_T, EDATA_T>&
+          partial_match,
+      std::atomic<size_t>* offset) {
     VID_T* base_to_join =
         (partial_match.matching_solutions_ + partial_match.x_ * t);
     size_t offset_inner = *(config_for_join + t * 2 + 1);
@@ -268,8 +275,8 @@ class SubIsoPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     return c_set;
   }
 
-  //bool RefineCandidateVertices() {
-    // TO ADD...;
+  // bool RefineCandidateVertices() {
+  //  TO ADD...;
   //}
 
   std::unordered_map<std::pair<VID_T, VID_T>,
@@ -294,7 +301,8 @@ class SubIsoPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
   std::pair<std::pair<size_t, size_t>,
             std::pair<VID_T*, std::vector<std::pair<VID_T, VID_T>>*>>
-  ExactEdgesToJoin(PartialMatch<VID_T>& partial_match,
+  ExactEdgesToJoin(minigraph::message::PartialMatch<GID_T, VID_T, VDATA_T,
+                                                    EDATA_T>& partial_match,
                    std::unordered_map<std::pair<VID_T, VID_T>,
                                       std::vector<std::pair<VID_T, VID_T>>*>&
                        candidate_edges) {
@@ -382,7 +390,9 @@ class SubIsoPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
       minigraph::executors::TaskRunner* task_runner) {
     LOG_INFO("JoinCandidateEdges");
 
-    PartialMatch<VID_T>* partial_match = new PartialMatch<VID_T>(0, 0);
+    auto partial_match =
+        new minigraph::message::PartialMatch<GID_T, VID_T, VDATA_T, EDATA_T>(0,
+                                                                             0);
 
     while (!candidate_edges.empty()) {
       auto out = ExactEdgesToJoin(*partial_match, candidate_edges);
@@ -422,8 +432,9 @@ class SubIsoPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
         new_y += *(config_for_join + i * partial_match->x_);
         frontier_in_second->enqueue(i);
       }
-      PartialMatch<VID_T>* new_partial_match =
-          new PartialMatch<VID_T>(partial_match->x_ + 1, new_y);
+      auto new_partial_match =
+          new minigraph::message::PartialMatch<GID_T, VID_T, VDATA_T, EDATA_T>(
+              partial_match->x_ + 1, new_y);
       memcpy(new_partial_match->meta_, partial_match->meta_,
              partial_match->x_ * sizeof(VID_T));
       new_partial_match->meta_[new_partial_match->x_ - 1] =
@@ -442,7 +453,7 @@ class SubIsoPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
   bool Init(GRAPH_T& graph) override {}
 
-  bool PEval(GRAPH_T& graph, PARTIAL_RESULT_T* partial_result,
+  bool PEval(GRAPH_T& graph, //PARTIAL_RESULT_T* partial_result,
              minigraph::executors::TaskRunner* task_runner) override {
     auto c_set = InitializeCandidateVertices(*this->context_.pattern, graph,
                                              task_runner);
@@ -462,30 +473,30 @@ class SubIsoPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     return true;
   }
 
-  bool IncEval(GRAPH_T& graph, PARTIAL_RESULT_T* partial_result,
+  bool IncEval(GRAPH_T& graph,// PARTIAL_RESULT_T* partial_result,
                minigraph::executors::TaskRunner* task_runner) override {
     return false;
   }
 
-  bool MsgAggr(PARTIAL_RESULT_T* partial_result) override {
-    if (partial_result->size() == 0) {
-      return false;
-    }
-    for (auto iter = partial_result->begin(); iter != partial_result->end();
-         iter++) {
-      auto iter_global = this->global_border_vertexes_info_->find(iter->first);
-      if (iter_global != this->global_border_vertexes_info_->end()) {
-        if (iter_global->second->vdata[0] != 1) {
-          iter_global->second->UpdateVdata(1);
-        }
-      } else {
-        VertexInfo* vertex_info = new VertexInfo(iter->second);
-        this->global_border_vertexes_info_->insert(
-            std::make_pair(iter->first, vertex_info));
-      }
-    }
-    return true;
-  }
+  //bool MsgAggr(PARTIAL_RESULT_T* partial_result) override {
+  //  if (partial_result->size() == 0) {
+  //    return false;
+  //  }
+  //  for (auto iter = partial_result->begin(); iter != partial_result->end();
+  //       iter++) {
+  //    auto iter_global = this->global_border_vertexes_info_->find(iter->first);
+  //    if (iter_global != this->global_border_vertexes_info_->end()) {
+  //      if (iter_global->second->vdata[0] != 1) {
+  //        iter_global->second->UpdateVdata(1);
+  //      }
+  //    } else {
+  //      VertexInfo* vertex_info = new VertexInfo(iter->second);
+  //      this->global_border_vertexes_info_->insert(
+  //          std::make_pair(iter->first, vertex_info));
+  //    }
+  //  }
+  //  return true;
+  //}
 };
 
 struct Context {
@@ -518,8 +529,8 @@ int main(int argc, char* argv[]) {
   auto bfs_pie =
       new SubIsoPIE<CSR_T, Context>(bfs_vertex_map, bfs_edge_map, context);
   auto app_wrapper =
-      new AppWrapper<SubIsoPIE<CSR_T, Context>, gid_t, vid_t, vdata_t, edata_t>(
-          bfs_pie);
+      new minigraph::AppWrapper<SubIsoPIE<CSR_T, Context>, gid_t, vid_t,
+                                vdata_t, edata_t>(bfs_pie);
 
   minigraph::MiniGraphSys<CSR_T, SubIsoPIE_T> minigraph_sys(
       work_space, num_workers_lc, num_workers_cc, num_workers_dc, num_cores,

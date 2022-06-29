@@ -5,16 +5,13 @@
 #ifndef MINIGRAPH_UTILITY_EDGE_CUT_PARTITIONER_H
 #define MINIGRAPH_UTILITY_EDGE_CUT_PARTITIONER_H
 
-#include <vector>
-
-#include <folly/AtomicHashMap.h>
-#include <folly/FBVector.h>
-
 #include "portability/sys_types.h"
 #include "utility/io/csr_io_adapter.h"
 #include "utility/io/data_mngr.h"
 #include "utility/io/io_adapter_base.h"
-
+#include <folly/AtomicHashMap.h>
+#include <folly/FBVector.h>
+#include <vector>
 
 namespace minigraph {
 namespace utility {
@@ -39,7 +36,12 @@ class EdgeCutPartitioner {
   using CSR_T = graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>;
 
  public:
-  EdgeCutPartitioner() = default;
+  EdgeCutPartitioner() {
+    globalid2gid_ = new std::unordered_map<VID_T, GID_T>;
+    global_border_vertexes_by_gid_ =
+        new std::unordered_map<GID_T, std::vector<VID_T>*>;
+  }
+
   ~EdgeCutPartitioner() = default;
 
   bool RunPartition(CSR_T& graph, const size_t number_partitions,
@@ -86,13 +88,22 @@ class EdgeCutPartitioner {
     return global_border_vertexes_;
   }
 
-  std::pair<size_t, bool*> GetCommunicationMatrix() {
+  std::pair<size_t, bool*> GetCommunicationMatrix() const {
     return std::make_pair(fragments_->size(), communication_matrix_);
   }
 
   std::unordered_map<VID_T, VertexDependencies<VID_T, GID_T>*>*
-  GetBorderVertexesWithDependencies() {
+  GetBorderVertexesWithDependencies() const {
     return global_border_vertexes_with_dependencies_;
+  }
+
+  std::unordered_map<VID_T, GID_T>* GetGlobalid2Gid() const {
+    return globalid2gid_;
+  }
+
+  std::unordered_map<GID_T, std::vector<VID_T>*>* GetGlobalBorderVertexesbyGid()
+      const {
+    return global_border_vertexes_by_gid_;
   }
 
  private:
@@ -108,6 +119,10 @@ class EdgeCutPartitioner {
 
   std::unordered_map<VID_T, VertexDependencies<VID_T, GID_T>*>*
       global_border_vertexes_with_dependencies_ = nullptr;
+
+  std::unordered_map<VID_T, GID_T>* globalid2gid_ = nullptr;
+  std::unordered_map<GID_T, std::vector<VID_T>*>*
+      global_border_vertexes_by_gid_ = nullptr;
 
   void MergeBorderVertexes(std::unordered_map<VID_T, GID_T>* border_vertexes) {
     if (global_border_vertexes_ == nullptr) {
@@ -175,7 +190,6 @@ class EdgeCutPartitioner {
         }
       }
     }
-
     return true;
   }
 
@@ -183,6 +197,7 @@ class EdgeCutPartitioner {
     fragments_ = new std::vector<GRAPH_BASE_T*>();
     const size_t num_vertex_per_fragments =
         graph.get_num_vertexes() / num_partitions;
+    globalid2gid_->reserve(graph.get_num_vertexes());
     VID_T localid = 0;
     GID_T gid = 0;
     size_t count = 0;
@@ -200,6 +215,19 @@ class EdgeCutPartitioner {
           localid = 0;
         }
         csr_fragment = new CSR_T();
+        globalid2gid_->insert(std::make_pair(iter_vertexes->second->vid, gid));
+        //auto iter_global_border_vertexes_by_gid =
+        //    global_border_vertexes_by_gid_->find(gid);
+        //if (iter_global_border_vertexes_by_gid !=
+        //    global_border_vertexes_by_gid_->end()) {
+        //  iter_global_border_vertexes_by_gid->second->push_back(
+        //      iter_vertexes->second->vid);
+        //} else {
+        //  auto tmp_vec = new std::vector<VID_T>;
+        //  tmp_vec->push_back(iter_vertexes->second->vid);
+        //  global_border_vertexes_by_gid_->insert(std::make_pair(gid, tmp_vec));
+        //}
+
         csr_fragment->map_localid2globalid_->emplace(
             std::make_pair(localid, iter_vertexes->second->vid));
         csr_fragment->map_globalid2localid_->emplace(
@@ -217,6 +245,7 @@ class EdgeCutPartitioner {
             std::make_pair(localid, iter_vertexes->second->vid));
         csr_fragment->map_globalid2localid_->emplace(
             std::make_pair(iter_vertexes->second->vid, localid));
+        globalid2gid_->insert(std::make_pair(iter_vertexes->second->vid, gid));
         iter_vertexes->second->vid = localid;
         csr_fragment->sum_in_edges_ += iter_vertexes->second->indegree;
         csr_fragment->sum_out_edges_ += iter_vertexes->second->outdegree;

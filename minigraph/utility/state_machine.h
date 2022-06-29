@@ -189,10 +189,12 @@ class StateMachine {
           assert(iter->second->is("Idle"_s));
           break;
         case NOTHINGCHANGED:
+          assert(iter->second->is("Active"_s));
           iter->second->process_event(NothingChanged{});
           assert(iter->second->is("RT"_s));
           break;
         case CHANGED:
+          assert(iter->second->is("Active"_s));
           iter->second->process_event(Changed{});
           assert(iter->second->is("RC"_s));
           break;
@@ -282,7 +284,7 @@ class StateMachine {
       iter.second->visit_current_states(
           [](auto state) { std::cout << state.c_str() << std::endl; });
     }
-    LOG_INFO("--------------");
+    LOG_INFO("~ShowAllState");
   }
 
  private:
