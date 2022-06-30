@@ -68,7 +68,6 @@ class PREMap : public minigraph::EMapBase<GRAPH_T, CONTEXT_T> {
         auto iter = global_border_vertexes_vdata->find(u.in_edges[i]);
         if (iter != global_border_vertexes_vdata->end()) {
           next += iter->second;
-          count++;
         }
       }
     }
@@ -123,29 +122,70 @@ class PRPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
   bool IncEval(GRAPH_T& graph,
                minigraph::executors::TaskRunner* task_runner) override {
-    LOG_INFO("IncEval() - Processing gid: ", graph.gid_);
     Frontier* frontier_in = new Frontier(graph.get_num_vertexes() + 1);
+    auto global_border_vertexes_vdata =
+        *this->msg_mngr_->border_vertexes_->GetBorderVertexVdata();
 
     bool* visited = (bool*)malloc(graph.get_num_vertexes());
     memset(visited, 0, sizeof(bool) * graph.get_num_vertexes());
     for (size_t i = 0; i < graph.get_num_vertexes(); i++) {
-      frontier_in->enqueue(graph.GetVertexByIndex(i));
+      VertexInfo&& u = graph.GetVertexByIndex(i);
+      float next = 0;
+      size_t count = 0;
+      for (size_t j = 0; j < u.indegree; j++) {
+        auto u_local_id = graph.globalid2localid(u.in_edges[i]);
+        if (u_local_id != VID_MAX) {
+          next += *(graph.GetVertexByVid(u_local_id).vdata);
+          count++;
+        } else {
+          auto iter = global_border_vertexes_vdata.find(u.in_edges[i]);
+          if (iter != global_border_vertexes_vdata.end()) {
+            next += iter->second;
+            count++;
+          }
+        }
+      }
+      next = this->context_.gamma * (next / (float)count);
+      auto diff = (u.vdata[0] - next) * (u.vdata[0] - next);
+      if (diff == std::numeric_limits<float>::infinity()) continue;
+      if (diff > this->context_.epsilon) {
+        u.vdata[0] = next;
+        visited[u.vid] = 1;
+      }
     }
 
-    frontier_in = this->vmap_->Map(
-        frontier_in, visited, graph, task_runner,
-        PREMap<GRAPH_T, CONTEXT_T>::kernel_pull_border_vertexes, &graph,
-        this->msg_mngr_->border_vertexes_->GetBorderVertexVdata(), visited,
-        this->context_.gamma, this->context_.epsilon);
     auto tag = false;
     for (size_t i = 0; i < graph.get_num_vertexes(); i++) {
       frontier_in->enqueue(graph.GetVertexByIndex(i));
     }
-    LOG_INFO("IncEval() - Processing gid: ", graph.gid_);
+    VertexInfo u;
     while (!frontier_in->empty()) {
-      frontier_in = this->emap_->Map(frontier_in, visited, graph, task_runner);
+      frontier_in->dequeue(u);
+      float next = 0;
+      size_t count = 0;
+      for (size_t i = 0; i < u.indegree; i++) {
+        auto u_local_id = graph.globalid2localid(u.in_edges[i]);
+        if (u_local_id != VID_MAX) {
+          next += *(graph.GetVertexByVid(u_local_id).vdata);
+          count++;
+        } else {
+          auto iter = global_border_vertexes_vdata.find(u.in_edges[i]);
+          if (iter != global_border_vertexes_vdata.end()) {
+            next += iter->second;
+          }
+        }
+      }
+      next = this->context_.gamma * (next / (float)count);
+      auto diff = (u.vdata[0] - next) * (u.vdata[0] - next);
+      if (diff == std::numeric_limits<float>::infinity()) continue;
+      if (diff > this->context_.epsilon) {
+        u.vdata[0] = next;
+        frontier_in->enqueue(u);
+        visited[u.vid] = 1;
+      }
     }
     tag = this->msg_mngr_->UpdateBorderVertexes(graph, visited);
+        LOG_INFO(tag);
     free(visited);
     return tag;
   }

@@ -106,24 +106,43 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
   bool IncEval(GRAPH_T& graph,
                minigraph::executors::TaskRunner* task_runner) override {
+    auto global_border_vertexes_vdata =
+        *this->msg_mngr_->border_vertexes_->GetBorderVertexVdata();
     bool* visited = (bool*)malloc(graph.get_num_vertexes());
     memset(visited, 0, sizeof(bool) * graph.get_num_vertexes());
     Frontier* frontier_in = new Frontier(graph.get_num_vertexes() + 1);
+
     for (size_t i = 0; i < graph.get_num_vertexes(); i++) {
-      frontier_in->enqueue(graph.GetVertexByIndex(i));
+      VertexInfo&& u = graph.GetVertexByIndex(i);
+      if (u.vdata[0] == 1) continue;
+      for (size_t j = 0; j < u.indegree; j++) {
+        auto iter_nbr = global_border_vertexes_vdata.find(u.in_edges[j]);
+        if (iter_nbr == global_border_vertexes_vdata.end()) continue;
+        if (iter_nbr->second < u.vdata[0]) {
+          u.vdata[0] = iter_nbr->second;
+          visited[u.vid] = 1;
+        }
+      }
     }
-    frontier_in = this->vmap_->Map(
-        frontier_in, visited, graph, task_runner,
-        WCCEMap<GRAPH_T, CONTEXT_T>::kernel_pull_border_vertexes, &graph,
-        this->msg_mngr_->border_vertexes_->GetBorderVertexVdata(), visited);
-    bool tag = false;
 
     for (size_t i = 0; i < graph.get_num_vertexes(); i++) {
       frontier_in->enqueue(graph.GetVertexByIndex(i));
     }
+    bool tag = false;
+
     LOG_INFO("IncEval() - Processing gid: ", graph.gid_);
+    VertexInfo u;
     while (!frontier_in->empty()) {
-      frontier_in = this->emap_->Map(frontier_in, visited, graph, task_runner);
+      frontier_in->dequeue(u);
+      for (size_t i = 0; i < u.outdegree; i++) {
+        auto local_id = graph.globalid2localid(u.out_edges[i]);
+        if (local_id == VID_MAX) continue;
+        VertexInfo&& v = graph.GetVertexByVid(local_id);
+        if (v.vdata[0] >  u.vdata[0]) {
+          v.vdata[0] = u.vdata[0];
+          visited[v.vid] = 1;
+        }
+      }
     }
     tag = this->msg_mngr_->UpdateBorderVertexes(graph, visited);
     free(visited);
