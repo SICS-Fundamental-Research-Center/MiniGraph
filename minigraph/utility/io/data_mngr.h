@@ -247,7 +247,6 @@ class DataMngr {
       }
       global_border_vertexes_with_dependencies->insert(
           std::make_pair(border_vertexes[i], vd));
-      LOG_INFO(border_vertexes[i]);
     }
     free(border_vertexes);
     free(offset_who_provide);
@@ -255,9 +254,6 @@ class DataMngr {
     free(who_provide);
     free(who_need);
     graph_dependencies_file.close();
-    // for (auto& iter : *global_border_vertexes_with_dependencies) {
-    //   iter.second->ShowVertexDependencies();
-    // }
     return global_border_vertexes_with_dependencies;
   }
 
