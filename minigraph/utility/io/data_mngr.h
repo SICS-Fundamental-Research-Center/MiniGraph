@@ -1,10 +1,13 @@
 #ifndef MINIGRAPH_DATA_MNGR_H
 #define MINIGRAPH_DATA_MNGR_H
 
+#include <memory>
+
+#include <folly/AtomicHashMap.h>
+
 #include "utility/io/csr_io_adapter.h"
 #include "utility/io/edge_list_io_adapter.h"
-#include <folly/AtomicHashMap.h>
-#include <memory>
+
 
 namespace minigraph {
 namespace utility {
@@ -130,8 +133,11 @@ class DataMngr {
 
     for (auto& iter : global_border_vertexes_with_dependencies) {
       border_vertexes[i] = iter.first;
-      num_gid_who_provide_for_each_vertex[i] = iter.second->who_need_->size();
+      num_gid_who_provide_for_each_vertex[i] =
+          iter.second->who_provide_->size();
       num_gid_who_need_for_each_vertex[i] = iter.second->who_need_->size();
+      sum_who_need += iter.second->who_need_->size();
+      sum_who_provide += iter.second->who_provide_->size();
       if (i == 0) {
         offset_who_provide[0] = 0;
         offset_who_need[0] = 0;
@@ -141,21 +147,23 @@ class DataMngr {
         offset_who_need[i] =
             offset_who_need[i - 1] + num_gid_who_need_for_each_vertex[i];
       }
-      sum_who_need += iter.second->who_need_->size();
-      sum_who_provide += iter.second->who_provide_->size();
       i++;
     }
     GID_T* who_provide = (GID_T*)malloc(sizeof(GID_T) * sum_who_provide);
     GID_T* who_need = (GID_T*)malloc(sizeof(GID_T) * sum_who_need);
-    size_t i_who_provide = 0, i_who_need = 0;
+    i = 0;
     for (auto& iter : global_border_vertexes_with_dependencies) {
+      size_t i_who_provide = offset_who_provide[i];
       for (auto& iter_who_provide : *iter.second->who_provide_) {
         who_provide[i_who_provide++] = iter_who_provide;
       }
+      size_t i_who_need = offset_who_need[i];
       for (auto& iter_who_need : *iter.second->who_need_) {
         who_need[i_who_need++] = iter_who_need;
       }
+      i++;
     }
+
     std::ofstream graph_dependencies_file(output_pt,
                                           std::ios::binary | std::ios::app);
     graph_dependencies_file.write((char*)&num_border_vertexes, sizeof(size_t));
@@ -191,7 +199,6 @@ class DataMngr {
     graph_dependencies_file.read((char*)&num_border_vertexes, sizeof(size_t));
     graph_dependencies_file.read((char*)&sum_who_provide, sizeof(size_t));
     graph_dependencies_file.read((char*)&sum_who_need, sizeof(size_t));
-
     VID_T* border_vertexes =
         (VID_T*)malloc(sizeof(VID_T) * num_border_vertexes);
     graph_dependencies_file.read((char*)border_vertexes,
@@ -216,7 +223,6 @@ class DataMngr {
     auto global_border_vertexes_with_dependencies =
         new std::unordered_map<VID_T, VertexDependencies<VID_T, GID_T>*>;
     global_border_vertexes_with_dependencies->reserve(num_border_vertexes);
-
     for (size_t i = 0; i < num_border_vertexes; i++) {
       VertexDependencies<VID_T, GID_T>* vd =
           new VertexDependencies<VID_T, GID_T>(border_vertexes[i]);
@@ -241,6 +247,7 @@ class DataMngr {
       }
       global_border_vertexes_with_dependencies->insert(
           std::make_pair(border_vertexes[i], vd));
+      LOG_INFO(border_vertexes[i]);
     }
     free(border_vertexes);
     free(offset_who_provide);
@@ -273,8 +280,7 @@ class DataMngr {
     size_t num_graph = global_border_vertexes_by_gid.size();
     size_t* num_vertexes_for_each_graph =
         (size_t*)malloc(sizeof(size_t) * num_graph);
-    size_t* offset =
-        (size_t*)malloc(sizeof(size_t) * num_graph);
+    size_t* offset = (size_t*)malloc(sizeof(size_t) * num_graph);
     size_t i = 0;
     size_t count = 0;
 
@@ -294,7 +300,8 @@ class DataMngr {
 
     std::ofstream output_file(output_pt, std::ios::binary);
     output_file.write((char*)&num_graph, sizeof(size_t));
-    output_file.write((char*)num_vertexes_for_each_graph, sizeof(size_t) * num_graph);
+    output_file.write((char*)num_vertexes_for_each_graph,
+                      sizeof(size_t) * num_graph);
     output_file.write((char*)offset, sizeof(size_t) * num_graph);
     output_file.write((char*)buf_vid, sizeof(VID_T) * count);
 
