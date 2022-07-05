@@ -40,12 +40,12 @@ $./preprocess_exec  -p -n [the number of fragments] -i [input in csv format] -o 
 
 ```shell
 $cd bin
-$./bfs_exec -i [workspace] -lc [The number of LoadComponent] -cc [The number of ComputingComponent] -dc [The number of DischargeComponent] -cores [total parallism]
+$./bfs_exec -i [workspace] -lc [The number of LoadComponent] -cc [The number of ComputingComponent] -dc [The number of DischargeComponent] -cores [total parallism] -buffer_size [buffer size]
 ```
 
 ## Executing SubIso
 
 ```shell
 $cd bin
-$./subiso_exec -pattern [pattern path, e.g. ../inputs/pattern/p1.csv] -i [workspace] -lc [The number of LoadComponent] -cc [The number of ComputingComponent] -dc [The number of DischargeComponent] -cores [total parallism]
+$./subiso_exec -pattern [pattern path, e.g. ../inputs/pattern/p1.csv] -i [workspace] -lc [The number of LoadComponent] -cc [The number of ComputingComponent] -dc [The number of DischargeComponent] -cores [total parallism] -buffer_size [buffer size]
 ```
