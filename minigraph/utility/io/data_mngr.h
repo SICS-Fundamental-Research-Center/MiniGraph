@@ -1,13 +1,10 @@
 #ifndef MINIGRAPH_DATA_MNGR_H
 #define MINIGRAPH_DATA_MNGR_H
 
-#include <memory>
-
-#include <folly/AtomicHashMap.h>
-
 #include "utility/io/csr_io_adapter.h"
 #include "utility/io/edge_list_io_adapter.h"
-
+#include <folly/AtomicHashMap.h>
+#include <memory>
 
 namespace minigraph {
 namespace utility {
@@ -45,16 +42,23 @@ class DataMngr {
         utility::io::EdgeListIOAdapter<gid_t, vid_t, vdata_t, edata_t>>();
     global_border_vertexes_by_gid_ =
         new std::unordered_map<GID_T, std::vector<VID_T>*>;
+    pgraph_mtx_ = new std::mutex;
   };
 
   bool ReadGraph(const GID_T& gid, const CSRPt& csr_pt,
                  const GraphFormat& graph_format) {
-    LOG_INFO("Read gid: ", gid);
     auto graph = new CSR_T;
     auto out = csr_io_adapter_->Read((GRAPH_BASE_T*)graph, graph_format, gid,
                                      csr_pt.meta_pt, csr_pt.data_pt);
+    LOG_INFO("Read gid: ", gid, " num vertexes: ", graph->get_num_vertexes());
     if (out) {
-      pgraph_by_gid_->insert(std::make_pair(gid, (GRAPH_BASE_T*)graph));
+      pgraph_mtx_->lock();
+      auto iter = pgraph_by_gid_->find(gid);
+      if (iter != pgraph_by_gid_->end()) {
+        if (iter->second == nullptr) iter->second = (GRAPH_BASE_T*)graph;
+      } else
+        pgraph_by_gid_->insert(std::make_pair(gid, (GRAPH_BASE_T*)graph));
+      pgraph_mtx_->unlock();
     }
     return out;
   }
@@ -68,7 +72,16 @@ class DataMngr {
                                            gid, edge_list_pt.edges_pt,
                                            edge_list_pt.v_label_pt);
     if (out) {
-      pgraph_by_gid_->insert(std::make_pair(gid, (GRAPH_BASE_T*)graph));
+      pgraph_mtx_->lock();
+      auto iter = pgraph_by_gid_->find(gid);
+      if (iter != pgraph_by_gid_->end()) {
+        if (iter->second == nullptr)
+          iter->second = (GRAPH_BASE_T*)graph;
+        else
+          pgraph_by_gid_->insert(std::make_pair(gid, (GRAPH_BASE_T*)graph));
+      }
+      pgraph_mtx_->unlock();
+      // pgraph_by_gid_->insert(std::make_pair(gid, (GRAPH_BASE_T*)graph));
     }
     return out;
   }
@@ -385,12 +398,15 @@ class DataMngr {
   }
 
   void EraseGraph(const GID_T& gid) {
+    pgraph_mtx_->lock();
     if (pgraph_by_gid_->count(gid)) {
-      auto graph = (CSR_T*)pgraph_by_gid_->find(gid)->second;
-      graph->CleanUp();
-      // delete graph;
+      auto iter = pgraph_by_gid_->find(gid);
+      //     ((CSR_T*)iter->second)->~ImmutableCSR();
+      delete ((CSR_T*)iter->second);
+      iter->second = nullptr;
       pgraph_by_gid_->erase(gid);
     }
+    pgraph_mtx_->unlock();
   };
 
   void CleanUp() {
@@ -429,6 +445,7 @@ class DataMngr {
   std::unique_ptr<MSG_T> global_msg_ = nullptr;
   std::unique_ptr<folly::AtomicHashMap<GID_T, GRAPH_BASE_T*>> pgraph_by_gid_ =
       nullptr;
+  std::mutex* pgraph_mtx_ = nullptr;
 };
 
 }  // namespace io

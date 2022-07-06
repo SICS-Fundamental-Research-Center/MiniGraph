@@ -11,17 +11,8 @@ class MessageManagerBase {
   MessageManagerBase() {}
   virtual ~MessageManagerBase() {}
 
-  virtual void Init(std::string work_space) = 0;
-
-  // virtual void BufferMessage() = 0;
-
-  virtual void FlashMessageToSecondStorage() = 0;
-
-  // virtual void Isfull() =0;
-
-  // virtual void receive() = 0;
-
-  // virtual void Serialized() = 0;
+  virtual void Init(const std::string work_space,
+                    const bool load_dependencies) = 0;
 };
 
 }  // namespace message

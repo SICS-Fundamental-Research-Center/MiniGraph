@@ -14,6 +14,7 @@
 #include "utility/io/data_mngr.h"
 #include "utility/thread_pool.h"
 
+
 namespace minigraph {
 namespace components {
 
@@ -30,8 +31,6 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   using VertexInfo =
       graphs::VertexInfo<typename GRAPH_T::vid_t, typename GRAPH_T::vdata_t,
                          typename GRAPH_T::edata_t>;
-  using PARTIAL_RESULT_T =
-      std::unordered_map<typename GRAPH_T::vid_t, VertexInfo*>;
 
  public:
   ComputingComponent(
@@ -40,18 +39,16 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       std::unordered_map<GID_T, std::atomic<size_t>*>* superstep_by_gid,
       std::atomic<size_t>* global_superstep,
       utility::StateMachine<GID_T>* state_machine,
-      std::queue<GID_T>* task_queue, std::queue<GID_T>* partial_result_queue,
+      folly::ProducerConsumerQueue<GID_T>* task_queue,
+      std::queue<GID_T>* partial_result_queue,
       utility::io::DataMngr<GID_T, VID_T, VDATA_T, EDATA_T>* data_mngr,
       AppWrapper<AUTOAPP_T, GID_T, VID_T, VDATA_T, EDATA_T>* app_wrapper,
       std::unique_lock<std::mutex>* task_queue_lck,
       std::unique_lock<std::mutex>* partial_result_lck,
       std::condition_variable* task_queue_cv,
-      std::condition_variable* partial_result_cv
-
-      )
+      std::condition_variable* partial_result_cv)
       : ComponentBase<GID_T>(thread_pool, superstep_by_gid, global_superstep,
                              state_machine) {
-    //    num_workers_.store(num_workers);
     num_workers_ = num_workers;
     num_cores_ = num_cores;
     data_mngr_ = data_mngr;
@@ -64,7 +61,6 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
     partial_result_cv_ = partial_result_cv;
     scheduled_executor_ =
         std::make_unique<executors::ScheduledExecutor>(kTotalParallelism);
-
     executor_mtx_ = std::make_unique<std::mutex>();
     executor_lck_ =
         std::make_unique<std::unique_lock<std::mutex>>(*executor_mtx_.get());
@@ -76,26 +72,22 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   ~ComputingComponent() = default;
 
   void Run() override {
+    std::queue<GID_T> que_gid;
     while (this->switch_.load()) {
       std::vector<GID_T> vec_gid;
       GID_T gid = MINIGRAPH_GID_MAX;
-      task_queue_cv_->wait(*task_queue_lck_, [&] {
-        return true;
-        // return !task_queue_->empty() &&
-        //    this->switch_.load(std::memory_order_relaxed);
-      });
-      if (!this->switch_.load()) {
-        return;
-      }
+      task_queue_cv_->wait(*task_queue_lck_, [&] { return true; });
+      if (!this->switch_.load()) return;
 
-      while (!task_queue_->empty()) {
-        gid = task_queue_->front();
-        task_queue_->pop();
+      while (!task_queue_->isEmpty()) {
+        while (!task_queue_->read(gid))
+          ;
         vec_gid.push_back(gid);
+        que_gid.push(gid);
       }
-      for (size_t i = 0; i < vec_gid.size(); i++) {
-        gid = vec_gid.at(i);
-        // this->ProcessGraph(gid);
+      while (!que_gid.empty()) {
+        gid = que_gid.front();
+        que_gid.pop();
         auto task = std::bind(
             &components::ComputingComponent<GRAPH_T, AUTOAPP_T>::ProcessGraph,
             this, gid);
@@ -113,7 +105,7 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   std::atomic<bool> switch_ = true;
 
   // task_queue.
-  std::queue<GID_T>* task_queue_;
+  folly::ProducerConsumerQueue<GID_T>* task_queue_ = nullptr;
   std::queue<GID_T>* partial_result_queue_;
 
   // data manager.
@@ -150,9 +142,7 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
     scheduled_executor_->RecycleTaskRunner(task_runner);
     this->add_superstep_via_gid(gid);
     partial_result_queue_->push(gid);
-    // this->num_workers_.fetch_add(1);
     partial_result_cv_->notify_all();
-    // executor_cv_->notify_all();
     return;
   }
 };

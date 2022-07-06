@@ -159,7 +159,12 @@ class PRPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
       frontier_in->enqueue(graph.GetVertexByIndex(i));
     }
     VertexInfo u;
+    size_t n = this->context_.num_iter * graph.get_num_vertexes();
     while (!frontier_in->empty()) {
+      if (--n == 0) {
+        free(frontier_in);
+        break;
+      }
       frontier_in->dequeue(u);
       float next = 0;
       size_t count = 0;
@@ -185,7 +190,7 @@ class PRPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
       }
     }
     tag = this->msg_mngr_->UpdateBorderVertexes(graph, visited);
-        LOG_INFO(tag);
+    LOG_INFO(tag);
     free(visited);
     return tag;
   }
@@ -207,6 +212,7 @@ int main(int argc, char* argv[]) {
   size_t num_workers_cc = FLAGS_cc;
   size_t num_workers_dc = FLAGS_dc;
   size_t num_cores = FLAGS_cores;
+  size_t buffer_size = FLAGS_buffer_size;
   Context context;
   context.num_iter = FLAGS_iter;
   auto pr_emap = new PREMap<CSR_T, Context>(context);
@@ -217,7 +223,7 @@ int main(int argc, char* argv[]) {
 
   minigraph::MiniGraphSys<CSR_T, PRPIE_T> minigraph_sys(
       work_space, num_workers_lc, num_workers_cc, num_workers_dc, num_cores,
-      app_wrapper);
+      buffer_size, app_wrapper);
   minigraph_sys.RunSys();
   minigraph_sys.ShowResult();
   gflags::ShutDownCommandLineFlags();

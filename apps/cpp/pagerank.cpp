@@ -142,7 +142,12 @@ class PRPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
       frontier_in->enqueue(graph.GetVertexByIndex(i));
     }
     LOG_INFO("IncEval() - Processing gid: ", graph.gid_);
+    size_t n = this->context_.num_iter;
     while (!frontier_in->empty()) {
+      if (--n == 0) {
+        free(frontier_in);
+        break;
+      }
       frontier_in = this->emap_->Map(frontier_in, visited, graph, task_runner);
     }
     tag = this->msg_mngr_->UpdateBorderVertexes(graph, visited);
@@ -152,7 +157,7 @@ class PRPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 };
 
 struct Context {
-  size_t num_iter = 0;
+  size_t num_iter = 20;
   float epsilon = 0.01;
   float gamma = 0.03;
 };
@@ -167,6 +172,7 @@ int main(int argc, char* argv[]) {
   size_t num_workers_cc = FLAGS_cc;
   size_t num_workers_dc = FLAGS_dc;
   size_t num_cores = FLAGS_cores;
+  size_t buffer_size = FLAGS_buffer_size;
   Context context;
   context.num_iter = FLAGS_iter;
   auto pr_emap = new PREMap<CSR_T, Context>(context);
@@ -177,7 +183,7 @@ int main(int argc, char* argv[]) {
 
   minigraph::MiniGraphSys<CSR_T, PRPIE_T> minigraph_sys(
       work_space, num_workers_lc, num_workers_cc, num_workers_dc, num_cores,
-      app_wrapper);
+      buffer_size, app_wrapper);
   minigraph_sys.RunSys();
   minigraph_sys.ShowResult();
   gflags::ShutDownCommandLineFlags();

@@ -59,13 +59,17 @@ class BorderVertexes {
         if (global_border_vertexes_->find(global_id) !=
             global_border_vertexes_->end()) {
           mtx_->lock();
-          global_border_vertexes_vdata_->insert(
-              std::make_pair(global_id, *graph.GetVertexByVid(i).vdata));
+          auto iter = global_border_vertexes_vdata_->find(global_id);
+          if (iter != global_border_vertexes_vdata_->end()) {
+            iter->second = *graph.GetVertexByVid(i).vdata;
+          } else {
+            global_border_vertexes_vdata_->insert(
+                std::make_pair(global_id, *graph.GetVertexByVid(i).vdata));
+          }
           mtx_->unlock();
         }
       }
     }
-    LOG_INFO("UpdateBorderVertexes: ", tag);
     return tag;
   }
 

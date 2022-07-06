@@ -24,7 +24,8 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
 
  public:
   DischargeComponent(
-      const size_t num_workers, utility::EDFThreadPool* thread_pool,
+      const size_t num_workers, folly::NativeSemaphore* sem_lc_dc,
+      utility::EDFThreadPool* thread_pool,
       std::unordered_map<GID_T, std::atomic<size_t>*>* superstep_by_gid,
       std::atomic<size_t>* global_superstep,
       utility::StateMachine<GID_T>* state_machine,
@@ -40,6 +41,7 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       std::condition_variable* system_switch_cv, bool* communication_matrix)
       : ComponentBase<GID_T>(thread_pool, superstep_by_gid, global_superstep,
                              state_machine) {
+    sem_lc_dc_ = sem_lc_dc;
     partial_result_queue_ = partial_result_queue;
     pt_by_gid_ = pt_by_gid;
     read_trigger_ = read_trigger;
@@ -58,21 +60,21 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   ~DischargeComponent() = default;
 
   void Run() override {
+    std::queue<GID_T> que_gid;
     while (this->switch_.load()) {
-      std::vector<GID_T> *vec_gid = new std::vector<GID_T>;
       GID_T gid = MINIGRAPH_GID_MAX;
       partial_result_cv_->wait(*partial_result_lck_, [&] { return true; });
       while (!partial_result_queue_->empty()) {
         gid = partial_result_queue_->front();
         partial_result_queue_->pop();
-        vec_gid->push_back(gid);
+        que_gid.push(gid);
       }
 
-      for (size_t i = 0; i < vec_gid->size(); i++) {
-        gid = vec_gid->at(i);
+      while (!que_gid.empty()) {
+        gid = que_gid.front();
+        que_gid.pop();
         CheckRTRule(gid);
         if (this->TrySync()) {
-
           if (this->state_machine_->IsTerminated() ||
               this->get_global_superstep() > 10000) {
             auto out_rts = this->state_machine_->EvokeAllX(RTS);
@@ -81,8 +83,8 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
                 GID_T gid = iter;
                 CSRPt& csr_pt = pt_by_gid_->find(gid)->second;
                 data_mngr_->WriteGraph(gid, csr_pt, csr_bin);
+                data_mngr_->EraseGraph(gid);
               }
-            } else {
             }
             system_switch_cv_->wait(*system_switch_lck_,
                                     [&] { return system_switch_->load(); });
@@ -91,8 +93,11 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
             LOG_INFO("DC exit");
             return;
           } else {
-            WriteAllGraphsBack();
+            ReleaseGraphX(gid);
+            WriteAllGraphsBack(gid);
           }
+        } else {
+          ReleaseGraphX(gid);
         }
       }
     }
@@ -102,6 +107,7 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
 
  private:
   std::atomic<size_t> num_workers_;
+  folly::NativeSemaphore* sem_lc_dc_ = nullptr;
   std::atomic<bool> switch_ = true;
   std::queue<GID_T>* partial_result_queue_ = nullptr;
   std::queue<GID_T>* read_trigger_ = nullptr;
@@ -116,15 +122,28 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   std::atomic<bool>* system_switch_;
   bool* communication_matrix_;
 
-  void WriteAllGraphsBack() {
+  void ReleaseGraphX(const GID_T gid) {
+    if (this->state_machine_->GraphIs(gid, RTS)) {
+      CSRPt& csr_pt = pt_by_gid_->find(gid)->second;
+      data_mngr_->WriteGraph(gid, csr_pt, csr_bin);
+      data_mngr_->EraseGraph(gid);
+    } else if (this->state_machine_->GraphIs(gid, RT)) {
+      data_mngr_->EraseGraph(gid);
+    } else if (this->state_machine_->GraphIs(gid, RC)) {
+      CSRPt& csr_pt = pt_by_gid_->find(gid)->second;
+      data_mngr_->WriteGraph(gid, csr_pt, csr_bin);
+      data_mngr_->EraseGraph(gid);
+    }
+    sem_lc_dc_->post();
+  }
+
+  void WriteAllGraphsBack(const GID_T current_gid) {
     GID_T gid = this->state_machine_->GetXStateOf(RC);
     if (gid != MINIGRAPH_GID_MAX) {
       LOG_INFO("EVOKE ALL");
       auto out_rc = this->state_machine_->EvokeAllX(RC);
       auto out_rt = this->state_machine_->EvokeAllX(RT);
       auto out_rts = this->state_machine_->EvokeAllX(RTS);
-      //read_trigger_cv_->wait(*read_trigger_lck_,
-      //                       [&] { return !read_trigger_->empty(); });
       for (auto& iter : out_rt) {
         GID_T gid = iter;
         data_mngr_->EraseGraph(gid);
@@ -132,21 +151,19 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       }
       for (auto& iter : out_rc) {
         GID_T gid = iter;
-        CSRPt& csr_pt = pt_by_gid_->find(gid)->second;
-        data_mngr_->WriteGraph(gid, csr_pt, csr_bin);
+        data_mngr_->EraseGraph(gid);
         read_trigger_->push(gid);
       }
       for (auto& iter : out_rts) {
         GID_T gid = iter;
-        CSRPt& csr_pt = pt_by_gid_->find(gid)->second;
-        data_mngr_->WriteGraph(gid, csr_pt, csr_bin);
+        data_mngr_->EraseGraph(gid);
         read_trigger_->push(gid);
       }
       read_trigger_cv_->notify_all();
     }
   }
 
-  bool CheckRTRule(const GID_T gid) {
+  bool CheckRTRule(const GID_T gid) const {
     size_t num_graphs = this->pt_by_gid_->size();
     if (this->state_machine_->GraphIs(gid, RC)) {
       bool tag = true;
@@ -158,7 +175,7 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       }
       if (tag) {
         this->state_machine_->ProcessEvent(gid, SHORTCUT);
-        LOG_INFO("SHORT CUT", gid);
+        LOG_INFO("Short-cut: ", gid);
       }
     } else {
       return false;

@@ -315,6 +315,7 @@ class SubIsoPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
           return;
         }
       }
+      //return true;
     }
   };
 
@@ -335,7 +336,7 @@ class SubIsoPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
                        *matching_solutions, *this->msg_mngr_);
     this->msg_mngr_->BufferResults(*matching_solutions);
     if (partial_matching_solutions_for_next_round_of_iteration->size() == 0) {
-      //this->msg_mngr_->partial_match_->ShowMatchingSolutions();
+      // this->msg_mngr_->partial_match_->ShowMatchingSolutions();
       return false;
     } else {
       this->msg_mngr_->BufferPartialResults(
@@ -383,7 +384,7 @@ class SubIsoPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     this->msg_mngr_->BufferResults(*matching_solutions);
 
     if (partial_matching_solutions_for_next_round_of_iteration->size() == 0) {
-      //this->msg_mngr_->partial_match_->ShowMatchingSolutions();
+      // this->msg_mngr_->partial_match_->ShowMatchingSolutions();
       return false;
     } else {
       this->msg_mngr_->BufferPartialResults(
@@ -407,7 +408,7 @@ int main(int argc, char* argv[]) {
   size_t num_workers_cc = FLAGS_cc;
   size_t num_workers_dc = FLAGS_dc;
   size_t num_cores = FLAGS_cores;
-
+  size_t buffer_size = FLAGS_buffer_size;
   std::string pattern_pt = FLAGS_pattern;
 
   EdgeListPt edgelist_pt;
@@ -428,7 +429,7 @@ int main(int argc, char* argv[]) {
 
   minigraph::MiniGraphSys<CSR_T, SubIsoPIE_T> minigraph_sys(
       work_space, num_workers_lc, num_workers_cc, num_workers_dc, num_cores,
-      app_wrapper);
+      buffer_size, app_wrapper);
   minigraph_sys.RunSys();
 
   minigraph_sys.ShowResult();

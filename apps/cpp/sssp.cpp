@@ -83,8 +83,6 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
       : minigraph::AutoAppBase<GRAPH_T, CONTEXT_T>(vmap, emap, context) {}
 
   using Frontier = folly::DMPMCQueue<VertexInfo, false>;
-  using PARTIAL_RESULT_T =
-      std::unordered_map<typename GRAPH_T::vid_t, VertexInfo*>;
 
   bool Init(GRAPH_T& graph) override { return true; }
 
@@ -106,6 +104,7 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     while (!frontier_in->empty()) {
       frontier_in = this->emap_->Map(frontier_in, visited, graph, task_runner);
     }
+    delete frontier_in;
     auto tag = this->msg_mngr_->UpdateBorderVertexes(graph, visited);
     free(visited);
     return tag;
@@ -143,7 +142,7 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 };
 
 struct Context {
-  size_t root_id = 0;
+  size_t root_id = 12;
 };
 
 using CSR_T = minigraph::graphs::ImmutableCSR<gid_t, vid_t, vdata_t, edata_t>;
@@ -156,6 +155,7 @@ int main(int argc, char* argv[]) {
   size_t num_workers_cc = FLAGS_cc;
   size_t num_workers_dc = FLAGS_dc;
   size_t num_cores = FLAGS_cores;
+  size_t buffer_size = FLAGS_buffer_size;
   Context context;
   auto sssp_edge_map = new SSSPEMap<CSR_T, Context>(context);
   auto sssp_vertex_map = new SSSPVMap<CSR_T, Context>(context);
@@ -167,7 +167,7 @@ int main(int argc, char* argv[]) {
 
   minigraph::MiniGraphSys<CSR_T, SSSPPIE_T> minigraph_sys(
       work_space, num_workers_lc, num_workers_cc, num_workers_dc, num_cores,
-      app_wrapper);
+      buffer_size, app_wrapper);
   minigraph_sys.RunSys();
   minigraph_sys.ShowResult();
   gflags::ShutDownCommandLineFlags();

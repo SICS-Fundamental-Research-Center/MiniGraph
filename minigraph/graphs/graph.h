@@ -10,6 +10,7 @@
 #include <folly/FBString.h>
 #include <folly/Range.h>
 
+
 namespace minigraph {
 namespace graphs {
 
@@ -107,6 +108,7 @@ class Graph {
   inline GID_T get_gid() const { return gid_; }
   virtual size_t get_num_vertexes() const = 0;
   virtual void CleanUp() = 0;
+  virtual ~Graph() = default;
 
  private:
   GID_T gid_ = -1;
@@ -114,4 +116,4 @@ class Graph {
 
 }  // namespace graphs
 }  // namespace minigraph
-#endif // MINIGRAPH_GRAPHS_GRAPH_H
+#endif  // MINIGRAPH_GRAPHS_GRAPH_H

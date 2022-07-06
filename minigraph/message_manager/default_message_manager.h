@@ -1,15 +1,14 @@
 #ifndef MINIGRAPH_DEFAULT_MESSAGE_MANAGER_H
 #define MINIGRAPH_DEFAULT_MESSAGE_MANAGER_H
 
-#include <unordered_map>
-#include <vector>
-
 #include "graphs/graph.h"
 #include "message_manager/border_vertexes.h"
 #include "message_manager/message_manager_base.h"
 #include "message_manager/partial_match.h"
 #include "portability/sys_data_structure.h"
 #include "utility/io/data_mngr.h"
+#include <unordered_map>
+#include <vector>
 
 namespace minigraph {
 namespace message {
@@ -61,7 +60,8 @@ class DefaultMessageManager : public MessageManagerBase {
         new PartialMatch<GID_T, VID_T, VDATA_T, EDATA_T>(out2.second);
   }
 
-  void Init(std::string work_space) override {
+  void Init(const std::string work_space,
+            const bool load_dependencies = false) override {
     LOG_INFO("Init Message Manager: ", work_space);
     global_border_vertexes_.reset(data_mngr_->ReadBorderVertexes(
         work_space + "border_vertexes/global.bv"));
@@ -71,14 +71,15 @@ class DefaultMessageManager : public MessageManagerBase {
     num_graphs_ = out1.first;
     communication_matrix_ = out1.second;
 
-    global_border_vertexes_with_dependencies_.reset(
-        data_mngr_->ReadGraphDependencies(
-            work_space + "border_vertexes/graph_dependencies.bin"));
+    if (load_dependencies)
+      global_border_vertexes_with_dependencies_.reset(
+          data_mngr_->ReadGraphDependencies(
+              work_space + "border_vertexes/graph_dependencies.bin"));
 
     for (size_t i = 0; i < num_graphs_; i++) {
-      for (size_t j = 0; j < num_graphs_; j++) {
+      for (size_t j = 0; j < num_graphs_; j++)
         std::cout << *(communication_matrix_ + i * num_graphs_ + j) << ", ";
-      }
+
       std::cout << std::endl;
     }
   };
@@ -99,9 +100,6 @@ class DefaultMessageManager : public MessageManagerBase {
   std::vector<std::vector<VID_T>*>* GetPartialMatchingSolutionsofX(GID_T gid) {
     return this->partial_match_->GetPartialMatchingSolutionsofX(gid);
   }
-
-  void FlashMessageToSecondStorage() override{};
-
 };
 
 }  // namespace message

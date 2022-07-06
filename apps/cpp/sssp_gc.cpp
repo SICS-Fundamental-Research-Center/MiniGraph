@@ -126,8 +126,8 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
       for (size_t j = 0; j < u.indegree; j++) {
         auto iter_nbr = global_border_vertexes_vdata.find(u.in_edges[j]);
         if (iter_nbr == global_border_vertexes_vdata.end()) continue;
-        if (iter_nbr->second +1< u.vdata[0]) {
-          u.vdata[0] = iter_nbr->second+1;
+        if (iter_nbr->second + 1 < u.vdata[0]) {
+          u.vdata[0] = iter_nbr->second + 1;
           visited[u.vid] = 1;
           frontier_in->enqueue(u);
         }
@@ -147,8 +147,8 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
           auto local_id = graph.globalid2localid(u.out_edges[i]);
           if (local_id == VID_MAX) continue;
           VertexInfo&& v = graph.GetVertexByVid(local_id);
-          if (v.vdata[0] > u.vdata[0]+1) {
-            v.vdata[0] = u.vdata[0]+1;
+          if (v.vdata[0] > u.vdata[0] + 1) {
+            v.vdata[0] = u.vdata[0] + 1;
             frontier_in->enqueue(v);
             visited[v.vid] = 1;
           }
@@ -175,6 +175,7 @@ int main(int argc, char* argv[]) {
   size_t num_workers_cc = FLAGS_cc;
   size_t num_workers_dc = FLAGS_dc;
   size_t num_cores = FLAGS_cores;
+  size_t buffer_size = FLAGS_buffer_size;
   Context context;
   auto sssp_edge_map = new SSSPEMap<CSR_T, Context>(context);
   auto sssp_vertex_map = new SSSPVMap<CSR_T, Context>(context);
@@ -186,7 +187,7 @@ int main(int argc, char* argv[]) {
 
   minigraph::MiniGraphSys<CSR_T, SSSPPIE_T> minigraph_sys(
       work_space, num_workers_lc, num_workers_cc, num_workers_dc, num_cores,
-      app_wrapper);
+      buffer_size, app_wrapper);
   minigraph_sys.RunSys();
   minigraph_sys.ShowResult();
   gflags::ShutDownCommandLineFlags();

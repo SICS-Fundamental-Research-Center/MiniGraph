@@ -3,11 +3,10 @@
 
 #include <fstream>
 #include <iostream>
+#include <malloc.h>
 #include <map>
 #include <memory>
 #include <unordered_map>
-
-#include <jemalloc/jemalloc.h>
 
 #include <folly/AtomicHashArray.h>
 #include <folly/AtomicHashMap.h>
@@ -20,6 +19,7 @@
 #include <folly/portability/Asm.h>
 #include <folly/portability/Atomic.h>
 #include <folly/portability/SysTime.h>
+#include <jemalloc/jemalloc.h>
 
 #include "graphs/graph.h"
 #include "portability/sys_types.h"
@@ -53,12 +53,17 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     if (map_localid2globalid_ != nullptr) {
       std::unordered_map<VID_T, VID_T> tmp;
       map_localid2globalid_->swap(tmp);
+      tmp.clear();
+      map_globalid2localid_->clear();
       delete map_localid2globalid_;
       map_localid2globalid_ = nullptr;
     }
     if (map_globalid2localid_ != nullptr) {
       std::unordered_map<VID_T, VID_T> tmp;
       map_globalid2localid_->swap(tmp);
+      map_globalid2localid_->erase(map_globalid2localid_->begin(),
+                                   map_globalid2localid_->end());
+      tmp.erase(tmp.begin(), tmp.end());
       delete map_globalid2localid_;
       map_localid2globalid_ = nullptr;
     }
@@ -76,33 +81,44 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     in_offset_ = nullptr;
     out_offset_ = nullptr;
     globalid_by_index_ = nullptr;
+    LOG_INFO("~ImmucableCSR()");
+    malloc_trim(0);
   };
 
   size_t get_num_vertexes() const override { return num_vertexes_; }
 
   void CleanUp() override {
     if (map_localid2globalid_ != nullptr) {
+      LOG_INFO("Free map_localid2globalid: ", gid_);
       std::unordered_map<VID_T, VID_T> tmp;
       map_localid2globalid_->swap(tmp);
+      tmp.clear();
+      map_localid2globalid_->clear();
       delete map_localid2globalid_;
       map_localid2globalid_ = nullptr;
     }
     if (map_globalid2localid_ != nullptr) {
+      LOG_INFO("Free map_globalid2localid: ", gid_);
       std::unordered_map<VID_T, VID_T> tmp;
       map_globalid2localid_->swap(tmp);
+      tmp.clear();
+      map_globalid2localid_->clear();
       delete map_globalid2localid_;
-      map_localid2globalid_ = nullptr;
+      map_globalid2localid_ = nullptr;
     }
     if (buf_graph_ != nullptr) {
+      LOG_INFO("Free:  buf_graph", gid_);
       free(buf_graph_);
       buf_graph_ = nullptr;
     }
     if (vertexes_info_ != nullptr) {
+      LOG_INFO("Free vertexes_info: ", gid_);
       std::map<VID_T, graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>*> tmp;
       vertexes_info_->swap(tmp);
       delete vertexes_info_;
       vertexes_info_ = nullptr;
     }
+
     vid_by_index_ = nullptr;
     index_by_vid_ = nullptr;
     in_edges_ = nullptr;
@@ -113,6 +129,7 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     in_offset_ = nullptr;
     out_offset_ = nullptr;
     globalid_by_index_ = nullptr;
+    malloc_trim(0);
   };
 
   void ShowGraph(const size_t count = 2) {
@@ -123,10 +140,7 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
               << std::endl;
     size_t count_ = 0;
     for (size_t i = 0; i < this->get_num_vertexes(); i++) {
-      if (count_++ > count) {
-        std::cout << "############################" << std::endl;
-        return;
-      }
+      if (count_++ > count) return;
       VertexInfo&& vertex_info = GetVertexByIndex(i);
       VID_T global_id = globalid_by_index_[i];
       vertex_info.ShowVertexInfo(global_id);
@@ -141,10 +155,7 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
               << std::endl;
     size_t count_ = 0;
     for (size_t i = 0; i < this->get_num_vertexes(); i++) {
-      if (count_++ > count) {
-        std::cout << "############################" << std::endl;
-        return;
-      }
+      if (count_++ > count) return;
       VertexInfo&& vertex_info = GetVertexByIndex(i);
       VID_T global_id = globalid_by_index_[i];
       vertex_info.ShowVertexAbs(global_id);
@@ -183,9 +194,8 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
   }
 
   bool Serialize() {
-    if (vertexes_info_ == nullptr) {
-      return false;
-    }
+    if (vertexes_info_ == nullptr) return false;
+
     size_t size_localid = sizeof(VID_T) * num_vertexes_;
     size_t size_globalid = sizeof(VID_T) * num_vertexes_;
     size_t size_index_by_vid = sizeof(size_t) * num_vertexes_;

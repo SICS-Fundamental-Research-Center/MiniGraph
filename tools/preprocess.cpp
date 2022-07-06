@@ -87,20 +87,26 @@ int main(int argc, char* argv[]) {
     size_t count = 0;
     for (auto& iter_fragments : *fragments) {
       auto fragment = (CSR_T*)iter_fragments;
-      fragment->ShowGraph(99);
+      fragment->ShowGraph(3);
       std::string meta_pt = dst_pt + "/meta/" + std::to_string(count) + ".meta";
       std::string data_pt = dst_pt + "/data/" + std::to_string(count) + ".data";
       data_mngr.csr_io_adapter_->Write(*fragment, immutable_csr_bin, meta_pt,
                                        data_pt);
       count++;
     }
-
+    LOG_INFO("WriteBorderVertexes.");
     data_mngr.global_border_vertexes_.reset(
         edge_cut_partitioner.GetGlobalBorderVertexes());
     data_mngr.WriteBorderVertexes(*(data_mngr.global_border_vertexes_.get()),
                                   dst_pt + "/border_vertexes/global.bv");
+    LOG_INFO("WriteCommunicationMatrix.");
     auto pair_communication_matrix =
         edge_cut_partitioner.GetCommunicationMatrix();
+    data_mngr.WriteCommunicationMatrix(
+        dst_pt + "/border_vertexes/communication_matrix.bin",
+        pair_communication_matrix.second, pair_communication_matrix.first);
+
+    LOG_INFO("WriteGraphDependencies.");
     auto border_vertexes_with_dependencies =
         edge_cut_partitioner.GetBorderVertexesWithDependencies();
     data_mngr.WriteGraphDependencies(
@@ -108,10 +114,8 @@ int main(int argc, char* argv[]) {
         dst_pt + "/border_vertexes/graph_dependencies.bin");
     data_mngr.ReadGraphDependencies(dst_pt +
                                     "/border_vertexes/graph_dependencies.bin");
-    data_mngr.WriteCommunicationMatrix(
-        dst_pt + "/border_vertexes/communication_matrix.bin",
-        pair_communication_matrix.second, pair_communication_matrix.first);
 
+    LOG_INFO("WriteGlobalid2Gid.");
     auto globalid2gid = edge_cut_partitioner.GetGlobalid2Gid();
     data_mngr.WriteGlobalid2Gid(*globalid2gid,
                                 dst_pt + "/message/globalid2gid.bin");
@@ -122,10 +126,7 @@ int main(int argc, char* argv[]) {
         *global_border_vertexes_by_gid,
         dst_pt + "/message/border_vertexes_by_gid.bin");
 
-    // data_mngr.ReadCommunicationMatrix(
-    //     dst_pt + "/border_vertexes/communication_matrix.bin");
-    auto out = data_mngr.ReadGlobalid2Gid(dst_pt + "/message/globalid2gid.bin");
-    std::cout << " # end Partitioning: n = " << FLAGS_n << std::endl;
+    LOG_INFO("End graph partition#");
   }
   gflags::ShutDownCommandLineFlags();
 }

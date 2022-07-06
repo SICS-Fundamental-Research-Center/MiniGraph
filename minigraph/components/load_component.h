@@ -6,17 +6,19 @@
 #include <queue>
 #include <string>
 
+#include <folly/ProducerConsumerQueue.h>
+#include <folly/synchronization/NativeSemaphore.h>
+
+#include "components/component_base.h"
+#include "portability/sys_data_structure.h"
 #include "utility/io/csr_io_adapter.h"
 #include "utility/io/data_mngr.h"
 #include "utility/state_machine.h"
 #include "utility/thread_pool.h"
-#include <folly/ProducerConsumerQueue.h>
-
-#include "components/component_base.h"
-#include "portability/sys_data_structure.h"
 
 
-namespace minigraph::components {
+namespace minigraph {
+namespace components {
 
 template <typename GRAPH_T>
 class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
@@ -29,11 +31,13 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
 
  public:
   LoadComponent(
-      const size_t num_workers, utility::EDFThreadPool* thread_pool,
+      const size_t num_workers, folly::NativeSemaphore* sem_lc_dc,
+      utility::EDFThreadPool* thread_pool,
       std::unordered_map<GID_T, std::atomic<size_t>*>* superstep_by_gid,
       std::atomic<size_t>* global_superstep,
       utility::StateMachine<GID_T>* state_machine,
-      std::queue<GID_T>* read_trigger, std::queue<GID_T>* task_queue,
+      std::queue<GID_T>* read_trigger,
+      folly::ProducerConsumerQueue<GID_T>* task_queue,
       folly::AtomicHashMap<GID_T, CSRPt>* pt_by_gid,
       utility::io::DataMngr<GID_T, VID_T, VDATA_T, EDATA_T>* data_mngr,
       std::unique_lock<std::mutex>* read_trigger_lck,
@@ -43,6 +47,7 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       : ComponentBase<GID_T>(thread_pool, superstep_by_gid, global_superstep,
                              state_machine) {
     num_workers_.store(num_workers);
+    sem_lc_dc_ = sem_lc_dc;
     pt_by_gid_ = pt_by_gid;
     data_mngr_ = data_mngr;
     task_queue_ = task_queue;
@@ -61,17 +66,14 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
 
   void Run() override {
     while (switch_) {
-      // std::vector<GID_T> vec_gid;
       GID_T gid = MINIGRAPH_GID_MAX;
       read_trigger_cv_->wait(*read_trigger_lck_, [&] { return true; });
-      if (!switch_) {
-        return;
-      }
+      if (!switch_) return;
       while (!read_trigger_->empty()) {
+        sem_lc_dc_->wait();
         gid = read_trigger_->front();
         read_trigger_->pop();
-        CSRPt& csr_pt = pt_by_gid_->find(gid)->second;
-        this->ProcessGraph(gid, csr_pt);
+        this->ProcessGraph(gid);
       }
     }
   }
@@ -80,9 +82,9 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
 
  private:
   std::atomic<size_t> num_workers_;
-
-  std::queue<GID_T>* read_trigger_;
-  std::queue<GID_T>* task_queue_;
+  folly::NativeSemaphore* sem_lc_dc_ = nullptr;
+  std::queue<GID_T>* read_trigger_ = nullptr;
+  folly::ProducerConsumerQueue<GID_T>* task_queue_ = nullptr;
   folly::AtomicHashMap<GID_T, CSRPt>* pt_by_gid_;
   utility::io::DataMngr<GID_T, VID_T, VDATA_T, EDATA_T>* data_mngr_ = nullptr;
   bool switch_ = true;
@@ -95,10 +97,12 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   std::unique_ptr<std::unique_lock<std::mutex>> executor_lck_;
   std::unique_ptr<std::condition_variable> executor_cv_;
 
-  void ProcessGraph(GID_T gid, CSRPt& csr_pt) {
+  void ProcessGraph(GID_T gid) {
+    CSRPt& csr_pt = pt_by_gid_->find(gid)->second;
     if (this->data_mngr_->ReadGraph(gid, csr_pt, csr_bin)) {
       this->state_machine_->ProcessEvent(gid, LOAD);
-      task_queue_->push(gid);
+      while (!task_queue_->write(gid))
+        ;
       task_queue_cv_->notify_all();
     } else {
       this->state_machine_->ProcessEvent(gid, UNLOAD);
@@ -107,5 +111,6 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   }
 };
 
-}  // namespace minigraph::components
+}  // namespace components
+}  // namespace minigraph
 #endif  // MINIGRAPH_LOAD_COMPONENT_H

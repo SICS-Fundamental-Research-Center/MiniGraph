@@ -4,24 +4,20 @@
 #ifndef MINIGRAPH_UTILITY_IO_CSR_IO_ADAPTER_H
 #define MINIGRAPH_UTILITY_IO_CSR_IO_ADAPTER_H
 
-#include <sys/stat.h>
-
-#include <fstream>
-#include <iostream>
-#include <string>
-#include <unordered_map>
-
+#include "graphs/immutable_csr.h"
+#include "io_adapter_base.h"
+#include "portability/sys_data_structure.h"
+#include "portability/sys_types.h"
 #include "rapidcsv.h"
 #include "utility/logging.h"
 #include <folly/AtomicHashArray.h>
 #include <folly/AtomicHashMap.h>
 #include <folly/FileUtil.h>
-
-#include "graphs/immutable_csr.h"
-#include "io_adapter_base.h"
-#include "portability/sys_data_structure.h"
-#include "portability/sys_types.h"
-
+#include <sys/stat.h>
+#include <fstream>
+#include <iostream>
+#include <string>
+#include <unordered_map>
 
 namespace minigraph {
 namespace utility {
@@ -283,11 +279,13 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     graph->outdegree_ = (size_t*)((char*)graph->buf_graph_ + start_outdegree);
     graph->in_edges_ = (VID_T*)((char*)graph->buf_graph_ + start_in_edges);
     graph->out_edges_ = (VID_T*)((char*)graph->buf_graph_ + start_out_edges);
+
     graph->map_globalid2localid_->reserve(graph->num_vertexes_);
     for (size_t i = 0; i < graph->num_vertexes_; i++) {
       graph->map_globalid2localid_->insert(std::make_pair(
           graph->globalid_by_index_[i], graph->vid_by_index_[i]));
     }
+
     free(buf_meta);
     buf_meta = nullptr;
     graph->is_serialized_ = true;

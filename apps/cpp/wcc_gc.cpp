@@ -138,7 +138,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
         auto local_id = graph.globalid2localid(u.out_edges[i]);
         if (local_id == VID_MAX) continue;
         VertexInfo&& v = graph.GetVertexByVid(local_id);
-        if (v.vdata[0] >  u.vdata[0]) {
+        if (v.vdata[0] > u.vdata[0]) {
           v.vdata[0] = u.vdata[0];
           visited[v.vid] = 1;
         }
@@ -164,6 +164,7 @@ int main(int argc, char* argv[]) {
   size_t num_workers_cc = FLAGS_cc;
   size_t num_workers_dc = FLAGS_dc;
   size_t num_cores = FLAGS_cores;
+  size_t buffer_size = FLAGS_buffer_size;
   Context context;
   auto wcc_emap = new WCCEMap<CSR_T, Context>(context);
   auto wcc_vmap = new WCCVMap<CSR_T, Context>(context);
@@ -174,7 +175,7 @@ int main(int argc, char* argv[]) {
 
   minigraph::MiniGraphSys<CSR_T, WCCPIE_T> minigraph_sys(
       work_space, num_workers_lc, num_workers_cc, num_workers_dc, num_cores,
-      app_wrapper);
+      buffer_size, app_wrapper);
   minigraph_sys.RunSys();
   minigraph_sys.ShowResult();
   gflags::ShutDownCommandLineFlags();

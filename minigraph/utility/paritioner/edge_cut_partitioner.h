@@ -162,9 +162,9 @@ class EdgeCutPartitioner {
             std::make_pair(iter.first, vd));
       }
     }
-    for (auto& iter : *global_border_vertex_with_dependencies) {
-      iter.second->ShowVertexDependencies();
-    }
+    //for (auto& iter : *global_border_vertex_with_dependencies) {
+    //  iter.second->ShowVertexDependencies();
+    //}
     global_border_vertexes_with_dependencies_ =
         global_border_vertex_with_dependencies;
     return true;
@@ -197,6 +197,7 @@ class EdgeCutPartitioner {
     fragments_ = new std::vector<GRAPH_BASE_T*>();
     const size_t num_vertex_per_fragments =
         graph.get_num_vertexes() / num_partitions;
+    LOG_INFO("Start graph partition: grouping ", graph.get_num_vertexes(), " vertexes into ", num_vertex_per_fragments, " fragments.");
     globalid2gid_->reserve(graph.get_num_vertexes());
     VID_T localid = 0;
     GID_T gid = 0;

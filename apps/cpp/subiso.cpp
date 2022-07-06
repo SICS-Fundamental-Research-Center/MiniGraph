@@ -446,7 +446,7 @@ class SubIsoPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
                        offset);
       delete partial_match;
       partial_match = new_partial_match;
-      //partial_match->ShowPartialMatch();
+      // partial_match->ShowPartialMatch();
     }
     return true;
   };
@@ -493,8 +493,8 @@ int main(int argc, char* argv[]) {
   size_t num_workers_cc = FLAGS_cc;
   size_t num_workers_dc = FLAGS_dc;
   size_t num_cores = FLAGS_cores;
-
   std::string pattern_pt = FLAGS_pattern;
+  size_t buffer_size = FLAGS_buffer_size;
 
   EdgeListPt edgelist_pt;
   edgelist_pt.edges_pt = pattern_pt;
@@ -514,7 +514,7 @@ int main(int argc, char* argv[]) {
 
   minigraph::MiniGraphSys<CSR_T, SubIsoPIE_T> minigraph_sys(
       work_space, num_workers_lc, num_workers_cc, num_workers_dc, num_cores,
-      app_wrapper);
+      buffer_size, app_wrapper);
   minigraph_sys.RunSys();
 
   minigraph_sys.ShowResult();

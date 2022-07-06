@@ -155,6 +155,7 @@ int main(int argc, char* argv[]) {
   size_t num_workers_cc = FLAGS_cc;
   size_t num_workers_dc = FLAGS_dc;
   size_t num_cores = FLAGS_cores;
+  size_t buffer_size = FLAGS_buffer_size;
   Context context;
   auto bfs_edge_map = new BFSEMap<CSR_T, Context>(context);
   auto bfs_vertex_map = new BFSVMap<CSR_T, Context>(context);
@@ -166,7 +167,7 @@ int main(int argc, char* argv[]) {
 
   minigraph::MiniGraphSys<CSR_T, BFSPIE_T> minigraph_sys(
       work_space, num_workers_lc, num_workers_cc, num_workers_dc, num_cores,
-      app_wrapper);
+      buffer_size, app_wrapper);
   minigraph_sys.RunSys();
 
   minigraph_sys.ShowResult();
