@@ -40,6 +40,14 @@ class BorderVertexes {
     mtx_ = new std::mutex;
   }
 
+  BorderVertexes(
+      std::unordered_map<VID_T, std::vector<GID_T>*>* global_border_vertexes) {
+    global_border_vertexes_.reset(global_border_vertexes);
+    global_border_vertexes_vdata_.reset(
+        new std::unordered_map<VID_T, VDATA_T>());
+    mtx_ = new std::mutex;
+  }
+
   ~BorderVertexes() = default;
 
   size_t get_num_border_vertexes() { return global_border_vertexes_->size(); }

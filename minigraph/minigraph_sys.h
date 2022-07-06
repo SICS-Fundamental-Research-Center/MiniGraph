@@ -101,13 +101,6 @@ class MiniGraphSys {
     // init state_machine
     state_machine_ = new utility::StateMachine<GID_T>(vec_gid);
 
-    // Read Communication Matrix.
-    auto communication_matrix =
-        data_mngr_
-            ->ReadCommunicationMatrix(
-                work_space + "border_vertexes/communication_matrix.bin")
-            .second;
-
     // init auto_app.
     app_wrapper_ = std::make_unique<
         AppWrapper<AUTOAPP_T, GID_T, VID_T, VDATA_T, EDATA_T>>();
@@ -160,7 +153,7 @@ class MiniGraphSys {
             partial_result_lck_.get(), read_trigger_lck_.get(),
             partial_result_cv_.get(), read_trigger_cv_.get(),
             system_switch_.get(), system_switch_lck_.get(),
-            system_switch_cv_.get(), communication_matrix);
+            system_switch_cv_.get(), msg_mngr_->GetCommunicationMatrix());
     LOG_INFO("Init MiniGraphSys: Finish.");
   };
 
@@ -225,7 +218,8 @@ class MiniGraphSys {
                                         csr_pt.meta_pt, csr_pt.data_pt);
       graph->ShowGraphAbs(3);
     }
-    msg_mngr_->partial_match_->ShowMatchingSolutions();
+    if (msg_mngr_->GetPartialMatch() != nullptr)
+      msg_mngr_->GetPartialMatch()->ShowMatchingSolutions();
   }
 
  private:

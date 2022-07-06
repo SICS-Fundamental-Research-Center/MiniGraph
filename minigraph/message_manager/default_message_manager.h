@@ -1,14 +1,16 @@
 #ifndef MINIGRAPH_DEFAULT_MESSAGE_MANAGER_H
 #define MINIGRAPH_DEFAULT_MESSAGE_MANAGER_H
 
+#include <unordered_map>
+#include <vector>
+
 #include "graphs/graph.h"
 #include "message_manager/border_vertexes.h"
 #include "message_manager/message_manager_base.h"
 #include "message_manager/partial_match.h"
 #include "portability/sys_data_structure.h"
 #include "utility/io/data_mngr.h"
-#include <unordered_map>
-#include <vector>
+
 
 namespace minigraph {
 namespace message {
@@ -17,26 +19,8 @@ template <typename GID_T, typename VID_T, typename VDATA_T, typename EDATA_T>
 class DefaultMessageManager : public MessageManagerBase {
   using VertexInfo = minigraph::graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>;
   using CSR_T = graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>;
-  using EDGE_LIST_T = graphs::EdgeList<GID_T, VID_T, VDATA_T, EDATA_T>;
 
  public:
-  size_t num_graphs_ = 0;
-  size_t maximum_vid_ = 0;
-  utility::io::DataMngr<GID_T, VID_T, VDATA_T, EDATA_T>* data_mngr_ = nullptr;
-
-  std::unique_ptr<std::unordered_map<VID_T, std::vector<GID_T>*>>
-      global_border_vertexes_ = nullptr;
-  std::unique_ptr<std::unordered_map<VID_T, VertexInfo*>>
-      global_border_vertexes_info_ = nullptr;
-  std::unique_ptr<std::unordered_map<VID_T, VertexDependencies<VID_T, GID_T>*>>
-      global_border_vertexes_with_dependencies_ = nullptr;
-  std::unique_ptr<GID_T> globalid2gid_ = nullptr;
-  bool* communication_matrix_ = nullptr;
-
-  std::unordered_map<VID_T, VDATA_T>* global_border_vertex_vdata_;
-
-  std::mutex* mtx_;
-
   PartialMatch<GID_T, VID_T, VDATA_T, EDATA_T>* partial_match_ = nullptr;
   BorderVertexes<GID_T, VID_T, VDATA_T, EDATA_T>* border_vertexes_ = nullptr;
 
@@ -47,15 +31,10 @@ class DefaultMessageManager : public MessageManagerBase {
     data_mngr_ = data_mngr;
     border_vertexes_ = new BorderVertexes<GID_T, VID_T, VDATA_T, EDATA_T>(
         data_mngr_->ReadBorderVertexes(work_space +
-                                       "border_vertexes/global.bv"),
-        data_mngr_->ReadGraphDependencies(
-            work_space + "border_vertexes/graph_dependencies.bin"));
-    mtx_ = new std::mutex;
-    global_border_vertex_vdata_ = new std::unordered_map<VID_T, VDATA_T>;
+                                       "border_vertexes/global.bv"));
     auto out2 =
         data_mngr_->ReadGlobalid2Gid(work_space + "/message/globalid2gid.bin");
-    maximum_vid_ = out2.first;
-    globalid2gid_.reset(out2.second);
+    size_t maximum_vid = out2.first;
     partial_match_ =
         new PartialMatch<GID_T, VID_T, VDATA_T, EDATA_T>(out2.second);
   }
@@ -63,23 +42,15 @@ class DefaultMessageManager : public MessageManagerBase {
   void Init(const std::string work_space,
             const bool load_dependencies = false) override {
     LOG_INFO("Init Message Manager: ", work_space);
-    global_border_vertexes_.reset(data_mngr_->ReadBorderVertexes(
-        work_space + "border_vertexes/global.bv"));
 
     auto out1 = data_mngr_->ReadCommunicationMatrix(
         work_space + "border_vertexes/communication_matrix.bin");
     num_graphs_ = out1.first;
     communication_matrix_ = out1.second;
 
-    if (load_dependencies)
-      global_border_vertexes_with_dependencies_.reset(
-          data_mngr_->ReadGraphDependencies(
-              work_space + "border_vertexes/graph_dependencies.bin"));
-
     for (size_t i = 0; i < num_graphs_; i++) {
       for (size_t j = 0; j < num_graphs_; j++)
         std::cout << *(communication_matrix_ + i * num_graphs_ + j) << ", ";
-
       std::cout << std::endl;
     }
   };
@@ -100,6 +71,21 @@ class DefaultMessageManager : public MessageManagerBase {
   std::vector<std::vector<VID_T>*>* GetPartialMatchingSolutionsofX(GID_T gid) {
     return this->partial_match_->GetPartialMatchingSolutionsofX(gid);
   }
+
+  PartialMatch<GID_T, VID_T, VDATA_T, EDATA_T>* GetPartialMatch() {
+    return partial_match_;
+  }
+
+  BorderVertexes<GID_T, VID_T, VDATA_T, EDATA_T>* GetBorderVertexes() {
+    return border_vertexes_;
+  }
+
+  bool* GetCommunicationMatrix() { return communication_matrix_; }
+
+ private:
+  size_t num_graphs_ = 0;
+  utility::io::DataMngr<GID_T, VID_T, VDATA_T, EDATA_T>* data_mngr_ = nullptr;
+  bool* communication_matrix_ = nullptr;
 };
 
 }  // namespace message

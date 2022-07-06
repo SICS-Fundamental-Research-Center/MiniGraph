@@ -1,10 +1,12 @@
 #ifndef MINIGRAPH_DATA_MNGR_H
 #define MINIGRAPH_DATA_MNGR_H
 
+#include <memory>
+
+#include <folly/AtomicHashMap.h>
+
 #include "utility/io/csr_io_adapter.h"
 #include "utility/io/edge_list_io_adapter.h"
-#include <folly/AtomicHashMap.h>
-#include <memory>
 
 namespace minigraph {
 namespace utility {
@@ -344,6 +346,7 @@ class DataMngr {
 
     border_vertexes_file.read((char*)&global_border_vertexes_size,
                               sizeof(size_t));
+    global_border_vertexes->reserve(global_border_vertexes_size);
     VID_T* buf_global_border_vertexes =
         (VID_T*)malloc(sizeof(VID_T*) * global_border_vertexes_size);
     border_vertexes_file.read((char*)buf_global_border_vertexes,
