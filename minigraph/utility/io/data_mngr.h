@@ -12,12 +12,15 @@ namespace minigraph {
 namespace utility {
 namespace io {
 
-template <typename GID_T, typename VID_T, typename VDATA_T, typename EDATA_T>
+template <typename GRAPH_T>
 class DataMngr {
+  using GID_T = typename GRAPH_T::gid_t;
+  using VID_T = typename GRAPH_T::vid_t;
+  using VDATA_T = typename GRAPH_T::vdata_t;
+  using EDATA_T = typename GRAPH_T::edata_t;
   using GRAPH_BASE_T = graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>;
   using CSR_T = graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>;
   using EDGE_LIST_T = graphs::EdgeList<GID_T, VID_T, VDATA_T, EDATA_T>;
-  using MSG_T = graphs::Message<VID_T, VDATA_T, EDATA_T>;
   using VertexInfo = graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>;
 
  public:
@@ -49,10 +52,19 @@ class DataMngr {
 
   bool ReadGraph(const GID_T& gid, const CSRPt& csr_pt,
                  const GraphFormat& graph_format) {
-    auto graph = new CSR_T;
-    auto out = csr_io_adapter_->Read((GRAPH_BASE_T*)graph, graph_format, gid,
-                                     csr_pt.meta_pt, csr_pt.data_pt);
-    LOG_INFO("Read gid: ", gid, " num vertexes: ", graph->get_num_vertexes());
+    bool out = false;
+    GRAPH_BASE_T* graph = nullptr;
+    if (graph_format == csr_bin) {
+      graph = new CSR_T;
+      out = csr_io_adapter_->Read((GRAPH_BASE_T*)graph, graph_format, gid,
+                                  csr_pt.meta_pt, csr_pt.data_pt,
+                                  csr_pt.vdata_pt);
+    } else if (graph_format == edge_list_bin) {
+      graph = new EDGE_LIST_T;
+      out = edge_list_io_adapter_->Read((GRAPH_BASE_T*)graph, edge_list_bin,
+                                        gid, 0, csr_pt.meta_pt, csr_pt.data_pt,
+                                        csr_pt.vdata_pt);
+    }
     if (out) {
       pgraph_mtx_->lock();
       auto iter = pgraph_by_gid_->find(gid);
@@ -71,7 +83,7 @@ class DataMngr {
     auto graph = new EDGE_LIST_T;
 
     auto out = edge_list_io_adapter_->Read((GRAPH_BASE_T*)graph, graph_format,
-                                           gid, edge_list_pt.edges_pt,
+                                           gid, 0, edge_list_pt.edges_pt,
                                            edge_list_pt.v_label_pt);
     if (out) {
       pgraph_mtx_->lock();
@@ -89,11 +101,16 @@ class DataMngr {
   }
 
   bool WriteGraph(const GID_T& gid, const CSRPt& csr_pt,
-                  const GraphFormat& graph_format) {
-    auto graph = this->GetGraph(gid);
-    LOG_INFO("Write gid: ", gid);
-    return csr_io_adapter_->Write(*((GRAPH_BASE_T*)graph), graph_format,
-                                  csr_pt.meta_pt, csr_pt.data_pt);
+                  const GraphFormat& graph_format, bool vdata_only = false) {
+    if (graph_format == csr_bin) {
+      auto graph = this->GetGraph(gid);
+      return csr_io_adapter_->Write(*((GRAPH_BASE_T*)graph), csr_bin,
+                                    vdata_only, csr_pt.meta_pt, csr_pt.data_pt,
+                                    csr_pt.vdata_pt);
+    } else if (graph_format == edge_list_bin) {
+      return false;
+    }
+    return false;
   }
 
   bool WriteBorderVertexes(const std::unordered_map<VID_T, std::vector<GID_T>*>&
@@ -280,6 +297,12 @@ class DataMngr {
     communication_matrix_file.write((char*)&num_graphs, sizeof(size_t));
     communication_matrix_file.write((char*)communication_matrix,
                                     sizeof(bool) * num_graphs * num_graphs);
+    for (size_t i = 0; i < num_graphs; i++) {
+      for (size_t j = 0; j < num_graphs; j++) {
+        std::cout << *(communication_matrix + i * num_graphs + j) << ", ";
+      }
+      std::cout << std::endl;
+    }
     communication_matrix_file.close();
     return true;
   }
@@ -330,10 +353,40 @@ class DataMngr {
     communication_matrix_file.read((char*)&num_graphs, sizeof(size_t));
     bool* communication_matrix =
         (bool*)malloc(sizeof(bool) * num_graphs * num_graphs);
+    memset(communication_matrix, 0, sizeof(bool) * num_graphs * num_graphs);
     communication_matrix_file.read((char*)communication_matrix,
                                    sizeof(bool) * num_graphs * num_graphs);
+    LOG_INFO(input_pt);
+    for (size_t i = 0; i < num_graphs; i++) {
+      for (size_t j = 0; j < num_graphs; j++) {
+        std::cout << *(communication_matrix + i * num_graphs + j) << ", ";
+      }
+      std::cout << std::endl;
+    }
     communication_matrix_file.close();
     return std::make_pair(num_graphs, communication_matrix);
+  }
+
+  bool WriteBitmap(Bitmap* bitmap, const std::string& output_pt) {
+    std::ofstream output_file(output_pt, std::ios::binary | std::ios::app);
+    size_t meta_buff[2];
+    meta_buff[0] = bitmap->size_;
+    meta_buff[1] = bitmap->get_data_size(bitmap->size_);
+    output_file.write((char*)meta_buff, sizeof(size_t) * 2);
+    output_file.write((char*)bitmap->data_, meta_buff[1]);
+    output_file.close();
+    return true;
+  }
+
+  Bitmap* ReadBitmap(const std::string& input_pt) {
+    std::ifstream input_file(input_pt, std::ios::binary | std::ios::app);
+    size_t meta_buff[2];
+    input_file.read((char*)meta_buff, sizeof(size_t) * 2);
+    unsigned long* data = (unsigned long*)malloc(meta_buff[1]);
+    memset(data, 0, meta_buff[1]);
+    input_file.read((char*)data, meta_buff[1]);
+    input_file.close();
+    return new Bitmap(meta_buff[0], data);
   }
 
   std::unordered_map<VID_T, std::vector<GID_T>*>* ReadBorderVertexes(
@@ -392,6 +445,28 @@ class DataMngr {
     return true;
   }
 
+  bool WriteVidMap(const size_t max_vid, VID_T* vid_map,
+                   const std::string& output_pt) {
+    if (IsExist(output_pt)) {
+      remove(output_pt.c_str());
+    }
+    std::ofstream output_file(output_pt, std::ios::binary | std::ios::app);
+    output_file.write((char*)&max_vid, sizeof(size_t));
+    output_file.write((char*)vid_map, sizeof(VID_T) * max_vid);
+    return true;
+  }
+
+  std::pair<size_t, VID_T*> ReadVidMap(const std::string& input_pt) {
+    std::ifstream vid_map_file(input_pt, std::ios::binary);
+    size_t max_vid = 0;
+    vid_map_file.read((char*)&max_vid, sizeof(size_t));
+    VID_T* vid_map = (VID_T*)malloc(sizeof(VID_T) * max_vid);
+    memset(vid_map, 0, sizeof(VID_T) * max_vid);
+    vid_map_file.read((char*)vid_map, sizeof(VID_T) * max_vid);
+    vid_map_file.close();
+    return std::make_pair(max_vid, vid_map);
+  }
+
   GRAPH_BASE_T* GetGraph(const GID_T& gid) {
     if (pgraph_by_gid_->count(gid)) {
       return pgraph_by_gid_->find(gid)->second;
@@ -404,8 +479,7 @@ class DataMngr {
     pgraph_mtx_->lock();
     if (pgraph_by_gid_->count(gid)) {
       auto iter = pgraph_by_gid_->find(gid);
-      //     ((CSR_T*)iter->second)->~ImmutableCSR();
-      delete ((CSR_T*)iter->second);
+      delete (GRAPH_T*)iter->second;
       iter->second = nullptr;
       pgraph_by_gid_->erase(gid);
     }
@@ -445,7 +519,6 @@ class DataMngr {
   }
 
  private:
-  std::unique_ptr<MSG_T> global_msg_ = nullptr;
   std::unique_ptr<folly::AtomicHashMap<GID_T, GRAPH_BASE_T*>> pgraph_by_gid_ =
       nullptr;
   std::mutex* pgraph_mtx_ = nullptr;

@@ -1,8 +1,15 @@
-//
-// Created by hsiaoko on 2022/3/14.
-//
 #ifndef MINIGRAPH_UTILITY_IO_CSR_IO_ADAPTER_H
 #define MINIGRAPH_UTILITY_IO_CSR_IO_ADAPTER_H
+
+#include <sys/stat.h>
+#include <fstream>
+#include <iostream>
+#include <string>
+#include <unordered_map>
+
+#include <folly/AtomicHashArray.h>
+#include <folly/AtomicHashMap.h>
+#include <folly/FileUtil.h>
 
 #include "graphs/immutable_csr.h"
 #include "io_adapter_base.h"
@@ -10,14 +17,7 @@
 #include "portability/sys_types.h"
 #include "rapidcsv.h"
 #include "utility/logging.h"
-#include <folly/AtomicHashArray.h>
-#include <folly/AtomicHashMap.h>
-#include <folly/FileUtil.h>
-#include <sys/stat.h>
-#include <fstream>
-#include <iostream>
-#include <string>
-#include <unordered_map>
+
 
 namespace minigraph {
 namespace utility {
@@ -42,7 +42,7 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       case edge_list_csv:
         return this->ReadCSRFromEdgeListCSV(graph, pt[0]);
       case csr_bin:
-        return this->ReadCSRFromCSRBin(graph, gid, pt[0], pt[1]);
+        return this->ReadCSRFromCSRBin(graph, gid, pt[0], pt[1], pt[2]);
       case weight_edge_list_csv:
         // not supported now.
         break;
@@ -57,7 +57,7 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
 
   template <class... Args>
   bool Write(const graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>& graph,
-             const GraphFormat& graph_format, Args&&... args) {
+             const GraphFormat& graph_format, bool vdata_only, Args&&... args) {
     std::string pt[] = {(args)...};
 
     bool tag = false;
@@ -67,19 +67,14 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
         break;
       case csr_bin:
         tag = this->WriteCSR2CSRBin(
-            (graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>&)graph, pt[0],
-            pt[1]);
+            (graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>&)graph,
+            vdata_only, pt[0], pt[1], pt[2]);
         break;
       case weight_edge_list_csv:
         tag = false;
         break;
         // not supported now.
         // TO DO: load graph in weight edge csv format.
-      case immutable_csr_bin:
-        tag = this->WriteCSR2CSRBin(
-            (graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>&)graph, pt[0],
-            pt[1]);
-        break;
       case edge_list_bin:
         break;
       default:
@@ -208,8 +203,8 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
   }
 
   bool ReadCSRFromCSRBin(GRAPH_BASE_T* graph_base, const GID_T& gid,
-                         const std::string& meta_pt,
-                         const std::string& data_pt) {
+                         const std::string& meta_pt, const std::string& data_pt,
+                         const std::string& vdata_pt) {
     if (!this->IsExist(meta_pt)) {
       XLOG(ERR, "Read file fault: meta_pt, ", meta_pt, ", not exist");
       return false;
@@ -218,86 +213,99 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       XLOG(ERR, "Read file fault: data_pt, ", data_pt, ", not exist");
       return false;
     }
-
     if (graph_base == nullptr) {
       XLOG(ERR,
            "Input fault: graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>* graph "
            "is nullptr");
       return false;
     }
-
     auto graph = (CSR_T*)graph_base;
 
-    std::ifstream meta_file(meta_pt, std::ios::binary | std::ios::app);
-    std::ifstream data_file(data_pt, std::ios::binary | std::ios::app);
-
-    // read meta
     size_t* buf_meta = (size_t*)malloc(sizeof(size_t) * 3);
-    meta_file.read((char*)buf_meta, sizeof(size_t) * 3);
-    size_t size_localid = sizeof(VID_T) * buf_meta[0];
-    size_t size_globalid = sizeof(VID_T) * buf_meta[0];
-    size_t size_index_by_vid = sizeof(size_t) * buf_meta[0];
-    size_t size_indegree = sizeof(size_t) * buf_meta[0];
-    size_t size_outdegree = sizeof(size_t) * buf_meta[0];
-    size_t size_in_offset = sizeof(size_t) * buf_meta[0];
-    size_t size_out_offset = sizeof(size_t) * buf_meta[0];
-    size_t size_vdata = sizeof(VDATA_T) * buf_meta[0];
-    size_t size_in_edges = sizeof(VID_T) * buf_meta[1];
-    size_t size_out_edges = sizeof(VID_T) * buf_meta[2];
-    size_t total_size = size_localid + size_globalid + size_index_by_vid +
-                        size_indegree + size_outdegree + size_in_offset +
-                        size_out_offset + size_in_edges + size_out_edges +
-                        size_vdata;
+    {
+      std::ifstream meta_file(meta_pt, std::ios::binary | std::ios::app);
 
-    graph->num_vertexes_ = buf_meta[0];
-    graph->sum_in_edges_ = buf_meta[1];
-    graph->sum_out_edges_ = buf_meta[2];
+      // read meta
+      meta_file.read((char*)buf_meta, sizeof(size_t) * 3);
+      graph->num_vertexes_ = buf_meta[0];
+      graph->sum_in_edges_ = buf_meta[1];
+      graph->sum_out_edges_ = buf_meta[2];
 
-    size_t start_localid = 0;
-    size_t start_globalid = start_localid + size_localid;
-    size_t start_index_by_vid = start_globalid + size_globalid;
-    size_t start_indegree = start_index_by_vid + size_index_by_vid;
-    size_t start_outdegree = start_indegree + size_indegree;
-    size_t start_in_offset = start_outdegree + size_outdegree;
-    size_t start_out_offset = start_in_offset + size_in_offset;
-    size_t start_vdata = start_out_offset + size_out_offset;
-    size_t start_in_edges = start_vdata + size_vdata;
-    size_t start_out_edges = start_in_edges + size_in_edges;
-    // read data
-
-    graph->buf_graph_ = malloc(total_size);
-    data_file.read((char*)graph->buf_graph_, total_size);
-    graph->vid_by_index_ = ((VID_T*)((char*)graph->buf_graph_ + start_localid));
-    graph->globalid_by_index_ =
-        (VID_T*)((char*)graph->buf_graph_ + start_globalid);
-    graph->vdata_ = (VDATA_T*)((char*)graph->buf_graph_ + start_vdata);
-    graph->index_by_vid_ =
-        ((size_t*)((char*)graph->buf_graph_ + start_index_by_vid));
-    graph->out_offset_ = (size_t*)((char*)graph->buf_graph_ + start_out_offset);
-    graph->in_offset_ = (size_t*)((char*)graph->buf_graph_ + start_in_offset);
-    graph->indegree_ = (size_t*)((char*)graph->buf_graph_ + start_indegree);
-    graph->outdegree_ = (size_t*)((char*)graph->buf_graph_ + start_outdegree);
-    graph->in_edges_ = (VID_T*)((char*)graph->buf_graph_ + start_in_edges);
-    graph->out_edges_ = (VID_T*)((char*)graph->buf_graph_ + start_out_edges);
-
-    graph->map_globalid2localid_->reserve(graph->num_vertexes_);
-    for (size_t i = 0; i < graph->num_vertexes_; i++) {
-      graph->map_globalid2localid_->insert(std::make_pair(
-          graph->globalid_by_index_[i], graph->vid_by_index_[i]));
+      // read bitmap
+      meta_file.read((char*)&graph->max_vid_, sizeof(VID_T));
+      graph->max_vid_ = int(ceil(graph->max_vid_ / 64) + 1) * 64;
+      graph->bitmap_ = new Bitmap(graph->max_vid_);
+      graph->bitmap_->clear();
+      meta_file.close();
     }
 
-    free(buf_meta);
-    buf_meta = nullptr;
+    {
+      // read data
+      size_t size_localid = sizeof(VID_T) * buf_meta[0];
+      size_t size_globalid = sizeof(VID_T) * buf_meta[0];
+      size_t size_index_by_vid = sizeof(size_t) * buf_meta[0];
+      size_t size_indegree = sizeof(size_t) * buf_meta[0];
+      size_t size_outdegree = sizeof(size_t) * buf_meta[0];
+      size_t size_in_offset = sizeof(size_t) * buf_meta[0];
+      size_t size_out_offset = sizeof(size_t) * buf_meta[0];
+      size_t size_in_edges = sizeof(VID_T) * buf_meta[1];
+      size_t size_out_edges = sizeof(VID_T) * buf_meta[2];
+      size_t total_size = size_localid + size_globalid + size_index_by_vid +
+                          size_indegree + size_outdegree + size_in_offset +
+                          size_out_offset + size_in_edges + size_out_edges;
+
+      size_t start_localid = 0;
+      size_t start_globalid = start_localid + size_localid;
+      size_t start_index_by_vid = start_globalid + size_globalid;
+      size_t start_indegree = start_index_by_vid + size_index_by_vid;
+      size_t start_outdegree = start_indegree + size_indegree;
+      size_t start_in_offset = start_outdegree + size_outdegree;
+      size_t start_out_offset = start_in_offset + size_in_offset;
+      size_t start_in_edges = start_out_offset + size_out_offset;
+      size_t start_out_edges = start_in_edges + size_in_edges;
+
+      std::ifstream data_file(data_pt, std::ios::binary | std::ios::app);
+      graph->buf_graph_ = malloc(total_size);
+      data_file.read((char*)graph->buf_graph_, total_size);
+      graph->vid_by_index_ =
+          ((VID_T*)((char*)graph->buf_graph_ + start_localid));
+      graph->globalid_by_index_ =
+          (VID_T*)((char*)graph->buf_graph_ + start_globalid);
+      graph->index_by_vid_ =
+          ((size_t*)((char*)graph->buf_graph_ + start_index_by_vid));
+      graph->out_offset_ =
+          (size_t*)((char*)graph->buf_graph_ + start_out_offset);
+      graph->in_offset_ = (size_t*)((char*)graph->buf_graph_ + start_in_offset);
+      graph->indegree_ = (size_t*)((char*)graph->buf_graph_ + start_indegree);
+      graph->outdegree_ = (size_t*)((char*)graph->buf_graph_ + start_outdegree);
+      graph->in_edges_ = (VID_T*)((char*)graph->buf_graph_ + start_in_edges);
+      graph->out_edges_ = (VID_T*)((char*)graph->buf_graph_ + start_out_edges);
+      for (size_t i = 0; i < graph->num_vertexes_; i++)
+        graph->bitmap_->set_bit(graph->globalid_by_index_[i]);
+      data_file.close();
+    }
+
+    {
+      // read vdata
+      std::ifstream vdata_file(vdata_pt, std::ios::binary | std::ios::app);
+      graph->vdata_ = (VDATA_T*)malloc(sizeof(VDATA_T) * graph->num_vertexes_);
+      memset(graph->vdata_, 0, sizeof(VDATA_T) * graph->num_vertexes_);
+      vdata_file.read((char*)graph->vdata_,
+                      sizeof(VDATA_T) * graph->num_vertexes_);
+      vdata_file.close();
+    }
+
     graph->is_serialized_ = true;
     graph->gid_ = gid;
-    meta_file.close();
-    data_file.close();
+    free(buf_meta);
+    buf_meta = nullptr;
     return true;
   }
 
   bool WriteCSR2CSRBin(
-      const graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>& graph,
-      const std::string& meta_pt, const std::string& data_pt) {
+      graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>& graph,
+      bool vdata_only = false, const std::string& meta_pt = "",
+      const std::string& data_pt = "", const std::string vdata_pt = "") {
     if (graph.is_serialized_ == false) {
       XLOG(ERR, "Graph has not been serialized.");
       return false;
@@ -306,43 +314,49 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       XLOG(ERR, "Segmentation fault: buf_graph is nullptr");
       return false;
     }
-    if (this->IsExist(meta_pt)) {
-      remove(meta_pt.c_str());
-    }
-    if (this->IsExist(data_pt)) {
-      remove(data_pt.c_str());
-    }
-    std::ofstream meta_file(meta_pt, std::ios::binary | std::ios::app);
-    std::ofstream data_file(data_pt, std::ios::binary | std::ios::app);
 
-    // write meta
-    size_t* buf_meta = (size_t*)malloc(sizeof(size_t) * 3);
-    buf_meta[0] = graph.num_vertexes_;
-    buf_meta[1] = graph.sum_in_edges_;
-    buf_meta[2] = graph.sum_out_edges_;
-    meta_file.write((char*)buf_meta, sizeof(size_t) * 3);
+    if (!vdata_only) {
+      // write meta
+      if (this->IsExist(meta_pt)) remove(meta_pt.c_str());
+      if (this->IsExist(data_pt)) remove(data_pt.c_str());
+      std::ofstream meta_file(meta_pt, std::ios::binary | std::ios::app);
+      size_t* buf_meta = (size_t*)malloc(sizeof(size_t) * 3);
+      memset(buf_meta, 0, sizeof(size_t) * 3);
+      buf_meta[0] = graph.num_vertexes_;
+      buf_meta[1] = graph.sum_in_edges_;
+      buf_meta[2] = graph.sum_out_edges_;
+      meta_file.write((char*)buf_meta, sizeof(size_t) * 3);
+      LOG_INFO("WRITE max_vid: ", graph.max_vid_);
+      meta_file.write((char*)&graph.max_vid_, sizeof(VID_T));
+      free(buf_meta);
+      meta_file.close();
 
-    // write data
-    size_t size_localid = sizeof(VID_T) * graph.num_vertexes_;
-    size_t size_globalid = sizeof(VID_T) * graph.num_vertexes_;
-    size_t size_index_by_vid = sizeof(size_t) * graph.num_vertexes_;
-    size_t size_indegree = sizeof(size_t) * graph.num_vertexes_;
-    size_t size_outdegree = sizeof(size_t) * graph.num_vertexes_;
-    size_t size_in_offset = sizeof(size_t) * graph.num_vertexes_;
-    size_t size_out_offset = sizeof(size_t) * graph.num_vertexes_;
-    size_t size_vdata = sizeof(VDATA_T) * graph.num_vertexes_;
-    size_t size_in_edges = sizeof(VID_T) * graph.sum_in_edges_;
-    size_t size_out_edges = sizeof(VID_T) * graph.sum_out_edges_;
-    size_t total_size = size_localid + size_globalid + size_index_by_vid +
-                        size_in_offset + size_indegree + size_outdegree +
-                        size_out_offset + size_in_edges + size_out_edges +
-                        size_vdata;
-    meta_file.write((char*)buf_meta, sizeof(size_t) * 3);
-    data_file.write((char*)graph.buf_graph_, total_size);
-    free(buf_meta);
-    buf_meta = nullptr;
-    meta_file.close();
-    data_file.close();
+      // write data
+      std::ofstream data_file(data_pt, std::ios::binary | std::ios::app);
+      size_t size_localid = sizeof(VID_T) * graph.num_vertexes_;
+      size_t size_globalid = sizeof(VID_T) * graph.num_vertexes_;
+      size_t size_index_by_vid = sizeof(size_t) * graph.num_vertexes_;
+      size_t size_indegree = sizeof(size_t) * graph.num_vertexes_;
+      size_t size_outdegree = sizeof(size_t) * graph.num_vertexes_;
+      size_t size_in_offset = sizeof(size_t) * graph.num_vertexes_;
+      size_t size_out_offset = sizeof(size_t) * graph.num_vertexes_;
+      size_t size_in_edges = sizeof(VID_T) * graph.sum_in_edges_;
+      size_t size_out_edges = sizeof(VID_T) * graph.sum_out_edges_;
+      size_t total_size = size_localid + size_globalid + size_index_by_vid +
+                          size_in_offset + size_indegree + size_outdegree +
+                          size_out_offset + size_in_edges + size_out_edges;
+      data_file.write((char*)graph.buf_graph_, total_size);
+      data_file.close();
+    }
+
+    {
+      // write vdata
+      if (this->IsExist(vdata_pt)) remove(vdata_pt.c_str());
+      std::ofstream vdata_file(vdata_pt, std::ios::binary | std::ios::app);
+      vdata_file.write((char*)graph.vdata_,
+                       sizeof(VDATA_T) * graph.num_vertexes_);
+      vdata_file.close();
+    }
     return true;
   }
 };

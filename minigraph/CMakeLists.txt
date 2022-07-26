@@ -85,7 +85,7 @@ endif()
 #######################
 # Generate libminigraph
 #######################
-add_library (minigraph ${MINIGRAPH_SOURCES} message_manager/border_vertexes.h message_manager/partial_match.h)
+add_library (minigraph ${MINIGRAPH_SOURCES})
 
 target_link_libraries(minigraph
         ${FOLLY_LIBRARIES} )

@@ -39,13 +39,17 @@ class MiniGraphSys {
   using EDATA_T = typename GRAPH_T::edata_t;
   using GRAPH_BASE_T = graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>;
   using VertexInfo = graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>;
-  using APP_WRAPPER = AppWrapper<AUTOAPP_T, GID_T, VID_T, VDATA_T, EDATA_T>;
+  using APP_WRAPPER = AppWrapper<AUTOAPP_T, GRAPH_T>;
+  using CSR_T = graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>;
+  using EDGE_LIST_T =
+      minigraph::graphs::EdgeList<gid_t, vid_t, vdata_t, edata_t>;
 
  public:
   MiniGraphSys(const std::string work_space, const size_t num_workers_lc = 1,
                const size_t num_workers_cc = 1, const size_t num_workers_dc = 1,
                const size_t num_cores = 1, const size_t buffer_size = 0,
-               APP_WRAPPER* app_wrapper = nullptr) {
+               APP_WRAPPER* app_wrapper = nullptr,
+               const std::string& gtype = "") {
     assert(num_workers_dc > 0 && num_workers_cc > 0 && num_workers_dc > 0 &&
            num_cores / num_workers_cc >= 1);
 
@@ -58,13 +62,11 @@ class MiniGraphSys {
     InitWorkList(work_space);
 
     // init Data Manager.
-    data_mngr_ = std::make_unique<
-        utility::io::DataMngr<GID_T, VID_T, VDATA_T, EDATA_T>>();
+    data_mngr_ = std::make_unique<utility::io::DataMngr<GRAPH_T>>();
 
     // init Message Manager
-    msg_mngr_ = std::make_unique<
-        message::DefaultMessageManager<GID_T, VID_T, VDATA_T, EDATA_T>>(
-        data_mngr_.get(), work_space);
+    msg_mngr_ = std::make_unique<message::DefaultMessageManager<GRAPH_T>>(
+        data_mngr_.get(), work_space, false);
     msg_mngr_->Init(work_space);
 
     pt_by_gid_ = new folly::AtomicHashMap<GID_T, CSRPt>(64);
@@ -102,8 +104,7 @@ class MiniGraphSys {
     state_machine_ = new utility::StateMachine<GID_T>(vec_gid);
 
     // init auto_app.
-    app_wrapper_ = std::make_unique<
-        AppWrapper<AUTOAPP_T, GID_T, VID_T, VDATA_T, EDATA_T>>();
+    app_wrapper_ = std::make_unique<AppWrapper<AUTOAPP_T, GRAPH_T>>();
     app_wrapper_.reset(app_wrapper);
     app_wrapper_->InitMsgMngr(msg_mngr_.get());
 
@@ -174,7 +175,6 @@ class MiniGraphSys {
 
   bool RunSys() {
     LOG_INFO("START MiniGraph.");
-    auto start_time = std::chrono::system_clock::now();
     auto task_lc = std::bind(&components::LoadComponent<GRAPH_T>::Run,
                              load_component_.get());
     auto task_cc =
@@ -188,6 +188,7 @@ class MiniGraphSys {
     this->thread_pool_->Commit(task_cc);
     this->thread_pool_->Commit(task_dc);
 
+    auto start_time = std::chrono::system_clock::now();
     read_trigger_cv_->notify_all();
     task_queue_cv_->notify_all();
     partial_result_cv_->notify_all();
@@ -208,18 +209,39 @@ class MiniGraphSys {
     return true;
   }
 
-  void ShowResult() {
+  void ShowResult(const size_t num_vertexes_to_show = 20) {
     LOG_INFO("**************Show Result****************");
+    for (auto& iter : *pt_by_gid_) {
+      GID_T gid = iter.first;
+      CSRPt csr_pt = iter.second;
+      auto graph = new GRAPH_T;
+      if (IsSameType<GRAPH_T, CSR_T>()) {
+        data_mngr_->csr_io_adapter_->Read((GRAPH_BASE_T*)graph, csr_bin, gid,
+                                          csr_pt.meta_pt, csr_pt.data_pt,
+                                          csr_pt.vdata_pt);
+        ((CSR_T*)graph)->ShowGraph(num_vertexes_to_show);
+      } else if (IsSameType<GRAPH_T, EDGE_LIST_T>()) {
+        data_mngr_->edge_list_io_adapter_->Read(
+            (GRAPH_BASE_T*)graph, edge_list_bin, gid, 0, csr_pt.meta_pt,
+            csr_pt.data_pt, csr_pt.vdata_pt);
+        ((EDGE_LIST_T*)graph)->ShowGraph(num_vertexes_to_show);
+      }
+    }
+    if (msg_mngr_->GetPartialMatch() != nullptr)
+      msg_mngr_->GetPartialMatch()->ShowMatchingSolutions();
+  }
+
+  void ShowNumComponents() {
+    // vdata_t components = 0;
     for (auto& iter : *pt_by_gid_) {
       GID_T gid = iter.first;
       CSRPt csr_pt = iter.second;
       auto graph = new GRAPH_T;
       data_mngr_->csr_io_adapter_->Read((GRAPH_BASE_T*)graph, csr_bin, gid,
                                         csr_pt.meta_pt, csr_pt.data_pt);
-      graph->ShowGraphAbs(3);
+      // auto components_of_X = graph->GetComponents();
+      // LOG_INFO(components_of_X, " components found");
     }
-    if (msg_mngr_->GetPartialMatch() != nullptr)
-      msg_mngr_->GetPartialMatch()->ShowMatchingSolutions();
   }
 
  private:
@@ -254,16 +276,12 @@ class MiniGraphSys {
       discharge_component_ = nullptr;
 
   // data manager
-  std::unique_ptr<utility::io::DataMngr<GID_T, VID_T, VDATA_T, EDATA_T>>
-      data_mngr_ = nullptr;
+  std::unique_ptr<utility::io::DataMngr<GRAPH_T>> data_mngr_ = nullptr;
 
   // App wrapper
-  std::unique_ptr<AppWrapper<AUTOAPP_T, GID_T, VID_T, VDATA_T, EDATA_T>>
-      app_wrapper_ = nullptr;
+  std::unique_ptr<AppWrapper<AUTOAPP_T, GRAPH_T>> app_wrapper_ = nullptr;
 
-  std::unique_ptr<
-      message::DefaultMessageManager<GID_T, VID_T, VDATA_T, EDATA_T>>
-      msg_mngr_ = nullptr;
+  std::unique_ptr<message::DefaultMessageManager<GRAPH_T>> msg_mngr_ = nullptr;
 
   std::unique_ptr<std::mutex> read_trigger_mtx_ = nullptr;
   std::unique_ptr<std::mutex> task_queue_mtx_ = nullptr;
@@ -282,36 +300,38 @@ class MiniGraphSys {
   std::unique_ptr<std::condition_variable> system_switch_cv_ = nullptr;
 
   void InitWorkList(const std::string& work_space) {
-    std::string vertex_root = work_space + "/vertex/";
-    std::string meta_out_root = work_space + "/meta/out/";
-    std::string meta_in_root = work_space + "/meta/in/";
-    std::string vdata_root = work_space + "/vdata/";
-    std::string localid2globalid_root = work_space + "/localid2globalid/";
-    std::string msg_root = work_space + "/msg/";
-    std::string global_border_vertesxes_root = work_space + "/border_vertexes/";
-    std::string meta_root = work_space + "/meta/";
-    std::string data_root = work_space + "/data/";
-    if (!data_mngr_->IsExist(global_border_vertesxes_root))
-      data_mngr_->MakeDirectory(global_border_vertesxes_root);
+    // std::string vertex_root = work_space + "vertex/";
+    // std::string meta_out_root = work_space + "meta/out/";
+    // std::string meta_in_root = work_space + "meta/in/";
+    // std::string localid2globalid_root = work_space + "localid2globalid/";
+    // std::string msg_root = work_space + "msg/";
+    // std::string global_border_vertesxes_root = work_space +
+    // "border_vertexes/";
+    std::string meta_root = work_space + "meta/";
+    std::string data_root = work_space + "data/";
+    std::string vdata_root = work_space + "vdata/";
+    // if (!data_mngr_->IsExist(global_border_vertesxes_root))
+    //   data_mngr_->MakeDirectory(global_border_vertesxes_root);
     if (!data_mngr_->IsExist(meta_root)) data_mngr_->MakeDirectory(meta_root);
     if (!data_mngr_->IsExist(data_root)) data_mngr_->MakeDirectory(data_root);
+    if (!data_mngr_->IsExist(vdata_root)) data_mngr_->MakeDirectory(vdata_root);
   }
 
   bool InitPtByGid(const std::string& work_space) {
-    std::string vertex_root = work_space + "/vertex/";
-    std::string meta_out_root = work_space + "/meta/out/";
-    std::string meta_in_root = work_space + "/meta/in/";
-    std::string vdata_root = work_space + "/vdata/";
-    std::string localid2globalid_root = work_space + "/localid2globalid/";
-    std::string msg_root = work_space + "/msg/";
-    std::string meta_root = work_space + "/meta/";
-    std::string data_root = work_space + "/data/";
+    // std::string vertex_root = work_space + "/vertex/";
+    // std::string meta_out_root = work_space + "/meta/out/";
+    // std::string meta_in_root = work_space + "/meta/in/";
+    // std::string localid2globalid_root = work_space + "/localid2globalid/";
+    // std::string msg_root = work_space + "/msg/";
+    std::string meta_root = work_space + "meta/";
+    std::string data_root = work_space + "data/";
+    std::string vdata_root = work_space + "vdata/";
 
     std::vector<std::string> files;
     for (const auto& entry : std::filesystem::directory_iterator(meta_root)) {
       std::string path = entry.path();
       size_t pos = path.find("/meta/");
-      size_t pos2 = path.find(".meta");
+      size_t pos2 = path.find(".bin");
       int type_length = std::string("/meta/").length();
       std::string gid_str =
           path.substr(pos + type_length, pos2 - pos - type_length);
@@ -325,10 +345,11 @@ class MiniGraphSys {
         iter->second.meta_pt = path;
       }
     }
+
     for (const auto& entry : std::filesystem::directory_iterator(data_root)) {
       std::string path = entry.path();
       size_t pos = path.find("/data/");
-      size_t pos2 = path.find(".data");
+      size_t pos2 = path.find(".bin");
       int type_length = std::string("/data/").length();
       std::string gid_str =
           path.substr(pos + type_length, pos2 - pos - type_length);
@@ -340,6 +361,23 @@ class MiniGraphSys {
         pt_by_gid_->insert(gid, csr_pt);
       } else {
         iter->second.data_pt = path;
+      }
+    }
+    for (const auto& entry : std::filesystem::directory_iterator(vdata_root)) {
+      std::string path = entry.path();
+      size_t pos = path.find("/vdata/");
+      size_t pos2 = path.find(".bin");
+      int type_length = std::string("/vdata/").length();
+      std::string gid_str =
+          path.substr(pos + type_length, pos2 - pos - type_length);
+      GID_T gid = (GID_T)std::stoi(gid_str);
+      auto iter = pt_by_gid_->find(gid);
+      if (iter == pt_by_gid_->end()) {
+        CSRPt csr_pt;
+        csr_pt.vdata_pt = path;
+        pt_by_gid_->insert(gid, csr_pt);
+      } else {
+        iter->second.vdata_pt = path;
       }
     }
     return true;

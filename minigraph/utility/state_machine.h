@@ -2,6 +2,9 @@
 #ifndef MINIGRAPH_UTILITY_STATE_MACHINE_H_
 #define MINIGRAPH_UTILITY_STATE_MACHINE_H_
 
+#include "portability/sys_types.h"
+#include <boost/sml.hpp>
+#include <folly/AtomicHashMap.h>
 #include <assert.h>
 #include <iostream>
 #include <map>
@@ -9,12 +12,6 @@
 #include <stdio.h>
 #include <unordered_map>
 #include <vector>
-
-#include <boost/sml.hpp>
-#include <folly/AtomicHashMap.h>
-
-#include "portability/sys_types.h"
-
 
 namespace minigraph {
 namespace utility {
@@ -279,12 +276,10 @@ class StateMachine {
   }
 
   void ShowAllState() {
-    LOG_INFO("ShowAllState");
     for (auto& iter : graph_state_) {
       iter.second->visit_current_states(
           [](auto state) { std::cout << state.c_str() << std::endl; });
     }
-    LOG_INFO("~ShowAllState");
   }
 
  private:

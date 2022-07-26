@@ -23,6 +23,7 @@
 
 #include "graphs/graph.h"
 #include "portability/sys_types.h"
+#include "utility/bitmap.h"
 #include "utility/logging.h"
 
 
@@ -71,21 +72,26 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       free(buf_graph_);
       buf_graph_ = nullptr;
     }
+    if (vdata_ != nullptr) {
+      free(vdata_);
+      vdata_ = nullptr;
+    }
     vid_by_index_ = nullptr;
     index_by_vid_ = nullptr;
     in_edges_ = nullptr;
     out_edges_ = nullptr;
     indegree_ = nullptr;
     outdegree_ = nullptr;
-    vdata_ = nullptr;
     in_offset_ = nullptr;
     out_offset_ = nullptr;
     globalid_by_index_ = nullptr;
-    LOG_INFO("~ImmucableCSR()");
     malloc_trim(0);
   };
 
   size_t get_num_vertexes() const override { return num_vertexes_; }
+  size_t get_num_edges() const override {
+    return sum_in_edges_ + sum_out_edges_;
+  }
 
   void CleanUp() override {
     if (map_localid2globalid_ != nullptr) {
@@ -118,19 +124,34 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       delete vertexes_info_;
       vertexes_info_ = nullptr;
     }
-
+    if (vdata_ != nullptr) {
+      free(vdata_);
+      vdata_ = nullptr;
+    }
     vid_by_index_ = nullptr;
     index_by_vid_ = nullptr;
     in_edges_ = nullptr;
     out_edges_ = nullptr;
     indegree_ = nullptr;
     outdegree_ = nullptr;
-    vdata_ = nullptr;
     in_offset_ = nullptr;
     out_offset_ = nullptr;
     globalid_by_index_ = nullptr;
     malloc_trim(0);
   };
+
+  VDATA_T GetComponents() {
+    size_t num_components = 0;
+    std::unordered_map<VDATA_T, bool> label_map;
+    for (size_t i = 0; i < this->get_num_vertexes(); i++) {
+      VertexInfo&& vertex_info = GetVertexByIndex(i);
+      if (label_map.find(vertex_info.vdata[0]) == label_map.end()) {
+        label_map.insert(std::make_pair(vertex_info.vdata[0], true));
+        num_components++;
+      }
+    }
+    return num_components;
+  }
 
   void ShowGraph(const size_t count = 2) {
     std::cout << "\n\n##### ImmutableCSRGraph GID: " << gid_
@@ -162,17 +183,14 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     }
   }
 
-  bool InitVdata2AllX(const VDATA_T init_vdata) {
+  void InitVdata2AllX(const VDATA_T init_vdata) {
     assert(vdata_ != nullptr);
     assert(is_serialized_);
     if (init_vdata == 0) {
       memset(vdata_, 0, sizeof(VDATA_T) * num_vertexes_);
     } else {
-      for (size_t i = 0; i < num_vertexes_; i++) {
-        vdata_[i] = init_vdata;
-      }
+      for (size_t i = 0; i < num_vertexes_; i++) vdata_[i] = init_vdata;
     }
-    return true;
   }
 
   void InitVdataByVid() {
@@ -203,13 +221,11 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     size_t size_outdegree = sizeof(size_t) * num_vertexes_;
     size_t size_in_offset = sizeof(size_t) * num_vertexes_;
     size_t size_out_offset = sizeof(size_t) * num_vertexes_;
-    size_t size_vdata = sizeof(VDATA_T) * num_vertexes_;
     size_t size_in_edges = sizeof(VID_T) * sum_in_edges_;
     size_t size_out_edges = sizeof(VID_T) * sum_out_edges_;
     size_t total_size = size_localid + size_globalid + size_index_by_vid +
                         size_indegree + size_outdegree + size_in_offset +
-                        size_out_offset + size_in_edges + size_out_edges +
-                        size_vdata;
+                        size_out_offset + size_in_edges + size_out_edges;
     size_t start_localid = 0;
     size_t start_globalid = start_localid + size_localid;
     size_t start_index_by_vid = start_globalid + size_globalid;
@@ -217,8 +233,7 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     size_t start_outdegree = start_indegree + size_indegree;
     size_t start_in_offset = start_outdegree + size_outdegree;
     size_t start_out_offset = start_in_offset + size_in_offset;
-    size_t start_vdata = start_out_offset + size_out_offset;
-    size_t start_in_edges = start_vdata + size_vdata;
+    size_t start_in_edges = start_out_offset + size_out_offset;
     size_t start_out_edges = start_in_edges + size_in_edges;
 
     buf_graph_ = malloc(total_size);
@@ -274,13 +289,15 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     vid_by_index_ = ((VID_T*)((char*)buf_graph_ + start_localid));
     index_by_vid_ = ((size_t*)((char*)buf_graph_ + start_index_by_vid));
     globalid_by_index_ = (VID_T*)((char*)buf_graph_ + start_globalid);
-    vdata_ = (VDATA_T*)((char*)buf_graph_ + start_vdata);
     out_offset_ = (size_t*)((char*)buf_graph_ + start_out_offset);
     in_offset_ = (size_t*)((char*)buf_graph_ + start_in_offset);
     indegree_ = (size_t*)((char*)buf_graph_ + start_indegree);
     outdegree_ = (size_t*)((char*)buf_graph_ + start_outdegree);
     in_edges_ = (VID_T*)((char*)buf_graph_ + start_in_edges);
     out_edges_ = (VID_T*)((char*)buf_graph_ + start_out_edges);
+
+    vdata_ = (VDATA_T*)malloc(sizeof(VDATA_T) * num_vertexes_);
+    memset(vdata_, 0, sizeof(VDATA_T) * num_vertexes_);
 
     is_serialized_ = true;
     return true;
@@ -416,7 +433,13 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     return vertex_info;
   }
 
+  bool IsInGraph(const VID_T globalid) const {
+    assert(bitmap_ != nullptr);
+    return bitmap_->get_bit(globalid) != 0;
+  }
+
   VID_T globalid2localid(const VID_T vid) const {
+    assert(map_globalid2localid_ != nullptr);
     auto local_id_iter = map_globalid2localid_->find(vid);
     if (local_id_iter != map_globalid2localid_->end()) {
       return local_id_iter->second;
@@ -458,12 +481,26 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     return border_vertexes;
   }
 
+  void SetGlobalBorderVidMap(Bitmap* global_border_vid_map) {
+    for (size_t index = 0; index < num_vertexes_; index++) {
+      graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>&& vertex_info =
+          GetVertexByIndex(vid_by_index_[index]);
+      global_border_vid_map->set_bit(localid2globalid(vertex_info.vid));
+    }
+    return;
+  }
+
+  VDATA_T&& get_vdata(const VID_T localid) const { return vdata_[localid]; }
+  VDATA_T&& set_vdata(const VID_T localid, const VDATA_T val) const {
+    vdata_[localid] = val;
+  }
+
  public:
-  //  basic param
   GID_T gid_ = -1;
   size_t num_vertexes_ = 0;
   size_t sum_in_edges_ = 0;
   size_t sum_out_edges_ = 0;
+  VID_T max_vid_ = 0;
 
   bool is_serialized_ = false;
 
@@ -479,6 +516,7 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
   size_t* in_offset_ = nullptr;
   size_t* out_offset_ = nullptr;
   VID_T* globalid_by_index_ = nullptr;
+  Bitmap* bitmap_ = nullptr;
 
   std::map<VID_T, graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>*>*
       vertexes_info_ = nullptr;

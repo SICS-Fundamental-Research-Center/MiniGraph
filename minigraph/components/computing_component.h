@@ -14,7 +14,6 @@
 #include "utility/io/data_mngr.h"
 #include "utility/thread_pool.h"
 
-
 namespace minigraph {
 namespace components {
 
@@ -27,7 +26,7 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   using VDATA_T = typename GRAPH_T::vdata_t;
   using EDATA_T = typename GRAPH_T::edata_t;
   using GRAPH_BASE_T = graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>;
-  using APP_WARP = AppWrapper<AUTOAPP_T, GID_T, VID_T, VDATA_T, EDATA_T>;
+  using APP_WARP = AppWrapper<AUTOAPP_T, GRAPH_T>;
   using VertexInfo =
       graphs::VertexInfo<typename GRAPH_T::vid_t, typename GRAPH_T::vdata_t,
                          typename GRAPH_T::edata_t>;
@@ -41,8 +40,8 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       utility::StateMachine<GID_T>* state_machine,
       folly::ProducerConsumerQueue<GID_T>* task_queue,
       std::queue<GID_T>* partial_result_queue,
-      utility::io::DataMngr<GID_T, VID_T, VDATA_T, EDATA_T>* data_mngr,
-      AppWrapper<AUTOAPP_T, GID_T, VID_T, VDATA_T, EDATA_T>* app_wrapper,
+      utility::io::DataMngr<GRAPH_T>* data_mngr,
+      AppWrapper<AUTOAPP_T, GRAPH_T>* app_wrapper,
       std::unique_lock<std::mutex>* task_queue_lck,
       std::unique_lock<std::mutex>* partial_result_lck,
       std::condition_variable* task_queue_cv,
@@ -99,7 +98,6 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   void Stop() override { this->switch_.store(false); }
 
  private:
-  //  std::atomic<size_t> num_workers_;
   size_t num_workers_ = 0;
   size_t num_cores_ = 0;
   std::atomic<bool> switch_ = true;
@@ -109,7 +107,7 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   std::queue<GID_T>* partial_result_queue_;
 
   // data manager.
-  utility::io::DataMngr<GID_T, VID_T, VDATA_T, EDATA_T>* data_mngr_ = nullptr;
+  utility::io::DataMngr<GRAPH_T>* data_mngr_ = nullptr;
 
   // 2D-PIE app wrapper.
   APP_WARP* app_wrapper_ = nullptr;
@@ -131,6 +129,7 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
     executors::TaskRunner* task_runner = scheduled_executor_->RequestTaskRunner(
         {1, (unsigned)(num_cores_ / num_workers_)});
     if (this->get_superstep_via_gid(gid) == 0) {
+      app_wrapper_->auto_app_->Init(*graph, task_runner);
       app_wrapper_->auto_app_->PEval(*graph, task_runner)
           ? this->state_machine_->ProcessEvent(gid, CHANGED)
           : this->state_machine_->ProcessEvent(gid, NOTHINGCHANGED);

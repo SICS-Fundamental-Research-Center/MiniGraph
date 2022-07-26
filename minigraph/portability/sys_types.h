@@ -8,6 +8,7 @@ using vid_t = unsigned;
 using vdata_t = float;
 using edata_t = size_t;
 
+
 //#define VID_MAX (((unsigned)(-1)) >> 1)
 #define VID_MAX 0XFFFF
 #define MINIGRAPH_GID_MAX (((unsigned)(-1)) >> 1)
@@ -41,12 +42,13 @@ DEFINE_string(i, "", "input path");
 DEFINE_string(o, "", "output path");
 DEFINE_string(pattern, "", "query graph (edge list in csv)");
 DEFINE_bool(tobin, false, "convert the graph to binary format");
+DEFINE_string(gtype, "csr_bin", "two types of edge list files are supported: csr_bin, edge_list_bin");
 DEFINE_bool(p, false, "partition input graph");
 DEFINE_string(t, "edgelist", "type");
 DEFINE_uint64(n, 1, "the number of fragments");
 DEFINE_uint64(vertexes, 1, "the number of vertexes");
-DEFINE_uint64(power, 1, "the power of 2");
 DEFINE_uint64(edges, 1, "the number of edges");
+DEFINE_uint64(power, 1, "the power of 2");
 DEFINE_uint64(lc, 1, "the number of executors in LoadComponent");
 DEFINE_uint64(cc, 1, "the number of executors in ComputingComponent");
 DEFINE_uint64(dc, 1, "the number of executors in DischargeComponent");

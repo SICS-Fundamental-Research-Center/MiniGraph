@@ -11,12 +11,15 @@
 #include "portability/sys_data_structure.h"
 #include "utility/io/data_mngr.h"
 
-
 namespace minigraph {
 namespace message {
 
-template <typename GID_T, typename VID_T, typename VDATA_T, typename EDATA_T>
+template <typename GRAPH_T>
 class DefaultMessageManager : public MessageManagerBase {
+  using GID_T = typename GRAPH_T::gid_t;
+  using VID_T = typename GRAPH_T::vid_t;
+  using VDATA_T = typename GRAPH_T::vdata_t;
+  using EDATA_T = typename GRAPH_T::edata_t;
   using VertexInfo = minigraph::graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>;
   using CSR_T = graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>;
 
@@ -24,19 +27,23 @@ class DefaultMessageManager : public MessageManagerBase {
   PartialMatch<GID_T, VID_T, VDATA_T, EDATA_T>* partial_match_ = nullptr;
   BorderVertexes<GID_T, VID_T, VDATA_T, EDATA_T>* border_vertexes_ = nullptr;
 
-  DefaultMessageManager(
-      utility::io::DataMngr<GID_T, VID_T, VDATA_T, EDATA_T>* data_mngr,
-      const std::string& work_space)
+  DefaultMessageManager(utility::io::DataMngr<GRAPH_T>* data_mngr,
+                        const std::string& work_space, bool is_mining = false)
       : MessageManagerBase() {
     data_mngr_ = data_mngr;
-    border_vertexes_ = new BorderVertexes<GID_T, VID_T, VDATA_T, EDATA_T>(
-        data_mngr_->ReadBorderVertexes(work_space +
-                                       "border_vertexes/global.bv"));
-    auto out2 =
-        data_mngr_->ReadGlobalid2Gid(work_space + "/message/globalid2gid.bin");
-    size_t maximum_vid = out2.first;
-    partial_match_ =
-        new PartialMatch<GID_T, VID_T, VDATA_T, EDATA_T>(out2.second);
+    if (is_mining) {
+      border_vertexes_ = new BorderVertexes<GID_T, VID_T, VDATA_T, EDATA_T>(
+          data_mngr_->ReadBorderVertexes(work_space +
+                                         "border_vertexes/global.bv"));
+      auto out2 =
+          data_mngr_->ReadGlobalid2Gid(work_space + "message/globalid2gid.bin");
+      partial_match_ =
+          new PartialMatch<GID_T, VID_T, VDATA_T, EDATA_T>(out2.second);
+    } else {
+      border_vertexes_ = new BorderVertexes<GID_T, VID_T, VDATA_T, EDATA_T>(
+          data_mngr_->ReadBorderVertexes(work_space +
+                                         "border_vertexes/global.bv"));
+    }
   }
 
   void Init(const std::string work_space,
@@ -47,7 +54,14 @@ class DefaultMessageManager : public MessageManagerBase {
         work_space + "border_vertexes/communication_matrix.bin");
     num_graphs_ = out1.first;
     communication_matrix_ = out1.second;
+    auto out2 = data_mngr_->ReadVidMap(work_space + "message/vid_map.bin");
+    max_vid_ = out2.first;
+    vid_map_ = out2.second;
+    global_border_vdata_ = (VDATA_T*)malloc(max_vid_ * sizeof(VDATA_T));
+    for (size_t i = 0; i < max_vid_; i++) global_border_vdata_[i] = VID_MAX;
 
+    global_border_vid_map_ = data_mngr_->ReadBitmap(
+        work_space + "message/global_border_vid_map.bin");
     for (size_t i = 0; i < num_graphs_; i++) {
       for (size_t j = 0; j < num_graphs_; j++)
         std::cout << *(communication_matrix_ + i * num_graphs_ + j) << ", ";
@@ -82,9 +96,21 @@ class DefaultMessageManager : public MessageManagerBase {
 
   bool* GetCommunicationMatrix() { return communication_matrix_; }
 
+  Bitmap* GetGlobalBorderVidMap() { return global_border_vid_map_; }
+
+  VDATA_T* GetGlobalVdata() { return global_border_vdata_; }
+
+  VID_T* GetVidMap() { return vid_map_; }
+
+  VID_T globalid2localid(const VID_T globalid) { return vid_map_[globalid]; };
+
  private:
   size_t num_graphs_ = 0;
-  utility::io::DataMngr<GID_T, VID_T, VDATA_T, EDATA_T>* data_mngr_ = nullptr;
+  utility::io::DataMngr<GRAPH_T>* data_mngr_ = nullptr;
+  VID_T* vid_map_ = nullptr;
+  size_t max_vid_ = 0;
+  Bitmap* global_border_vid_map_ = nullptr;
+  VDATA_T* global_border_vdata_ = nullptr;
   bool* communication_matrix_ = nullptr;
 };
 

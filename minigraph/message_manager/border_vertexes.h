@@ -24,6 +24,8 @@ class BorderVertexes {
   std::unique_ptr<std::unordered_map<GID_T, std::pair<size_t, VID_T*>>>
       global_border_vertexes_by_gid_ = nullptr;
 
+  Bitmap* global_border_vid_map_ = nullptr;
+  VDATA_T* global_border_vdata_ = nullptr;
   std::mutex* mtx_;
 
   BorderVertexes() = default;
