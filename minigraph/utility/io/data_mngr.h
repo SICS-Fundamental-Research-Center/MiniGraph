@@ -1,12 +1,10 @@
 #ifndef MINIGRAPH_DATA_MNGR_H
 #define MINIGRAPH_DATA_MNGR_H
 
-#include <memory>
-
-#include <folly/AtomicHashMap.h>
-
 #include "utility/io/csr_io_adapter.h"
 #include "utility/io/edge_list_io_adapter.h"
+#include <folly/AtomicHashMap.h>
+#include <memory>
 
 namespace minigraph {
 namespace utility {
@@ -356,13 +354,6 @@ class DataMngr {
     memset(communication_matrix, 0, sizeof(bool) * num_graphs * num_graphs);
     communication_matrix_file.read((char*)communication_matrix,
                                    sizeof(bool) * num_graphs * num_graphs);
-    LOG_INFO(input_pt);
-    for (size_t i = 0; i < num_graphs; i++) {
-      for (size_t j = 0; j < num_graphs; j++) {
-        std::cout << *(communication_matrix + i * num_graphs + j) << ", ";
-      }
-      std::cout << std::endl;
-    }
     communication_matrix_file.close();
     return std::make_pair(num_graphs, communication_matrix);
   }

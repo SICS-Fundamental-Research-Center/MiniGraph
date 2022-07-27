@@ -146,18 +146,6 @@ int main(int argc, char* argv[]) {
       auto global_border_vid_map = edge_cut_partitioner.GetGlobalBorderVidMap();
       data_mngr.WriteBitmap(global_border_vid_map,
                             dst_pt + "message/global_border_vid_map.bin");
-
-      for (size_t i = 0; i < 10; i++) {
-        LOG_INFO(global_border_vid_map->get_bit(i));
-      }
-      LOG_INFO(global_border_vid_map->size_);
-      auto a =
-          data_mngr.ReadBitmap(dst_pt + "message/global_border_vid_map.bin");
-
-      for (size_t i = 0; i < 10; i++) {
-        LOG_INFO(a->get_bit(i));
-      }
-      LOG_INFO(a->size_);
       LOG_INFO("End graph partition#");
     } else if (FLAGS_gtype == "edge_list_bin") {
       minigraph::utility::io::DataMngr<EDGE_LIST_T> data_mngr;

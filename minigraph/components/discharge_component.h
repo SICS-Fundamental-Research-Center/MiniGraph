@@ -77,6 +77,7 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
         gid = que_gid.front();
         que_gid.pop();
         CheckRTRule(gid);
+        this->state_machine_->ShowAllState();
         if (this->TrySync()) {
           if (this->state_machine_->IsTerminated() ||
               this->get_global_superstep() > 1000) {
@@ -132,7 +133,12 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
         CSRPt& csr_pt = pt_by_gid_->find(gid)->second;
         data_mngr_->WriteGraph(gid, csr_pt, csr_bin, true);
         data_mngr_->EraseGraph(gid);
+      } else if (this->state_machine_->GraphIs(gid, IDLE)) {
+        CSRPt& csr_pt = pt_by_gid_->find(gid)->second;
+        data_mngr_->WriteGraph(gid, csr_pt, csr_bin, true);
+        data_mngr_->EraseGraph(gid);
       }
+
       sem_lc_dc_->post();
     } else if (IsSameType<GRAPH_T, EDGE_LIST_T>()) {
       if (this->state_machine_->GraphIs(gid, RTS)) {
@@ -152,7 +158,6 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   void WriteAllGraphsBack(const GID_T current_gid) {
     GID_T gid = this->state_machine_->GetXStateOf(RC);
     if (gid != MINIGRAPH_GID_MAX) {
-      LOG_INFO("Evoke all.");
       auto out_rc = this->state_machine_->EvokeAllX(RC);
       auto out_rt = this->state_machine_->EvokeAllX(RT);
       auto out_rts = this->state_machine_->EvokeAllX(RTS);
@@ -171,6 +176,7 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
         data_mngr_->EraseGraph(gid);
         read_trigger_->push(gid);
       }
+      LOG_INFO("Evoke all.");
       read_trigger_cv_->notify_all();
     }
   }

@@ -20,6 +20,7 @@
 #include "utility/bitmap.h"
 #include "utility/thread_pool.h"
 
+
 namespace minigraph {
 
 template <typename GRAPH_T, typename CONTEXT_T>

@@ -314,7 +314,6 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       XLOG(ERR, "Segmentation fault: buf_graph is nullptr");
       return false;
     }
-
     if (!vdata_only) {
       // write meta
       if (this->IsExist(meta_pt)) remove(meta_pt.c_str());

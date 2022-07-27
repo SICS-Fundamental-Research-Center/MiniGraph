@@ -41,6 +41,20 @@ class WCCAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
     return true;
   }
 
+  static bool kernel_push_border_vertexes(GRAPH_T* graph, const size_t tid,
+                                          Bitmap* visited, const size_t step,
+                                          Bitmap* global_border_vid_map,
+                                          VDATA_T* global_border_vdata) {
+    for (size_t i = tid; i < graph->get_num_vertexes(); i += step) {
+      if (visited->get_bit(i) == 0) continue;
+      if (global_border_vid_map->get_bit(tid) == 0) continue;
+      auto u = graph->GetVertexByVid(tid);
+      auto global_id = graph->localid2globalid(u.vid);
+      write_min((global_border_vdata + global_id), u.vdata[0]);
+    }
+    return true;
+  }
+
   static bool kernel_pull_border_vertexes(GRAPH_T* graph, const size_t tid,
                                           Bitmap* visited, const size_t step,
                                           Bitmap* in_visited,
@@ -59,21 +73,7 @@ class WCCAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
         }
       }
     }
-  }
-
-  static bool kernel_push_border_vertexes(GRAPH_T* graph, const size_t tid,
-                                          Bitmap* visited, const size_t step,
-                                          Bitmap* global_border_vid_map,
-                                          VDATA_T* global_border_vdata,
-                                          bool* active) {
-    for (size_t i = tid; i < graph->get_num_vertexes(); i += step) {
-      if (visited->get_bit(i) == 0) continue;
-      if (global_border_vid_map->get_bit(tid) == 0) continue;
-      auto u = graph->GetVertexByVid(tid);
-      auto global_id = graph->localid2globalid(u.vid);
-      write_min((global_border_vdata + global_id), u.vdata[0]);
-      *active ? 0 : *active = true;
-    }
+    return true;
   }
 };
 
@@ -115,7 +115,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     Bitmap* out_visited = new Bitmap(graph.get_num_vertexes());
     in_visited->fill();
     out_visited->clear();
-    bool active = true;
+    bool active = false;
     Bitmap* visited = new Bitmap(graph.get_num_vertexes());
     visited->clear();
     bool run = true;
@@ -124,12 +124,11 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
                                         task_runner, vid_map, visited, &active);
       std::swap(in_visited, out_visited);
     }
-    active = false;
     this->auto_map_->ActiveMap(
         graph, task_runner, visited,
         WCCAutoMap<GRAPH_T, CONTEXT_T>::kernel_push_border_vertexes,
         this->msg_mngr_->GetGlobalBorderVidMap(),
-        this->msg_mngr_->GetGlobalVdata(), &active);
+        this->msg_mngr_->GetGlobalVdata());
 
     auto end_time = std::chrono::system_clock::now();
     std::cout << "Gid " << graph.gid_ << ":  PEval elapse time "
@@ -172,7 +171,9 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
         graph, task_runner, visited,
         WCCAutoMap<GRAPH_T, CONTEXT_T>::kernel_push_border_vertexes,
         this->msg_mngr_->GetGlobalBorderVidMap(),
-        this->msg_mngr_->GetGlobalVdata(), &active);
+        this->msg_mngr_->GetGlobalVdata());
+
+
     free(visited);
     delete in_visited;
     delete out_visited;
@@ -206,7 +207,7 @@ int main(int argc, char* argv[]) {
       work_space, num_workers_lc, num_workers_cc, num_workers_dc, num_cores,
       buffer_size, app_wrapper);
   minigraph_sys.RunSys();
-  minigraph_sys.ShowResult(3);
+  //minigraph_sys.ShowResult(2);
   gflags::ShutDownCommandLineFlags();
   exit(0);
 }

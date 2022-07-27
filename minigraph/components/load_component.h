@@ -1,21 +1,18 @@
 #ifndef MINIGRAPH_LOAD_COMPONENT_H
 #define MINIGRAPH_LOAD_COMPONENT_H
 
-#include <condition_variable>
-#include <memory>
-#include <queue>
-#include <string>
-
-#include <folly/ProducerConsumerQueue.h>
-#include <folly/synchronization/NativeSemaphore.h>
-
 #include "components/component_base.h"
 #include "portability/sys_data_structure.h"
 #include "utility/io/csr_io_adapter.h"
 #include "utility/io/data_mngr.h"
 #include "utility/state_machine.h"
 #include "utility/thread_pool.h"
-
+#include <folly/ProducerConsumerQueue.h>
+#include <folly/synchronization/NativeSemaphore.h>
+#include <condition_variable>
+#include <memory>
+#include <queue>
+#include <string>
 
 namespace minigraph {
 namespace components {
@@ -69,7 +66,8 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   void Run() override {
     while (switch_) {
       GID_T gid = MINIGRAPH_GID_MAX;
-      read_trigger_cv_->wait(*read_trigger_lck_, [&] { return true; });
+      read_trigger_cv_->wait(*read_trigger_lck_,
+                             [&] { return !read_trigger_->empty(); });
       if (!switch_) return;
       while (!read_trigger_->empty()) {
         sem_lc_dc_->wait();

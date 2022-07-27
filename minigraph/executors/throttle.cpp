@@ -1,8 +1,7 @@
-#include "executors/throttle.h"
-
 #include <thread>
 #include <utility>
 
+#include "executors/throttle.h"
 #include "executors/scheduler.h"
 #include "utility/logging.h"
 
@@ -87,8 +86,35 @@ void Throttle::Run(const std::vector<Task>& tasks, bool release_resource) {
   }
 }
 
+// void Throttle::Run(const std::vector<Task>& tasks, bool release_resource) {
+//   const std::vector<size_t> indices = PackagedTaskIndices(tasks.size());
+//   const size_t num_packages = tasks.size();
+//   std::mutex mtx;
+//   std::atomic<size_t> pending_packages(num_packages);
+//   std::condition_variable finish_cv;
+//
+//   for (size_t i = 0; i < tasks.size(); i++) {
+//      sem_.wait();
+//     downstream_->Run(
+//         [this, &tasks, &mtx, &pending_packages, &finish_cv, index = i]() {
+//           tasks[index]();
+//           std::lock_guard grd(mtx);
+//            sem_.post();
+//           if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
+//         },
+//         false);
+//   }
+//
+//   std::unique_lock<std::mutex> lck(mtx);
+//   finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
+//   //   Final cleaning.
+//   if (release_resource && GetParallelism() > 0) {
+//     scheduler_->RecycleAllThreads(this);
+//   }
+// }
+
 std::vector<size_t> Throttle::PackagedTaskIndices(size_t total_tasks) const {
-  const size_t min_parallelism = std::thread::hardware_concurrency() / 2;
+  const size_t min_parallelism = 4;
   const size_t intended_batches = 4;
   const size_t parallelism = std::max(GetParallelism(), min_parallelism);
   const size_t num_packages =

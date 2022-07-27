@@ -300,29 +300,15 @@ class MiniGraphSys {
   std::unique_ptr<std::condition_variable> system_switch_cv_ = nullptr;
 
   void InitWorkList(const std::string& work_space) {
-    // std::string vertex_root = work_space + "vertex/";
-    // std::string meta_out_root = work_space + "meta/out/";
-    // std::string meta_in_root = work_space + "meta/in/";
-    // std::string localid2globalid_root = work_space + "localid2globalid/";
-    // std::string msg_root = work_space + "msg/";
-    // std::string global_border_vertesxes_root = work_space +
-    // "border_vertexes/";
     std::string meta_root = work_space + "meta/";
     std::string data_root = work_space + "data/";
     std::string vdata_root = work_space + "vdata/";
-    // if (!data_mngr_->IsExist(global_border_vertesxes_root))
-    //   data_mngr_->MakeDirectory(global_border_vertesxes_root);
     if (!data_mngr_->IsExist(meta_root)) data_mngr_->MakeDirectory(meta_root);
     if (!data_mngr_->IsExist(data_root)) data_mngr_->MakeDirectory(data_root);
     if (!data_mngr_->IsExist(vdata_root)) data_mngr_->MakeDirectory(vdata_root);
   }
 
   bool InitPtByGid(const std::string& work_space) {
-    // std::string vertex_root = work_space + "/vertex/";
-    // std::string meta_out_root = work_space + "/meta/out/";
-    // std::string meta_in_root = work_space + "/meta/in/";
-    // std::string localid2globalid_root = work_space + "/localid2globalid/";
-    // std::string msg_root = work_space + "/msg/";
     std::string meta_root = work_space + "meta/";
     std::string data_root = work_space + "data/";
     std::string vdata_root = work_space + "vdata/";
