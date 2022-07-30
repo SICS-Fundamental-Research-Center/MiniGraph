@@ -1,6 +1,12 @@
 #ifndef MINIGRAPH_2D_PIE_AUTO_APP_BASE_H
 #define MINIGRAPH_2D_PIE_AUTO_APP_BASE_H
 
+#include <memory>
+#include <unordered_map>
+
+#include <folly/MPMCQueue.h>
+#include <folly/concurrency/DynamicBoundedQueue.h>
+
 #include "2d_pie/auto_map.h"
 #include "2d_pie/edge_map_reduce.h"
 #include "2d_pie/vertex_map_reduce.h"
@@ -12,10 +18,7 @@
 #include "graphs/immutable_csr.h"
 #include "message_manager/default_message_manager.h"
 #include "utility/thread_pool.h"
-#include <folly/MPMCQueue.h>
-#include <folly/concurrency/DynamicBoundedQueue.h>
-#include <memory>
-#include <unordered_map>
+
 
 namespace minigraph {
 

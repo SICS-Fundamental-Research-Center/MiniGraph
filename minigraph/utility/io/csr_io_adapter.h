@@ -1,23 +1,20 @@
 #ifndef MINIGRAPH_UTILITY_IO_CSR_IO_ADAPTER_H
 #define MINIGRAPH_UTILITY_IO_CSR_IO_ADAPTER_H
 
-#include <sys/stat.h>
-#include <fstream>
-#include <iostream>
-#include <string>
-#include <unordered_map>
-
-#include <folly/AtomicHashArray.h>
-#include <folly/AtomicHashMap.h>
-#include <folly/FileUtil.h>
-
 #include "graphs/immutable_csr.h"
 #include "io_adapter_base.h"
 #include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
 #include "rapidcsv.h"
 #include "utility/logging.h"
-
+#include <folly/AtomicHashArray.h>
+#include <folly/AtomicHashMap.h>
+#include <folly/FileUtil.h>
+#include <sys/stat.h>
+#include <fstream>
+#include <iostream>
+#include <string>
+#include <unordered_map>
 
 namespace minigraph {
 namespace utility {
@@ -220,7 +217,7 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       return false;
     }
     auto graph = (CSR_T*)graph_base;
-
+    size_t total_size = 0;
     size_t* buf_meta = (size_t*)malloc(sizeof(size_t) * 3);
     {
       std::ifstream meta_file(meta_pt, std::ios::binary | std::ios::app);
@@ -250,9 +247,9 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       size_t size_out_offset = sizeof(size_t) * buf_meta[0];
       size_t size_in_edges = sizeof(VID_T) * buf_meta[1];
       size_t size_out_edges = sizeof(VID_T) * buf_meta[2];
-      size_t total_size = size_localid + size_globalid + size_index_by_vid +
-                          size_indegree + size_outdegree + size_in_offset +
-                          size_out_offset + size_in_edges + size_out_edges;
+      total_size = size_localid + size_globalid + size_index_by_vid +
+                   size_indegree + size_outdegree + size_in_offset +
+                   size_out_offset + size_in_edges + size_out_edges;
 
       size_t start_localid = 0;
       size_t start_globalid = start_localid + size_localid;
@@ -295,6 +292,8 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       vdata_file.close();
     }
 
+    LOG_INFO("Load bytes: ",
+             total_size + sizeof(VDATA_T) * graph->num_vertexes_);
     graph->is_serialized_ = true;
     graph->gid_ = gid;
     free(buf_meta);

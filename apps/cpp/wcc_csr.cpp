@@ -173,7 +173,6 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
         this->msg_mngr_->GetGlobalBorderVidMap(),
         this->msg_mngr_->GetGlobalVdata());
 
-
     free(visited);
     delete in_visited;
     delete out_visited;
@@ -207,7 +206,7 @@ int main(int argc, char* argv[]) {
       work_space, num_workers_lc, num_workers_cc, num_workers_dc, num_cores,
       buffer_size, app_wrapper);
   minigraph_sys.RunSys();
-  //minigraph_sys.ShowResult(2);
+  // minigraph_sys.ShowResult(2);
   gflags::ShutDownCommandLineFlags();
   exit(0);
 }

@@ -1,9 +1,8 @@
 #ifndef MINIGRAPH_MINIGRAPH_SYS_H
 #define MINIGRAPH_MINIGRAPH_SYS_H
 
-#include <dirent.h>
-
 #include <condition_variable>
+#include <dirent.h>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -300,25 +299,25 @@ class MiniGraphSys {
   std::unique_ptr<std::condition_variable> system_switch_cv_ = nullptr;
 
   void InitWorkList(const std::string& work_space) {
-    std::string meta_root = work_space + "meta/";
-    std::string data_root = work_space + "data/";
-    std::string vdata_root = work_space + "vdata/";
+    std::string meta_root = work_space + "minigraph_meta/";
+    std::string data_root = work_space + "minigraph_data/";
+    std::string vdata_root = work_space + "minigraph_vdata/";
     if (!data_mngr_->IsExist(meta_root)) data_mngr_->MakeDirectory(meta_root);
     if (!data_mngr_->IsExist(data_root)) data_mngr_->MakeDirectory(data_root);
     if (!data_mngr_->IsExist(vdata_root)) data_mngr_->MakeDirectory(vdata_root);
   }
 
   bool InitPtByGid(const std::string& work_space) {
-    std::string meta_root = work_space + "meta/";
-    std::string data_root = work_space + "data/";
-    std::string vdata_root = work_space + "vdata/";
+    std::string meta_root = work_space + "minigraph_meta/";
+    std::string data_root = work_space + "minigraph_data/";
+    std::string vdata_root = work_space + "minigraph_vdata/";
 
     std::vector<std::string> files;
     for (const auto& entry : std::filesystem::directory_iterator(meta_root)) {
       std::string path = entry.path();
-      size_t pos = path.find("/meta/");
+      size_t pos = path.find("/minigraph_meta/");
       size_t pos2 = path.find(".bin");
-      int type_length = std::string("/meta/").length();
+      int type_length = std::string("/minigraph_meta/").length();
       std::string gid_str =
           path.substr(pos + type_length, pos2 - pos - type_length);
       GID_T gid = (GID_T)std::stoi(gid_str);
@@ -334,9 +333,9 @@ class MiniGraphSys {
 
     for (const auto& entry : std::filesystem::directory_iterator(data_root)) {
       std::string path = entry.path();
-      size_t pos = path.find("/data/");
+      size_t pos = path.find("/minigraph_data/");
       size_t pos2 = path.find(".bin");
-      int type_length = std::string("/data/").length();
+      int type_length = std::string("/minigraph_data/").length();
       std::string gid_str =
           path.substr(pos + type_length, pos2 - pos - type_length);
       GID_T gid = (GID_T)std::stoi(gid_str);
@@ -351,9 +350,9 @@ class MiniGraphSys {
     }
     for (const auto& entry : std::filesystem::directory_iterator(vdata_root)) {
       std::string path = entry.path();
-      size_t pos = path.find("/vdata/");
+      size_t pos = path.find("/minigraph_vdata/");
       size_t pos2 = path.find(".bin");
-      int type_length = std::string("/vdata/").length();
+      int type_length = std::string("/minigraph_vdata/").length();
       std::string gid_str =
           path.substr(pos + type_length, pos2 - pos - type_length);
       GID_T gid = (GID_T)std::stoi(gid_str);

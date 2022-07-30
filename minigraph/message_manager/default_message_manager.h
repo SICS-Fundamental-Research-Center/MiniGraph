@@ -34,15 +34,15 @@ class DefaultMessageManager : public MessageManagerBase {
     if (is_mining) {
       border_vertexes_ = new BorderVertexes<GID_T, VID_T, VDATA_T, EDATA_T>(
           data_mngr_->ReadBorderVertexes(work_space +
-                                         "border_vertexes/global.bv"));
+                                         "minigraph_border_vertexes/global.bv"));
       auto out2 =
-          data_mngr_->ReadGlobalid2Gid(work_space + "message/globalid2gid.bin");
+          data_mngr_->ReadGlobalid2Gid(work_space + "minigraph_message/globalid2gid.bin");
       partial_match_ =
           new PartialMatch<GID_T, VID_T, VDATA_T, EDATA_T>(out2.second);
     } else {
       border_vertexes_ = new BorderVertexes<GID_T, VID_T, VDATA_T, EDATA_T>(
           data_mngr_->ReadBorderVertexes(work_space +
-                                         "border_vertexes/global.bv"));
+                                         "minigraph_border_vertexes/global.bv"));
     }
   }
 
@@ -51,17 +51,17 @@ class DefaultMessageManager : public MessageManagerBase {
     LOG_INFO("Init Message Manager: ", work_space);
 
     auto out1 = data_mngr_->ReadCommunicationMatrix(
-        work_space + "border_vertexes/communication_matrix.bin");
+        work_space + "minigraph_border_vertexes/communication_matrix.bin");
     num_graphs_ = out1.first;
     communication_matrix_ = out1.second;
-    auto out2 = data_mngr_->ReadVidMap(work_space + "message/vid_map.bin");
+    auto out2 = data_mngr_->ReadVidMap(work_space + "minigraph_message/vid_map.bin");
     max_vid_ = out2.first;
     vid_map_ = out2.second;
     global_border_vdata_ = (VDATA_T*)malloc(max_vid_ * sizeof(VDATA_T));
     for (size_t i = 0; i < max_vid_; i++) global_border_vdata_[i] = VID_MAX;
 
     global_border_vid_map_ = data_mngr_->ReadBitmap(
-        work_space + "message/global_border_vid_map.bin");
+        work_space + "minigraph_message/global_border_vid_map.bin");
     for (size_t i = 0; i < num_graphs_; i++) {
       for (size_t j = 0; j < num_graphs_; j++)
         std::cout << *(communication_matrix_ + i * num_graphs_ + j) << ", ";
