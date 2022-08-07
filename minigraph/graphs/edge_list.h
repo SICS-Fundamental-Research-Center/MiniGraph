@@ -1,10 +1,14 @@
 #ifndef MINIGRAPH_GRAPHS_EDGE_LIST_H
 #define MINIGRAPH_GRAPHS_EDGE_LIST_H
 
-#include "graphs/graph.h"
-#include "portability/sys_data_structure.h"
-#include "portability/sys_types.h"
-#include "utility/logging.h"
+#include <fstream>
+#include <iostream>
+#include <map>
+#include <memory>
+#include <unordered_map>
+
+#include <jemalloc/jemalloc.h>
+
 #include <folly/AtomicHashArray.h>
 #include <folly/AtomicHashMap.h>
 #include <folly/AtomicUnorderedMap.h>
@@ -16,12 +20,12 @@
 #include <folly/portability/Asm.h>
 #include <folly/portability/Atomic.h>
 #include <folly/portability/SysTime.h>
-#include <jemalloc/jemalloc.h>
-#include <fstream>
-#include <iostream>
-#include <map>
-#include <memory>
-#include <unordered_map>
+
+#include "graphs/graph.h"
+#include "portability/sys_data_structure.h"
+#include "portability/sys_types.h"
+#include "utility/logging.h"
+
 
 namespace minigraph {
 namespace graphs {
@@ -84,7 +88,7 @@ class EdgeList : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
                 << ", dst: " << *(buf_graph_ + i * 2 + 1) << std::endl;
     }
     std::cout << ">>>> vdata_ " << std::endl;
-    for (size_t i = 0; i < this->get_num_vertexes(); i++){
+    for (size_t i = 0; i < this->get_num_vertexes(); i++) {
       if (i > count) break;
       std::cout << "vid: " << localid2globalid(i) << ", vdata_: " << vdata_[i]
                 << std::endl;
@@ -145,10 +149,10 @@ class EdgeList : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       num_vertexes_ = map_globalid2localid_->size();
       vdata_ =
           (VDATA_T*)malloc(sizeof(VDATA_T) * map_globalid2localid_->size());
-      for (size_t i = 0; i < num_vertexes_; i++) vdata_[i] = 0xfffffffff;
+      for (size_t i = 0; i < num_vertexes_; i++) vdata_[i] = VDATA_MAX;
     } else {
       memset(vdata_, 0, sizeof(VDATA_T) * get_num_vertexes());
-      for (size_t i = 0; i < num_vertexes_; i++) vdata_[i] = 0xfffffffff;
+      for (size_t i = 0; i < num_vertexes_; i++) vdata_[i] = VDATA_MAX;
     }
   }
 

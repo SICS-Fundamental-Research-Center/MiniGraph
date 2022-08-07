@@ -37,6 +37,13 @@ class Bitmap {
     }
   }
 
+  bool empty() {
+    size_t bm_size = WORD_OFFSET(size_);
+    for (size_t i = 0; i <= bm_size; i++)
+      if (data_[i] != 0) return false;
+    return true;
+  }
+
   void fill() {
     size_t bm_size = WORD_OFFSET(size_);
     for (size_t i = 0; i < bm_size; i++) {
@@ -59,7 +66,6 @@ class Bitmap {
   void set_bit(size_t i) {
     __sync_fetch_and_or(data_ + WORD_OFFSET(i), 1ul << BIT_OFFSET(i));
   }
-
 };
 
 #endif

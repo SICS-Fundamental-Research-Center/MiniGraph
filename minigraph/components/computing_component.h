@@ -14,6 +14,7 @@
 #include "utility/io/data_mngr.h"
 #include "utility/thread_pool.h"
 
+
 namespace minigraph {
 namespace components {
 
@@ -71,6 +72,7 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   ~ComputingComponent() = default;
 
   void Run() override {
+    folly::NativeSemaphore sem(num_workers_);
     std::queue<GID_T> que_gid;
     while (this->switch_.load()) {
       std::vector<GID_T> vec_gid;
@@ -87,9 +89,10 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       while (!que_gid.empty()) {
         gid = que_gid.front();
         que_gid.pop();
+        sem.try_wait();
         auto task = std::bind(
             &components::ComputingComponent<GRAPH_T, AUTOAPP_T>::ProcessGraph,
-            this, gid);
+            this, gid, sem);
         this->thread_pool_->Commit(task);
       }
     }
@@ -123,16 +126,15 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   std::unique_ptr<std::unique_lock<std::mutex>> executor_lck_;
   std::unique_ptr<std::condition_variable> executor_cv_;
 
-  void ProcessGraph(const GID_T& gid) {
+  void ProcessGraph(const GID_T& gid, folly::NativeSemaphore& sem) {
     // executor_cv_->wait(*executor_lck_, [&] { return true; });
     GRAPH_T* graph = (GRAPH_T*)data_mngr_->GetGraph(gid);
     executors::TaskRunner* task_runner = scheduled_executor_->RequestTaskRunner(
         {1, (unsigned)(num_cores_ / num_workers_)});
     if (this->get_superstep_via_gid(gid) == 0) {
       app_wrapper_->auto_app_->Init(*graph, task_runner);
-      app_wrapper_->auto_app_->PEval(*graph, task_runner)
-          ? this->state_machine_->ProcessEvent(gid, CHANGED)
-          : this->state_machine_->ProcessEvent(gid, NOTHINGCHANGED);
+      app_wrapper_->auto_app_->PEval(*graph, task_runner);
+      this->state_machine_->ProcessEvent(gid, CHANGED);
     } else {
       app_wrapper_->auto_app_->IncEval(*graph, task_runner)
           ? this->state_machine_->ProcessEvent(gid, CHANGED)
@@ -142,6 +144,7 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
     this->add_superstep_via_gid(gid);
     partial_result_queue_->push(gid);
     partial_result_cv_->notify_all();
+    sem.post();
     return;
   }
 };

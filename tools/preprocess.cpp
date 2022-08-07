@@ -61,35 +61,35 @@ int main(int argc, char* argv[]) {
       edge_cut_partitioner.RunPartition(*(CSR_T*)graph, FLAGS_n, init_model,
                                         init_val);
 
-      if (!data_mngr.IsExist(dst_pt + "meta/")) {
-        data_mngr.MakeDirectory(dst_pt + "meta/");
+      if (!data_mngr.IsExist(dst_pt + "minigraph_meta/")) {
+        data_mngr.MakeDirectory(dst_pt + "minigraph_meta/");
       } else {
-        remove((dst_pt + "meta/").c_str());
-        data_mngr.MakeDirectory(dst_pt + "meta/");
+        remove((dst_pt + "minigraph_meta/").c_str());
+        data_mngr.MakeDirectory(dst_pt + "minigraph_meta/");
       }
-      if (!data_mngr.IsExist(dst_pt + "data/")) {
-        data_mngr.MakeDirectory(dst_pt + "data/");
+      if (!data_mngr.IsExist(dst_pt + "minigraph_data/")) {
+        data_mngr.MakeDirectory(dst_pt + "minigraph_data/");
       } else {
-        remove((dst_pt + "data/").c_str());
-        data_mngr.MakeDirectory(dst_pt + "data/");
+        remove((dst_pt + "minigraph_data/").c_str());
+        data_mngr.MakeDirectory(dst_pt + "minigraph_data/");
       }
-      if (!data_mngr.IsExist(dst_pt + "vdata/")) {
-        data_mngr.MakeDirectory(dst_pt + "vdata/");
+      if (!data_mngr.IsExist(dst_pt + "minigraph_vdata/")) {
+        data_mngr.MakeDirectory(dst_pt + "minigraph_vdata/");
       } else {
-        remove((dst_pt + "vdata/").c_str());
-        data_mngr.MakeDirectory(dst_pt + "vdata/");
+        remove((dst_pt + "minigraph_vdata/").c_str());
+        data_mngr.MakeDirectory(dst_pt + "minigraph_vdata/");
       }
-      if (!data_mngr.IsExist(dst_pt + "border_vertexes/")) {
-        data_mngr.MakeDirectory(dst_pt + "border_vertexes/");
+      if (!data_mngr.IsExist(dst_pt + "minigraph_border_vertexes/")) {
+        data_mngr.MakeDirectory(dst_pt + "minigraph_border_vertexes/");
       } else {
-        remove((dst_pt + "border_vertexes/").c_str());
-        data_mngr.MakeDirectory(dst_pt + "border_vertexes/");
+        remove((dst_pt + "minigraph_border_vertexes/").c_str());
+        data_mngr.MakeDirectory(dst_pt + "minigraph_border_vertexes/");
       }
-      if (!data_mngr.IsExist(dst_pt + "message/")) {
-        data_mngr.MakeDirectory(dst_pt + "message/");
+      if (!data_mngr.IsExist(dst_pt + "minigraph_message/")) {
+        data_mngr.MakeDirectory(dst_pt + "minigraph_message/");
       } else {
-        remove((dst_pt + "message/").c_str());
-        data_mngr.MakeDirectory(dst_pt + "message/");
+        remove((dst_pt + "minigraph_message/").c_str());
+        data_mngr.MakeDirectory(dst_pt + "minigraph_message/");
       }
 
       auto fragments = edge_cut_partitioner.GetFragments();
@@ -97,10 +97,12 @@ int main(int argc, char* argv[]) {
       for (auto& iter_fragments : *fragments) {
         auto fragment = (CSR_T*)iter_fragments;
         fragment->ShowGraph(3);
-        std::string meta_pt = dst_pt + "meta/" + std::to_string(count) + ".bin";
-        std::string data_pt = dst_pt + "data/" + std::to_string(count) + ".bin";
+        std::string meta_pt =
+            dst_pt + "minigraph_meta/" + std::to_string(count) + ".bin";
+        std::string data_pt =
+            dst_pt + "minigraph_data/" + std::to_string(count) + ".bin";
         std::string vdata_pt =
-            dst_pt + "vdata/" + std::to_string(count) + ".bin";
+            dst_pt + "minigraph_vdata/" + std::to_string(count) + ".bin";
         data_mngr.csr_io_adapter_->Write(*fragment, csr_bin, false, meta_pt,
                                          data_pt, vdata_pt);
         count++;
@@ -115,7 +117,7 @@ int main(int argc, char* argv[]) {
       auto pair_communication_matrix =
           edge_cut_partitioner.GetCommunicationMatrix();
       data_mngr.WriteCommunicationMatrix(
-          dst_pt + "border_vertexes/communication_matrix.bin",
+          dst_pt + "minigraph_border_vertexes/communication_matrix.bin",
           pair_communication_matrix.second, pair_communication_matrix.first);
 
       // LOG_INFO("WriteGraphDependencies.");
@@ -139,47 +141,51 @@ int main(int argc, char* argv[]) {
       //     dst_pt + "/message/border_vertexes_by_gid.bin");
 
       auto vid_map = edge_cut_partitioner.GetVidMap();
-      data_mngr.WriteVidMap(max_vid, vid_map, dst_pt + "message/vid_map.bin");
-      // data_mngr.ReadVidMap(dst_pt + "/message/vid_map.bin");
+      data_mngr.WriteVidMap(max_vid, vid_map,
+                            dst_pt + "minigraph_message/vid_map.bin");
 
       LOG_INFO("WriteGlobalBorderVidMap.");
       auto global_border_vid_map = edge_cut_partitioner.GetGlobalBorderVidMap();
-      data_mngr.WriteBitmap(global_border_vid_map,
-                            dst_pt + "message/global_border_vid_map.bin");
+      // for (size_t i = 0; i < 34; i++) {
+      //   LOG_INFO(global_border_vid_map->get_bit(i));
+      // }
+      data_mngr.WriteBitmap(
+          global_border_vid_map,
+          dst_pt + "minigraph_message/global_border_vid_map.bin");
       LOG_INFO("End graph partition#");
     } else if (FLAGS_gtype == "edge_list_bin") {
       minigraph::utility::io::DataMngr<EDGE_LIST_T> data_mngr;
       minigraph::utility::partitioner::EdgeCutPartitioner<EDGE_LIST_T>
           edge_cut_partitioner;
-      if (!data_mngr.IsExist(dst_pt + "/meta/")) {
-        data_mngr.MakeDirectory(dst_pt + "/meta/");
+      if (!data_mngr.IsExist(dst_pt + "/minigraph_meta/")) {
+        data_mngr.MakeDirectory(dst_pt + "/minigraph_meta/");
       } else {
-        remove((dst_pt + "/meta/").c_str());
-        data_mngr.MakeDirectory(dst_pt + "/meta/");
+        remove((dst_pt + "/minigraph_meta/").c_str());
+        data_mngr.MakeDirectory(dst_pt + "/minigraph_meta/");
       }
-      if (!data_mngr.IsExist(dst_pt + "/data/")) {
-        data_mngr.MakeDirectory(dst_pt + "/data/");
+      if (!data_mngr.IsExist(dst_pt + "/minigraph_data/")) {
+        data_mngr.MakeDirectory(dst_pt + "/minigraph_data/");
       } else {
-        remove((dst_pt + "/data/").c_str());
-        data_mngr.MakeDirectory(dst_pt + "/data/");
+        remove((dst_pt + "/minigraph_data/").c_str());
+        data_mngr.MakeDirectory(dst_pt + "/minigrph_data/");
       }
-      if (!data_mngr.IsExist(dst_pt + "/vdata/")) {
-        data_mngr.MakeDirectory(dst_pt + "/vdata/");
+      if (!data_mngr.IsExist(dst_pt + "/minigraph_vdata/")) {
+        data_mngr.MakeDirectory(dst_pt + "/minigraph_vdata/");
       } else {
-        remove((dst_pt + "/vdata/").c_str());
-        data_mngr.MakeDirectory(dst_pt + "/vdata/");
+        remove((dst_pt + "/minigraph_vdata/").c_str());
+        data_mngr.MakeDirectory(dst_pt + "/minigraph_vdata/");
       }
-      if (!data_mngr.IsExist(dst_pt + "/border_vertexes/")) {
-        data_mngr.MakeDirectory(dst_pt + "/border_vertexes/");
+      if (!data_mngr.IsExist(dst_pt + "/minigraph_border_vertexes/")) {
+        data_mngr.MakeDirectory(dst_pt + "/minigraph_border_vertexes/");
       } else {
-        remove((dst_pt + "/border_vertexes/").c_str());
-        data_mngr.MakeDirectory(dst_pt + "/border_vertexes/");
+        remove((dst_pt + "/minigraph_border_vertexes/").c_str());
+        data_mngr.MakeDirectory(dst_pt + "/minigraph_border_vertexes/");
       }
-      if (!data_mngr.IsExist(dst_pt + "/message/")) {
-        data_mngr.MakeDirectory(dst_pt + "/message/");
+      if (!data_mngr.IsExist(dst_pt + "/minigraph_message/")) {
+        data_mngr.MakeDirectory(dst_pt + "/minigraph_message/");
       } else {
-        remove((dst_pt + "/message/").c_str());
-        data_mngr.MakeDirectory(dst_pt + "/message/");
+        remove((dst_pt + "/minigraph_message/").c_str());
+        data_mngr.MakeDirectory(dst_pt + "/minigraph_message/");
       }
       auto graph = new EDGE_LIST_T;
       data_mngr.edge_list_io_adapter_->Read((GRAPH_BASE_T*)graph, edge_list_csv,
@@ -189,24 +195,25 @@ int main(int argc, char* argv[]) {
       for (auto& iter_fragments : *fragments) {
         auto fragment = (EDGE_LIST_T*)iter_fragments;
         fragment->ShowGraph(3);
-        std::string meta_pt =
-            dst_pt + "/meta/" + std::to_string(fragment->gid_) + ".bin";
-        std::string data_pt =
-            dst_pt + "/data/" + std::to_string(fragment->gid_) + ".bin";
-        std::string vdata_pt =
-            dst_pt + "/vdata/" + std::to_string(fragment->gid_) + ".bin";
+        std::string meta_pt = dst_pt + "/minigraph_meta/" +
+                              std::to_string(fragment->gid_) + ".bin";
+        std::string data_pt = dst_pt + "/minigraph_data/" +
+                              std::to_string(fragment->gid_) + ".bin";
+        std::string vdata_pt = dst_pt + "/minigraph_vdata/" +
+                               std::to_string(fragment->gid_) + ".bin";
         data_mngr.edge_list_io_adapter_->Write(*fragment, edge_list_bin, false,
                                                meta_pt, data_pt, vdata_pt);
       }
       data_mngr.global_border_vertexes_.reset(
           edge_cut_partitioner.GetGlobalBorderVertexes());
-      data_mngr.WriteBorderVertexes(*(data_mngr.global_border_vertexes_.get()),
-                                    dst_pt + "/border_vertexes/global.bv");
+      data_mngr.WriteBorderVertexes(
+          *(data_mngr.global_border_vertexes_.get()),
+          dst_pt + "/minigraph_border_vertexes/global.bv");
       LOG_INFO("WriteCommunicationMatrix.");
       auto pair_communication_matrix =
           edge_cut_partitioner.GetCommunicationMatrix();
       data_mngr.WriteCommunicationMatrix(
-          dst_pt + "/border_vertexes/communication_matrix.bin",
+          dst_pt + "/minigraph_border_vertexes/communication_matrix.bin",
           pair_communication_matrix.second, pair_communication_matrix.first);
     }
   }

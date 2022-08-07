@@ -1,18 +1,21 @@
 #ifndef MINIGRAPH_LOAD_COMPONENT_H
 #define MINIGRAPH_LOAD_COMPONENT_H
 
+#include <condition_variable>
+#include <memory>
+#include <queue>
+#include <string>
+
+#include <folly/ProducerConsumerQueue.h>
+#include <folly/synchronization/NativeSemaphore.h>
+
 #include "components/component_base.h"
 #include "portability/sys_data_structure.h"
 #include "utility/io/csr_io_adapter.h"
 #include "utility/io/data_mngr.h"
 #include "utility/state_machine.h"
 #include "utility/thread_pool.h"
-#include <folly/ProducerConsumerQueue.h>
-#include <folly/synchronization/NativeSemaphore.h>
-#include <condition_variable>
-#include <memory>
-#include <queue>
-#include <string>
+
 
 namespace minigraph {
 namespace components {
@@ -45,7 +48,7 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       std::condition_variable* task_queue_cv)
       : ComponentBase<GID_T>(thread_pool, superstep_by_gid, global_superstep,
                              state_machine) {
-    num_workers_.store(num_workers);
+    num_workers_ = num_workers;
     sem_lc_dc_ = sem_lc_dc;
     pt_by_gid_ = pt_by_gid;
     data_mngr_ = data_mngr;
@@ -64,6 +67,7 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   }
 
   void Run() override {
+    folly::NativeSemaphore sem(num_workers_);
     while (switch_) {
       GID_T gid = MINIGRAPH_GID_MAX;
       read_trigger_cv_->wait(*read_trigger_lck_,
@@ -73,7 +77,11 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
         sem_lc_dc_->wait();
         gid = read_trigger_->front();
         read_trigger_->pop();
-        this->ProcessGraph(gid);
+        sem.try_wait();
+        auto task = std::bind(&components::LoadComponent<GRAPH_T>::ProcessGraph,
+                              this, gid, sem);
+        this->thread_pool_->Commit(task);
+        // this->ProcessGraph(gid, sem);
       }
     }
   }
@@ -81,7 +89,7 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   void Stop() override { switch_ = false; }
 
  private:
-  std::atomic<size_t> num_workers_;
+  size_t num_workers_;
   folly::NativeSemaphore* sem_lc_dc_ = nullptr;
   std::queue<GID_T>* read_trigger_ = nullptr;
   folly::ProducerConsumerQueue<GID_T>* task_queue_ = nullptr;
@@ -97,7 +105,7 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   std::unique_ptr<std::unique_lock<std::mutex>> executor_lck_;
   std::unique_ptr<std::condition_variable> executor_cv_;
 
-  void ProcessGraph(GID_T gid) {
+  void ProcessGraph(GID_T gid, folly::NativeSemaphore& sem) {
     CSRPt& csr_pt = pt_by_gid_->find(gid)->second;
     auto tag = false;
     if (IsSameType<GRAPH_T, CSR_T>())
@@ -113,6 +121,7 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       this->state_machine_->ProcessEvent(gid, UNLOAD);
       LOG_ERROR("Read graph fault: ", gid);
     }
+    sem.post();
   }
 };
 

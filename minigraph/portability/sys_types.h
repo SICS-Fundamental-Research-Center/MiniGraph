@@ -9,8 +9,8 @@ using vdata_t = float;
 using edata_t = size_t;
 
 
-//#define VID_MAX (((unsigned)(-1)) >> 1)
 #define VID_MAX 0XFFFFFFFF
+#define VDATA_MAX 0XFFFFFFFF
 #define MINIGRAPH_GID_MAX (((unsigned)(-1)) >> 1)
 
 #ifndef HAVE_MODE_T
@@ -37,6 +37,14 @@ using edata_t = size_t;
 #define RTS 'S'
 #define RC 'C'
 #define TERMINATE 'X'
+
+// Rename states for vertex.
+#define VERTEXLABELED 'L'
+#define VERTEXUNLABELED 'U'
+#define VERTEXSCANNED 'S'
+#define VERTEXACTIVE 'A'
+#define VERTEXINACTIVE 'I'
+
 
 DEFINE_string(i, "", "input path");
 DEFINE_string(o, "", "output path");

@@ -1,20 +1,24 @@
 #ifndef MINIGRAPH_UTILITY_IO_CSR_IO_ADAPTER_H
 #define MINIGRAPH_UTILITY_IO_CSR_IO_ADAPTER_H
 
+#include <sys/stat.h>
+
+#include <fstream>
+#include <iostream>
+#include <string>
+#include <unordered_map>
+
+#include <folly/AtomicHashArray.h>
+#include <folly/AtomicHashMap.h>
+#include <folly/FileUtil.h>
+
 #include "graphs/immutable_csr.h"
 #include "io_adapter_base.h"
 #include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
 #include "rapidcsv.h"
 #include "utility/logging.h"
-#include <folly/AtomicHashArray.h>
-#include <folly/AtomicHashMap.h>
-#include <folly/FileUtil.h>
-#include <sys/stat.h>
-#include <fstream>
-#include <iostream>
-#include <string>
-#include <unordered_map>
+
 
 namespace minigraph {
 namespace utility {
@@ -291,6 +295,12 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
                       sizeof(VDATA_T) * graph->num_vertexes_);
       vdata_file.close();
     }
+
+    graph->vertexes_state_ =
+        (char*)malloc(sizeof(char) * graph->get_num_vertexes());
+
+    memset(graph->vertexes_state_, VERTEXUNLABELED,
+           sizeof(char) * graph->get_num_vertexes());
 
     LOG_INFO("Load bytes: ",
              total_size + sizeof(VDATA_T) * graph->num_vertexes_);

@@ -1,14 +1,17 @@
 #pragma once
 
+#include <math.h>
+
+#include <condition_variable>
+#include <string>
+#include <vector>
+
+#include <folly/AtomicHashMap.h>
+
 #include "graphs/graph.h"
 #include "graphs/immutable_csr.h"
 #include "portability/sys_data_structure.h"
 #include "utility/thread_pool.h"
-#include <folly/AtomicHashMap.h>
-#include <condition_variable>
-#include <math.h>
-#include <string>
-#include <vector>
 
 #define BIG_CONSTANT(x) (x##LLU)
 
@@ -70,28 +73,20 @@ enum GraphFormat {
 
 template <typename T>
 size_t Hash(T k) {
-  //k ^= k >> 33;
+  // k ^= k >> 33;
   k *= BIG_CONSTANT(0xff51afd7ed558ccd);
-  //k ^= k >> 33;
+  // k ^= k >> 33;
   k *= BIG_CONSTANT(0xc4ceb9fe1a85ec53);
   k = k >> 3;
   return k;
 }
 
-template<typename T1, typename T2>
-struct IsSameType
-{
-  operator bool()
-  {
-    return false;
-  }
+template <typename T1, typename T2>
+struct IsSameType {
+  operator bool() { return false; }
 };
 
-template<typename T1>
-struct IsSameType<T1, T1>
-{
-  operator bool()
-  {
-    return true;
-  }
+template <typename T1>
+struct IsSameType<T1, T1> {
+  operator bool() { return true; }
 };
