@@ -8,7 +8,6 @@ using vid_t = unsigned;
 using vdata_t = float;
 using edata_t = size_t;
 
-
 #define VID_MAX 0XFFFFFFFF
 #define VDATA_MAX 0XFFFFFFFF
 #define MINIGRAPH_GID_MAX (((unsigned)(-1)) >> 1)
@@ -42,15 +41,18 @@ using edata_t = size_t;
 #define VERTEXLABELED 'L'
 #define VERTEXUNLABELED 'U'
 #define VERTEXSCANNED 'S'
+#define VERTEXMATCH 'M'
+#define VERTEXDISMATCH 'D'
 #define VERTEXACTIVE 'A'
 #define VERTEXINACTIVE 'I'
-
 
 DEFINE_string(i, "", "input path");
 DEFINE_string(o, "", "output path");
 DEFINE_string(pattern, "", "query graph (edge list in csv)");
 DEFINE_bool(tobin, false, "convert the graph to binary format");
-DEFINE_string(gtype, "csr_bin", "two types of edge list files are supported: csr_bin, edge_list_bin");
+DEFINE_string(
+    gtype, "csr_bin",
+    "two types of edge list files are supported: csr_bin, edge_list_bin");
 DEFINE_bool(p, false, "partition input graph");
 DEFINE_string(t, "edgelist", "type");
 DEFINE_uint64(n, 1, "the number of fragments");

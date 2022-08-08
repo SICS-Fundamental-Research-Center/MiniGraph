@@ -1,20 +1,16 @@
 #ifndef MINIGRAPH_UTILITY_IO_EDGE_LIST_IO_ADAPTER_H
 #define MINIGRAPH_UTILITY_IO_EDGE_LIST_IO_ADAPTER_H
 
-#include <sys/stat.h>
-
-#include <fstream>
-#include <iostream>
-#include <string>
-#include <unordered_map>
-
-#include "rapidcsv.h"
-
 #include "graphs/edge_list.h"
 #include "io_adapter_base.h"
 #include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
-
+#include "rapidcsv.h"
+#include <sys/stat.h>
+#include <fstream>
+#include <iostream>
+#include <string>
+#include <unordered_map>
 
 namespace minigraph {
 namespace utility {
@@ -38,12 +34,12 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
 
   template <class... Args>
   bool Read(GRAPH_BASE_T* graph, const GraphFormat& graph_format,
-            const GID_T& gid, const size_t num_edges, Args&&... args) {
+            const GID_T& gid, Args&&... args) {
     std::string pt[] = {(args)...};
     bool tag = false;
     switch (graph_format) {
       case edge_list_csv:
-        tag = ReadEdgeListFromCSV(graph, pt[0], gid, false);
+        tag = ReadEdgeListFromCSV(graph, pt[0], gid, true);
         break;
       case weight_edge_list_csv:
         break;
@@ -78,7 +74,7 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
  private:
   bool ReadEdgeListFromCSV(graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>* graph,
                            const std::string& pt, const GID_T gid = 0,
-                           const bool serialize = false) {
+                           const bool assemble = false) {
     if (!this->IsExist(pt)) {
       XLOG(ERR, "Read file fault: ", pt);
       return false;
@@ -101,7 +97,7 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       *(buff + i * 2) = src.at(i);
       *((VID_T*)((EDGE_LIST_T*)graph)->buf_graph_ + i * 2 + 1) = dst.at(i);
     }
-    if (serialize) {
+    if (assemble) {
       std::unordered_map<VID_T, std::vector<VID_T>*> graph_out_edges;
       std::unordered_map<VID_T, std::vector<VID_T>*> graph_in_edges;
 
@@ -124,9 +120,13 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
         }
       }
 
+      ((EDGE_LIST_T*)graph)->max_vid_ = 0;
       for (auto& iter : graph_in_edges) {
         graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>* vertex_info =
             new graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>;
+        ((EDGE_LIST_T*)graph)->max_vid_ < iter.first
+            ? ((EDGE_LIST_T*)graph)->max_vid_ = iter.first
+            : 0;
         vertex_info->vid = iter.first;
         vertex_info->indegree = iter.second->size();
         vertex_info->in_edges =
@@ -151,6 +151,9 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
           graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>* vertex_info =
               new graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>;
           vertex_info->vid = iter.first;
+          ((EDGE_LIST_T*)graph)->max_vid_ < iter.first
+              ? ((EDGE_LIST_T*)graph)->max_vid_ = iter.first
+              : 0;
           vertex_info->outdegree = iter.second->size();
           vertex_info->out_edges =
               (VID_T*)malloc(sizeof(VID_T) * iter.second->size());
@@ -162,16 +165,43 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
         }
       }
     }
+
+    size_t* index_by_vid_ = nullptr;
+    VID_T* vid_by_index = nullptr;
+
     ((EDGE_LIST_T*)graph)->num_vertexes_ =
         ((EDGE_LIST_T*)graph)->vertexes_info_->size();
+
+    ((EDGE_LIST_T*)graph)->index_by_vid_ =
+        (size_t*)malloc(sizeof(size_t) * ((EDGE_LIST_T*)graph)->max_vid_);
+    memset(((EDGE_LIST_T*)graph)->index_by_vid_, 0,
+           ((EDGE_LIST_T*)graph)->max_vid_ * sizeof(size_t));
+
+    ((EDGE_LIST_T*)graph)->vid_by_index_ =
+        (VID_T*)malloc(sizeof(VID_T) * ((EDGE_LIST_T*)graph)->num_vertexes_);
+    memset(((EDGE_LIST_T*)graph)->vid_by_index_, 0,
+           ((EDGE_LIST_T*)graph)->max_vid_ * sizeof(VID_T));
+
+    size_t index = 0;
+    for (auto& iter : *((EDGE_LIST_T*)graph)->vertexes_info_) {
+      auto vid = iter.first;
+      ((EDGE_LIST_T*)graph)->index_by_vid_[vid] = index;
+      ((EDGE_LIST_T*)graph)->vid_by_index_[index++] = vid;
+    }
 
     ((EDGE_LIST_T*)graph)->is_serialized_ = true;
     ((EDGE_LIST_T*)graph)->vdata_ = (VDATA_T*)malloc(
         sizeof(VDATA_T) * ((EDGE_LIST_T*)graph)->num_vertexes_);
     memset(((EDGE_LIST_T*)graph)->vdata_, 0,
            sizeof(VDATA_T) * ((EDGE_LIST_T*)graph)->num_vertexes_);
+
     ((EDGE_LIST_T*)graph)->num_edges_ = src.size();
     ((EDGE_LIST_T*)graph)->gid_ = gid;
+    ((EDGE_LIST_T*)graph)->vertexes_state_ =
+        (char*)malloc(sizeof(char) * ((EDGE_LIST_T*)graph)->get_num_vertexes());
+
+    memset(((EDGE_LIST_T*)graph)->vertexes_state_, VERTEXUNLABELED,
+           sizeof(char) * ((EDGE_LIST_T*)graph)->get_num_vertexes());
     LOG_INFO("ReadEdgeListFromCSV num_vertexes: ",
              ((EDGE_LIST_T*)graph)->num_vertexes_,
              " num_edges: ", ((EDGE_LIST_T*)graph)->num_edges_);

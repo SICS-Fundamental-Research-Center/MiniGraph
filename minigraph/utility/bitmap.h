@@ -66,6 +66,10 @@ class Bitmap {
   void set_bit(size_t i) {
     __sync_fetch_and_or(data_ + WORD_OFFSET(i), 1ul << BIT_OFFSET(i));
   }
+
+  void rm_bit(const size_t i) {
+    __sync_fetch_and_and(data_ + WORD_OFFSET(i), ~(1ul << BIT_OFFSET(i)));
+  }
 };
 
 #endif

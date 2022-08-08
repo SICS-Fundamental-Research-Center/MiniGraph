@@ -2,14 +2,12 @@
 #ifndef MINIGRAPH_GRAPHS_GRAPH_H
 #define MINIGRAPH_GRAPHS_GRAPH_H
 
-#include <iostream>
-#include <string>
-#include <unordered_map>
-
 #include <folly/AtomicHashMap.h>
 #include <folly/FBString.h>
 #include <folly/Range.h>
-
+#include <iostream>
+#include <string>
+#include <unordered_map>
 
 namespace minigraph {
 namespace graphs {
@@ -55,6 +53,21 @@ class VertexInfo {
       std::cout << std::endl;
     }
     std::cout << "----------------------------" << std::endl;
+  }
+
+  bool IsChildrens(const VID_T vid) const {
+    if (outdegree == 0) return false;
+    for (size_t i = 0; i < outdegree; i++) {
+      if (out_edges[i] == vid) return true;
+    }
+    return false;
+  }
+  bool IsParrents(const VID_T vid) const {
+    if (indegree == 0) return false;
+    for (size_t i = 0; i < indegree; i++) {
+      if (in_edges[i] == vid) return true;
+    }
+    return false;
   }
 };
 

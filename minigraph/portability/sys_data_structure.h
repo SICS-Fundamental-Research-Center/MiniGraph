@@ -1,17 +1,14 @@
 #pragma once
 
-#include <math.h>
-
-#include <condition_variable>
-#include <string>
-#include <vector>
-
-#include <folly/AtomicHashMap.h>
-
 #include "graphs/graph.h"
 #include "graphs/immutable_csr.h"
 #include "portability/sys_data_structure.h"
 #include "utility/thread_pool.h"
+#include <folly/AtomicHashMap.h>
+#include <condition_variable>
+#include <math.h>
+#include <string>
+#include <vector>
 
 #define BIG_CONSTANT(x) (x##LLU)
 
@@ -90,3 +87,10 @@ template <typename T1>
 struct IsSameType<T1, T1> {
   operator bool() { return true; }
 };
+
+template <typename T>
+void swap(T& a, T& b) noexcept {
+  T temp = std::move(a);
+  a = std::move(b);
+  b = std::move(temp);
+}

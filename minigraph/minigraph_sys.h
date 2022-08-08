@@ -1,6 +1,18 @@
 #ifndef MINIGRAPH_MINIGRAPH_SYS_H
 #define MINIGRAPH_MINIGRAPH_SYS_H
 
+#include "2d_pie/auto_app_base.h"
+#include "2d_pie/edge_map_reduce.h"
+#include "2d_pie/vertex_map_reduce.h"
+#include "components/computing_component.h"
+#include "components/discharge_component.h"
+#include "components/load_component.h"
+#include "message_manager/default_message_manager.h"
+#include "utility/io/data_mngr.h"
+#include "utility/paritioner/edge_cut_partitioner.h"
+#include "utility/state_machine.h"
+#include <folly/AtomicHashMap.h>
+#include <folly/synchronization/NativeSemaphore.h>
 #include <condition_variable>
 #include <dirent.h>
 #include <filesystem>
@@ -12,21 +24,6 @@
 #include <string>
 #include <thread>
 #include <vector>
-
-#include <folly/AtomicHashMap.h>
-#include <folly/synchronization/NativeSemaphore.h>
-
-#include "2d_pie/auto_app_base.h"
-#include "2d_pie/edge_map_reduce.h"
-#include "2d_pie/vertex_map_reduce.h"
-#include "components/computing_component.h"
-#include "components/discharge_component.h"
-#include "components/load_component.h"
-#include "message_manager/default_message_manager.h"
-#include "utility/io/data_mngr.h"
-#include "utility/paritioner/edge_cut_partitioner.h"
-#include "utility/state_machine.h"
-
 
 namespace minigraph {
 
@@ -221,7 +218,7 @@ class MiniGraphSys {
         ((CSR_T*)graph)->ShowGraph(num_vertexes_to_show);
       } else if (IsSameType<GRAPH_T, EDGE_LIST_T>()) {
         data_mngr_->edge_list_io_adapter_->Read(
-            (GRAPH_BASE_T*)graph, edge_list_bin, gid, 0, csr_pt.meta_pt,
+            (GRAPH_BASE_T*)graph, edge_list_bin, gid, csr_pt.meta_pt,
             csr_pt.data_pt, csr_pt.vdata_pt);
         ((EDGE_LIST_T*)graph)->ShowGraph(num_vertexes_to_show);
       }
@@ -242,6 +239,8 @@ class MiniGraphSys {
       // LOG_INFO(components_of_X, " components found");
     }
   }
+
+  utility::io::DataMngr<GRAPH_T>* GetDataMngr() { return data_mngr_.get(); }
 
  private:
   // file path by gid.

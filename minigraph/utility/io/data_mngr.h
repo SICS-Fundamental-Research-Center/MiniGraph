@@ -1,12 +1,10 @@
 #ifndef MINIGRAPH_DATA_MNGR_H
 #define MINIGRAPH_DATA_MNGR_H
 
-#include <memory>
-
-#include <folly/AtomicHashMap.h>
-
 #include "utility/io/csr_io_adapter.h"
 #include "utility/io/edge_list_io_adapter.h"
+#include <folly/AtomicHashMap.h>
+#include <memory>
 
 namespace minigraph {
 namespace utility {
@@ -62,9 +60,10 @@ class DataMngr {
     } else if (graph_format == edge_list_bin) {
       graph = new EDGE_LIST_T;
       out = edge_list_io_adapter_->Read((GRAPH_BASE_T*)graph, edge_list_bin,
-                                        gid, 0, csr_pt.meta_pt, csr_pt.data_pt,
+                                        gid, csr_pt.meta_pt, csr_pt.data_pt,
                                         csr_pt.vdata_pt);
     }
+
     if (out) {
       pgraph_mtx_->lock();
       auto iter = pgraph_by_gid_->find(gid);
@@ -83,7 +82,7 @@ class DataMngr {
     auto graph = new EDGE_LIST_T;
 
     auto out = edge_list_io_adapter_->Read((GRAPH_BASE_T*)graph, graph_format,
-                                           gid, 0, edge_list_pt.edges_pt,
+                                           gid, edge_list_pt.edges_pt,
                                            edge_list_pt.v_label_pt);
     if (out) {
       pgraph_mtx_->lock();

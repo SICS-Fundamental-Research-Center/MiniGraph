@@ -189,7 +189,7 @@ int main(int argc, char* argv[]) {
       }
       auto graph = new EDGE_LIST_T;
       data_mngr.edge_list_io_adapter_->Read((GRAPH_BASE_T*)graph, edge_list_csv,
-                                            0, 0, src_pt);
+                                            0, src_pt);
       edge_cut_partitioner.RunPartition(*graph, FLAGS_n, init_model, init_val);
       auto fragments = edge_cut_partitioner.GetFragments();
       for (auto& iter_fragments : *fragments) {

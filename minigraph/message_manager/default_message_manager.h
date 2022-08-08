@@ -1,15 +1,14 @@
 #ifndef MINIGRAPH_DEFAULT_MESSAGE_MANAGER_H
 #define MINIGRAPH_DEFAULT_MESSAGE_MANAGER_H
 
-#include <unordered_map>
-#include <vector>
-
 #include "graphs/graph.h"
 #include "message_manager/border_vertexes.h"
 #include "message_manager/message_manager_base.h"
 #include "message_manager/partial_match.h"
 #include "portability/sys_data_structure.h"
 #include "utility/io/data_mngr.h"
+#include <unordered_map>
+#include <vector>
 
 namespace minigraph {
 namespace message {
@@ -30,19 +29,21 @@ class DefaultMessageManager : public MessageManagerBase {
   DefaultMessageManager(utility::io::DataMngr<GRAPH_T>* data_mngr,
                         const std::string& work_space, bool is_mining = false)
       : MessageManagerBase() {
+    LOG_INFO("Init MsgManager");
     data_mngr_ = data_mngr;
     if (is_mining) {
       border_vertexes_ = new BorderVertexes<GID_T, VID_T, VDATA_T, EDATA_T>(
-          data_mngr_->ReadBorderVertexes(work_space +
-                                         "minigraph_border_vertexes/global.bv"));
-      auto out2 =
-          data_mngr_->ReadGlobalid2Gid(work_space + "minigraph_message/globalid2gid.bin");
-      partial_match_ =
-          new PartialMatch<GID_T, VID_T, VDATA_T, EDATA_T>(out2.second);
+          data_mngr_->ReadBorderVertexes(
+              work_space + "minigraph_border_vertexes/global.bv"));
+      // auto out2 =
+      //     data_mngr_->ReadGlobalid2Gid(work_space +
+      //     "minigraph_message/globalid2gid.bin");
+      // partial_match_ =
+      //     new PartialMatch<GID_T, VID_T, VDATA_T, EDATA_T>(out2.second);
     } else {
-      border_vertexes_ = new BorderVertexes<GID_T, VID_T, VDATA_T, EDATA_T>(
-          data_mngr_->ReadBorderVertexes(work_space +
-                                         "minigraph_border_vertexes/global.bv"));
+      // border_vertexes_ = new BorderVertexes<GID_T, VID_T, VDATA_T, EDATA_T>(
+      //     data_mngr_->ReadBorderVertexes(
+      //         work_space + "minigraph_border_vertexes/global.bv"));
     }
   }
 
@@ -54,7 +55,8 @@ class DefaultMessageManager : public MessageManagerBase {
         work_space + "minigraph_border_vertexes/communication_matrix.bin");
     num_graphs_ = out1.first;
     communication_matrix_ = out1.second;
-    auto out2 = data_mngr_->ReadVidMap(work_space + "minigraph_message/vid_map.bin");
+    auto out2 =
+        data_mngr_->ReadVidMap(work_space + "minigraph_message/vid_map.bin");
     max_vid_ = out2.first;
     vid_map_ = out2.second;
     global_border_vdata_ = (VDATA_T*)malloc(max_vid_ * sizeof(VDATA_T));

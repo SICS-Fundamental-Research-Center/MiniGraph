@@ -1,14 +1,10 @@
 #ifndef MINIGRAPH_GRAPHS_EDGE_LIST_H
 #define MINIGRAPH_GRAPHS_EDGE_LIST_H
 
-#include <fstream>
-#include <iostream>
-#include <map>
-#include <memory>
-#include <unordered_map>
-
-#include <jemalloc/jemalloc.h>
-
+#include "graphs/graph.h"
+#include "portability/sys_data_structure.h"
+#include "portability/sys_types.h"
+#include "utility/logging.h"
 #include <folly/AtomicHashArray.h>
 #include <folly/AtomicHashMap.h>
 #include <folly/AtomicUnorderedMap.h>
@@ -20,12 +16,12 @@
 #include <folly/portability/Asm.h>
 #include <folly/portability/Atomic.h>
 #include <folly/portability/SysTime.h>
-
-#include "graphs/graph.h"
-#include "portability/sys_data_structure.h"
-#include "portability/sys_types.h"
-#include "utility/logging.h"
-
+#include <jemalloc/jemalloc.h>
+#include <fstream>
+#include <iostream>
+#include <map>
+#include <memory>
+#include <unordered_map>
 
 namespace minigraph {
 namespace graphs {
@@ -90,14 +86,32 @@ class EdgeList : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     std::cout << ">>>> vdata_ " << std::endl;
     for (size_t i = 0; i < this->get_num_vertexes(); i++) {
       if (i > count) break;
-      std::cout << "vid: " << localid2globalid(i) << ", vdata_: " << vdata_[i]
-                << std::endl;
+      if (globalid_by_localid_ != nullptr)
+        std::cout << "vid: " << localid2globalid(i) << ", vdata_: " << vdata_[i]
+                  << std::endl;
     }
   }
 
   graphs::VertexInfo<VID_T, VDATA_T, EDATA_T> GetVertexByVid(const VID_T vid) {
     auto iter = vertexes_info_->find(vid);
     if (iter != vertexes_info_->end()) {
+      iter->second->vdata = vdata_ + index_by_vid_[vid];
+      iter->second->state = vertexes_state_ + index_by_vid_[vid];
+      return *iter->second;
+    } else {
+      graphs::VertexInfo<VID_T, VDATA_T, EDATA_T> vertex_info;
+      return vertex_info;
+    }
+  }
+
+  graphs::VertexInfo<VID_T, VDATA_T, EDATA_T> GetVertexByIndex(
+      const size_t index) {
+    LOG_INFO("XXX");
+    auto vid = vid_by_index_[index];
+    auto iter = vertexes_info_->find(vid);
+    if (iter != vertexes_info_->end()) {
+      iter->second->vdata = vdata_ + index;
+      iter->second->state = vertexes_state_ + index;
       return *iter->second;
     } else {
       graphs::VertexInfo<VID_T, VDATA_T, EDATA_T> vertex_info;
@@ -197,14 +211,20 @@ class EdgeList : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
   GID_T gid_ = -1;
   size_t num_vertexes_ = 0;
   size_t num_edges_ = 0;
+  VID_T max_vid_ = 0;
 
-  VID_T* globalid_by_localid_ = nullptr;
-  std::unordered_map<VID_T, VID_T>* map_globalid2localid_ = nullptr;
-  GraphFormat graph_format;
   VID_T* buf_graph_ = nullptr;
   VDATA_T* vdata_ = nullptr;
+  size_t* index_by_vid_ = nullptr;
+  VID_T* vid_by_index_ = nullptr;
+  Bitmap* bitmap_ = nullptr;
+  VID_T* globalid_by_localid_ = nullptr;
+
+  char* vertexes_state_ = nullptr;
   bool is_serialized_ = true;
+
   std::map<VID_T, VertexInfo*>* vertexes_info_ = nullptr;
+  std::unordered_map<VID_T, VID_T>* map_globalid2localid_ = nullptr;
 };
 
 }  // namespace graphs
