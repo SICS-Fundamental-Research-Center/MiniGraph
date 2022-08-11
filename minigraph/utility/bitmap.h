@@ -12,8 +12,9 @@ class Bitmap {
 
   Bitmap() = default;
 
-  Bitmap(size_t size) { init(size); }
-  Bitmap(size_t size, unsigned long* data) { init(size, data); }
+  Bitmap(const size_t size) { init(size); }
+
+  Bitmap(const size_t size, unsigned long* data) { init(size, data); }
 
   ~Bitmap() {
     if (data_ != nullptr) free(data_);
@@ -44,6 +45,14 @@ class Bitmap {
     return true;
   }
 
+  bool is_equal_to(Bitmap& b) {
+    if (size_ != b.size_) return false;
+    size_t bm_size = WORD_OFFSET(size_);
+    for (size_t i = 0; i <= bm_size; i++)
+      if (data_[i] != b.data_[i]) return false;
+    return true;
+  }
+
   void fill() {
     size_t bm_size = WORD_OFFSET(size_);
     for (size_t i = 0; i < bm_size; i++) {
@@ -69,6 +78,20 @@ class Bitmap {
 
   void rm_bit(const size_t i) {
     __sync_fetch_and_and(data_ + WORD_OFFSET(i), ~(1ul << BIT_OFFSET(i)));
+  }
+
+  bool batch_rm_bit(Bitmap& b) {
+    if (size_ != b.size_) return false;
+    size_t bm_size = WORD_OFFSET(size_);
+
+    for (size_t i = 0; i <= bm_size; i++) {
+      __sync_fetch_and_and(data_ + WORD_OFFSET(i), ~(b.data_[i]));
+    }
+  }
+
+  bool copy_bit(Bitmap& b) {
+    if (size_ != b.size_) return false;
+    memcpy(data_, b.data_, sizeof(unsigned long) * (WORD_OFFSET(size_) + 1));
   }
 };
 

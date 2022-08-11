@@ -1,15 +1,11 @@
 #ifndef MINIGRAPH_GRAPHS_IMMUTABLECSR_H
 #define MINIGRAPH_GRAPHS_IMMUTABLECSR_H
 
-#include <fstream>
-#include <iostream>
-#include <malloc.h>
-#include <map>
-#include <memory>
-#include <unordered_map>
-
-#include <jemalloc/jemalloc.h>
-
+#include "graphs/graph.h"
+#include "portability/sys_data_structure.h"
+#include "portability/sys_types.h"
+#include "utility/bitmap.h"
+#include "utility/logging.h"
 #include <folly/AtomicHashArray.h>
 #include <folly/AtomicHashMap.h>
 #include <folly/AtomicUnorderedMap.h>
@@ -21,13 +17,13 @@
 #include <folly/portability/Asm.h>
 #include <folly/portability/Atomic.h>
 #include <folly/portability/SysTime.h>
-
-#include "graphs/graph.h"
-#include "portability/sys_data_structure.h"
-#include "portability/sys_types.h"
-#include "utility/bitmap.h"
-#include "utility/logging.h"
-
+#include <jemalloc/jemalloc.h>
+#include <fstream>
+#include <iostream>
+#include <malloc.h>
+#include <map>
+#include <memory>
+#include <unordered_map>
 
 namespace minigraph {
 namespace graphs {
@@ -306,38 +302,9 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     vdata_ = (VDATA_T*)malloc(sizeof(VDATA_T) * num_vertexes_);
     memset(vdata_, 0, sizeof(VDATA_T) * num_vertexes_);
 
+    vertexes_state_ = (char*)malloc(sizeof(char) * get_num_vertexes());
+    memset(vertexes_state_, VERTEXDISMATCH, sizeof(char) * get_num_vertexes());
     is_serialized_ = true;
-    return true;
-  }
-
-  bool Deserialized() {
-    if (vertexes_info_ == nullptr) {
-      XLOG(INFO, "segmentation fault: ", "vertex_info_ is nullptr.");
-      return false;
-    }
-    if (vertexes_info_->size() > 0) {
-      XLOG(INFO, "Deserialized fault: ", "vertex_info_ already exist..");
-      return false;
-    }
-    LOG_INFO("Deserialized()");
-    for (size_t i = 0; i < num_vertexes_; i++) {
-      auto vertex_info = new graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>;
-      vertex_info->vid = vid_by_index_[i];
-      if (i != num_vertexes_ - 1) {
-        vertex_info->outdegree = out_offset_[i + 1] - out_offset_[i];
-        vertex_info->indegree = in_offset_[i + 1] - in_offset_[i];
-        vertex_info->in_edges = (in_edges_ + in_offset_[i]);
-        vertex_info->out_edges = (out_edges_ + out_offset_[i]);
-        vertex_info->vdata = (vdata_ + i);
-      } else {
-        vertex_info->outdegree = sum_out_edges_ - out_offset_[i];
-        vertex_info->indegree = sum_in_edges_ - in_offset_[i];
-        vertex_info->in_edges = (in_edges_ + in_offset_[i]);
-        vertex_info->out_edges = (out_edges_ + out_offset_[i]);
-        vertex_info->vdata = (vdata_ + i);
-      }
-      vertexes_info_->insert(std::make_pair(vertex_info->vid, vertex_info));
-    }
     return true;
   }
 
@@ -487,11 +454,6 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       }
     }
     return;
-  }
-
-  VDATA_T&& get_vdata(const VID_T localid) const { return vdata_[localid]; }
-  VDATA_T&& set_vdata(const VID_T localid, const VDATA_T val) const {
-    vdata_[localid] = val;
   }
 
  public:

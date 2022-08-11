@@ -22,8 +22,7 @@ class SSSPAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
   using Frontier = folly::DMPMCQueue<VertexInfo, false>;
 
  public:
-  SSSPAutoMap(const CONTEXT_T& context)
-      : minigraph::AutoMapBase<GRAPH_T, CONTEXT_T>(context) {}
+  SSSPAutoMap() : minigraph::AutoMapBase<GRAPH_T, CONTEXT_T>() {}
 
   bool F(const VertexInfo& u, VertexInfo& v,
          GRAPH_T* graph = nullptr) override {
@@ -187,6 +186,11 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
     return !visited.empty();
   }
+
+  bool Aggregate(void* a, void* b,
+                 minigraph::executors::TaskRunner* task_runner) override {
+    if (a == nullptr || b == nullptr) return false;
+  }
 };
 
 struct Context {
@@ -206,7 +210,7 @@ int main(int argc, char* argv[]) {
   size_t buffer_size = FLAGS_buffer_size;
 
   Context context;
-  auto wcc_auto_map = new SSSPAutoMap<CSR_T, Context>(context);
+  auto wcc_auto_map = new SSSPAutoMap<CSR_T, Context>();
   auto bfs_pie = new SSSPPIE<CSR_T, Context>(wcc_auto_map, context);
   auto app_wrapper =
       new minigraph::AppWrapper<SSSPPIE<CSR_T, Context>, CSR_T>(bfs_pie);

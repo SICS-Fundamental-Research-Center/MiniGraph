@@ -67,100 +67,9 @@ class SimulationAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
 
   static bool kernel_init(GRAPH_T* graph, const size_t tid, Bitmap* visited,
                           const size_t step) {
-    for (size_t i = tid; i < graph->get_num_vertexes(); i += step) {
-      auto u = graph->GetVertexByVid(i);
+    for (size_t i = tid; i < graph->get_num_vertexes(); i += step)
       graph->vdata_[i] = rand() % 10;
-    }
     return true;
-  }
-
-  // Initially, it is assumed that all vertexes of graph is not a match. The
-  // func label VERTEXMATCH flag if the vertex its label matches the label of a
-  // vertex in pattern.
-  //
-  // Then each vertex Init its match_set based on their label.
-  static bool kernel_match_vertex(GRAPH_T* graph, const size_t tid,
-                                  Bitmap* visited, const size_t step,
-                                  CSR_T* pattern, MatchSets* match_sets,
-                                  Bitmap* in_visited) {
-    for (size_t i = tid; i < graph->get_num_vertexes(); i += step) {
-      auto u = graph->GetVertexByIndex(i);
-      for (size_t j = 0; j < pattern->get_num_vertexes(); j++) {
-        auto v = pattern->GetVertexByIndex(j);
-        if (u.vdata[0] != v.vdata[0]) continue;
-
-        if (u.outdegree == 0) {
-          if (v.outdegree == 0) {
-            if (match_sets->indicator_->get_bit(i))
-              ;
-            else {
-              match_sets->indicator_->set_bit(i);
-              match_sets->sim_sets_[i] =
-                  new Bitmap(pattern->get_num_vertexes());
-            }
-            match_sets->sim_sets_[i]->set_bit(v.vid);
-            (*u.state) == VERTEXMATCH ? 0 : (*u.state) = VERTEXMATCH;
-            in_visited->set_bit(i);
-          };
-        } else {
-          if (match_sets->indicator_->get_bit(i))
-            ;
-          else {
-            match_sets->indicator_->set_bit(i);
-            match_sets->sim_sets_[i] = new Bitmap(pattern->get_num_vertexes());
-          }
-
-          match_sets->sim_sets_[i]->set_bit(v.vid);
-          (*u.state) == VERTEXMATCH ? 0 : (*u.state) = VERTEXMATCH;
-          in_visited->set_bit(i);
-        }
-      }
-    }
-  }
-
-  // Filter vertexes by using information from its childrens.
-  static void kernel_ask_childs(GRAPH_T* graph, const size_t tid,
-                                Bitmap* visited, const size_t step,
-                                CSR_T* pattern, MatchSets* match_sets,
-                                Bitmap* in_visited, Bitmap* out_visited,
-                                VID_T* vid_map) {
-    for (size_t i = tid; i < graph->get_num_vertexes(); i += step) {
-      if (in_visited->get_bit(i) == 0) continue;
-      if (match_sets->indicator_->get_bit(i) == 0) continue;
-      auto u = graph->GetVertexByIndex(i);
-
-      for (size_t j = 0; j < pattern->get_num_vertexes(); j++) {
-        if (match_sets->sim_sets_[i]->get_bit(j)) {
-          // remove v from match_sets->sim_sets[i] when there is dis-match(es)
-          // between childs of v and childs of u
-          auto v = pattern->GetVertexByIndex(j);
-
-          size_t match_count = 0;
-          bool keep = false;
-          for (size_t nbr_v_i = 0; nbr_v_i < v.outdegree; nbr_v_i++) {
-            auto nbr_v = pattern->GetVertexByVid(v.out_edges[nbr_v_i]);
-
-            for (size_t nbr_u_i = 0; nbr_u_i < u.outdegree; nbr_u_i++) {
-              if (!graph->IsInGraph(u.out_edges[nbr_u_i])) {
-                keep == true ? 0 : keep = true;
-                break;
-              }
-              auto nbr_u = graph->GetVertexByVid(vid_map[u.out_edges[nbr_u_i]]);
-              if (nbr_u.vdata[0] == nbr_v.vdata[0]) {
-                match_count++;
-                break;
-              }
-            }
-          }
-
-          if (match_count < v.outdegree && keep == false) {
-            match_sets->sim_sets_[i]->rm_bit(v.vid);
-            out_visited->set_bit(i);
-            LOG_INFO(graph->localid2globalid(i), " remove: ", v.vid);
-          }
-        }
-      }
-    }
   }
 };
 
@@ -195,7 +104,6 @@ class SimulationPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
         graph, task_runner, visited,
         SimulationAutoMap<GRAPH_T, CONTEXT_T>::kernel_init);
     auto vid_map = this->msg_mngr_->GetVidMap();
-
     if (graph.IsInGraph(0)) graph.vdata_[graph.index_by_vid_[vid_map[0]]] = 0;
     if (graph.IsInGraph(1)) graph.vdata_[graph.index_by_vid_[vid_map[1]]] = 0;
     if (graph.IsInGraph(4)) graph.vdata_[graph.index_by_vid_[vid_map[4]]] = 1;
@@ -231,53 +139,110 @@ class SimulationPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
   bool PEval(GRAPH_T& graph,
              minigraph::executors::TaskRunner* task_runner) override {
     LOG_INFO("PEval() - Processing gid: ", graph.gid_);
-    auto vid_map = this->msg_mngr_->GetVidMap();
-    auto start_time = std::chrono::system_clock::now();
-    Bitmap visited(graph.get_num_vertexes());
-    Bitmap* in_visited = new Bitmap(graph.get_num_vertexes());
-    Bitmap* out_visited = new Bitmap(graph.get_num_vertexes());
-    visited.clear();
-    in_visited->clear();
-    out_visited->clear();
-
-    auto pattern = this->context_.p;
-    MatchSets match_sets(graph.get_num_vertexes(),
-                         this->context_.p->get_num_vertexes());
-
-    this->auto_map_->ActiveMap(
-        graph, task_runner, &visited,
-        SimulationAutoMap<GRAPH_T, CONTEXT_T>::kernel_match_vertex,
-        this->context_.p, &match_sets, in_visited);
-
-    while (!in_visited->empty()) {
-      this->auto_map_->ActiveMap(
-          graph, task_runner, &visited,
-          SimulationAutoMap<GRAPH_T, CONTEXT_T>::kernel_ask_childs,
-          this->context_.p, &match_sets, in_visited, out_visited,
-          this->msg_mngr_->GetVidMap());
-      swap(in_visited, out_visited);
-      out_visited->clear();
-    }
-
+    auto global_border_vid_map = this->msg_mngr_->GetGlobalBorderVidMap();
+    auto global_border_vdata = this->msg_mngr_->GetGlobalVdata();
     for (size_t i = 0; i < graph.get_num_vertexes(); i++) {
-      if (match_sets.indicator_->get_bit(i) == 0) continue;
-      LOG_INFO(graph.localid2globalid(i), "match: ");
-      for (size_t j = 0; j < this->context_.p->get_num_vertexes(); j++) {
-        if (match_sets.sim_sets_[i]->get_bit(j)) LOG_INFO(j);
-      }
+      auto u = graph.GetVertexByIndex(i);
+      if (global_border_vid_map->get_bit(graph.localid2globalid(u.vid)))
+        global_border_vdata[graph.localid2globalid(u.vid)] = u.vdata[0];
     }
+
     return true;
   }
 
   bool IncEval(GRAPH_T& graph,
                minigraph::executors::TaskRunner* task_runner) override {
     LOG_INFO("IncEval() - Processing gid: ", graph.gid_);
+
+    // graph.ShowGraph();
+    MatchSets match_sets(this->context_.p->get_num_vertexes(),
+                         graph.get_num_vertexes(), true);
+
+    RefinedSimilarity(graph, *this->context_.p, match_sets,
+                      this->msg_mngr_->GetGlobalBorderVidMap(),
+                      this->msg_mngr_->GetVidMap(),
+                      this->msg_mngr_->GetGlobalVdata());
+
+    for (size_t i = 0; i < this->context_.p->get_num_vertexes(); i++) {
+      if (match_sets.indicator_->get_bit(i) == 0) continue;
+      LOG_INFO(i, "match: ");
+      for (size_t j = 0; j < graph.get_num_vertexes(); j++) {
+        if (match_sets.sim_sets_[i]->get_bit(j))
+          LOG_INFO(graph.localid2globalid(j));
+      }
+    }
+
     return false;
   }
 
   bool Aggregate(void* a, void* b,
                  minigraph::executors::TaskRunner* task_runner) override {
     if (a == nullptr || b == nullptr) return false;
+  }
+
+  void RefinedSimilarity(GRAPH_T& graph, CSR_T& pattern, MatchSets& match_sets,
+                         Bitmap* global_border_map, VID_T* vid_map,
+                         VDATA_T* global_vdata) {
+    LOG_INFO("RefindSimilarity");
+    Bitmap** prevsim =
+        (Bitmap**)malloc(sizeof(Bitmap*) * pattern.get_num_vertexes());
+    for (size_t i = 0; i < pattern.get_num_vertexes(); i++)
+      prevsim[i] = nullptr;
+
+    for (size_t i = 0; i < pattern.get_num_vertexes(); i++) {
+      prevsim[i] = new Bitmap(graph.get_num_vertexes());
+      prevsim[i]->fill();
+      auto u = pattern.GetVertexByIndex(i);
+      for (size_t j = 0; j < graph.get_num_vertexes(); j++) {
+        auto v = graph.GetVertexByIndex(j);
+        if (u.vdata[0] != v.vdata[0]) continue;
+        match_sets.indicator_->set_bit(i);
+        if (v.outdegree == 0) {
+          if (u.outdegree == 0) {
+            match_sets.sim_sets_[i]->set_bit(graph.index_by_vid_[v.vid]);
+          };
+        } else {
+          match_sets.sim_sets_[i]->set_bit(graph.index_by_vid_[v.vid]);
+        }
+      }
+    }
+    size_t count = 0;
+    while (count < pattern.get_num_vertexes()) {
+      count = 0;
+      for (size_t i = 0; i < pattern.get_num_vertexes(); i++) {
+        if (prevsim[i]->is_equal_to(*match_sets.sim_sets_[i])) {
+          count++;
+          continue;
+        }
+
+        Bitmap pre_prevsim_u(graph.get_num_vertexes());
+        Bitmap pre_sim_u(graph.get_num_vertexes());
+        pre_prevsim_u.clear();
+        pre_sim_u.clear();
+
+        for (size_t j = 0; j < graph.get_num_vertexes(); j++) {
+          if (prevsim[i]->get_bit(j)) {
+            auto v = graph.GetVertexByIndex(j);
+            for (size_t in_i = 0; in_i < v.indegree; in_i++)
+              if (graph.IsInGraph(v.in_edges[in_i]))
+                pre_prevsim_u.set_bit(vid_map[v.in_edges[in_i]]);
+          }
+          if (match_sets.sim_sets_[i]->get_bit(j)) {
+            auto v = graph.GetVertexByIndex(j);
+            for (size_t in_i = 0; in_i < v.indegree; in_i++)
+              if (graph.IsInGraph(v.in_edges[in_i]))
+                pre_sim_u.set_bit(vid_map[v.in_edges[in_i]]);
+          }
+        }
+        pre_prevsim_u.batch_rm_bit(pre_sim_u);
+        auto u = pattern.GetVertexByIndex(i);
+        for (size_t in_u = 0; in_u < u.indegree; in_u++)
+          match_sets.sim_sets_[pattern.index_by_vid_[u.in_edges[in_u]]]
+              ->batch_rm_bit(pre_prevsim_u);
+
+        prevsim[i]->copy_bit(*match_sets.sim_sets_[i]);
+      }
+    }
   }
 };
 

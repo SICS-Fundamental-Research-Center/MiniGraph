@@ -69,32 +69,42 @@ class DefaultMessageManager : public MessageManagerBase {
         std::cout << *(communication_matrix_ + i * num_graphs_ + j) << ", ";
       std::cout << std::endl;
     }
+
+    active_vertexes_bit_map_ = new Bitmap(max_vid_);
+    active_vertexes_bit_map_->clear();
+    global_vertexes_state_ = (char*)malloc(sizeof(char) * max_vid_);
+    memset(global_vertexes_state_, VERTEXUNLABELED, sizeof(char) * max_vid_);
+
+    // init Message bucket
+    msg_bucket = (void**)malloc(sizeof(void*) * num_graphs_);
+    for (size_t i = 0; i < num_graphs_; i++) msg_bucket = nullptr;
   };
 
-  void BufferPartialResults(
-      std::vector<std::vector<VID_T>*>& partial_matching_solutions) {
-    this->partial_match_->BufferPartialResults(partial_matching_solutions);
-  }
+  // void BufferPartialResults(
+  //     std::vector<std::vector<VID_T>*>& partial_matching_solutions) {
+  //   this->partial_match_->BufferPartialResults(partial_matching_solutions);
+  // }
 
-  void BufferResults(std::vector<std::vector<VID_T>*>& matching_solutions) {
-    this->partial_match_->BufferResults(matching_solutions);
-  }
+  // void BufferResults(std::vector<std::vector<VID_T>*>& matching_solutions) {
+  //   this->partial_match_->BufferResults(matching_solutions);
+  // }
 
-  bool UpdateBorderVertexes(CSR_T& graph, bool* visited) {
-    return this->border_vertexes_->UpdateBorderVertexes(graph, visited);
-  }
+  // bool UpdateBorderVertexes(CSR_T& graph, bool* visited) {
+  //   return this->border_vertexes_->UpdateBorderVertexes(graph, visited);
+  // }
 
-  std::vector<std::vector<VID_T>*>* GetPartialMatchingSolutionsofX(GID_T gid) {
-    return this->partial_match_->GetPartialMatchingSolutionsofX(gid);
-  }
+  // std::vector<std::vector<VID_T>*>* GetPartialMatchingSolutionsofX(GID_T gid)
+  // {
+  //   return this->partial_match_->GetPartialMatchingSolutionsofX(gid);
+  // }
 
   PartialMatch<GID_T, VID_T, VDATA_T, EDATA_T>* GetPartialMatch() {
     return partial_match_;
   }
 
-  BorderVertexes<GID_T, VID_T, VDATA_T, EDATA_T>* GetBorderVertexes() {
-    return border_vertexes_;
-  }
+  // BorderVertexes<GID_T, VID_T, VDATA_T, EDATA_T>* GetBorderVertexes() {
+  //   return border_vertexes_;
+  // }
 
   bool* GetCommunicationMatrix() { return communication_matrix_; }
 
@@ -102,9 +112,18 @@ class DefaultMessageManager : public MessageManagerBase {
 
   VDATA_T* GetGlobalVdata() { return global_border_vdata_; }
 
+  char* GetGlobalState() { return global_vertexes_state_; }
+
   VID_T* GetVidMap() { return vid_map_; }
 
   VID_T globalid2localid(const VID_T globalid) { return vid_map_[globalid]; };
+
+  bool EnqueueMsgQueue(void* msg) {
+    if (offset_bucket > num_graphs_) return false;
+    msg_bucket[offset_bucket++] = msg;
+  }
+
+  bool GetMsgQueue() { return msg_bucket[offset_bucket]; }
 
  private:
   size_t num_graphs_ = 0;
@@ -112,8 +131,12 @@ class DefaultMessageManager : public MessageManagerBase {
   VID_T* vid_map_ = nullptr;
   size_t max_vid_ = 0;
   Bitmap* global_border_vid_map_ = nullptr;
+  Bitmap* active_vertexes_bit_map_ = nullptr;
   VDATA_T* global_border_vdata_ = nullptr;
+  char* global_vertexes_state_ = nullptr;
   bool* communication_matrix_ = nullptr;
+  void** msg_bucket = nullptr;
+  std::atomic<size_t> offset_bucket = 0;
 };
 
 }  // namespace message

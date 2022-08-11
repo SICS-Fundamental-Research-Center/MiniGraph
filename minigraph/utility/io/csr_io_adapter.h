@@ -80,43 +80,6 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     return tag;
   }
 
-  bool ReadGlobalBorderVertexes(
-      folly::AtomicHashMap<VID_T, std::pair<size_t, GID_T*>>*
-          global_border_vertexes,
-      const std::string& border_vertexes_pt) {
-    if (global_border_vertexes == nullptr) {
-      LOG_INFO("segmentation fault: ", "global_border_vertexes is nullptr");
-      return false;
-    }
-    std::ifstream border_vertexes_file(border_vertexes_pt,
-                                       std::ios::binary | std::ios::app);
-    size_t* buf_config = (size_t*)malloc(sizeof(size_t) * 2);
-    border_vertexes_file.read((char*)buf_config, sizeof(size_t) * 2);
-
-    VID_T* buf_border_vertexes = (VID_T*)malloc(sizeof(VID_T) * buf_config[0]);
-    size_t* buf_offset = (size_t*)malloc(sizeof(size_t) * buf_config[0]);
-    GID_T* buf_gid = (GID_T*)malloc(sizeof(GID_T) * buf_config[1]);
-    border_vertexes_file.read((char*)buf_border_vertexes,
-                              sizeof(VID_T) * buf_config[0]);
-    border_vertexes_file.read((char*)buf_offset,
-                              sizeof(size_t) * buf_config[0]);
-    border_vertexes_file.read((char*)buf_gid, sizeof(GID_T) * buf_config[1]);
-    for (size_t i = 0; i < buf_config[0]; ++i) {
-      if (i < buf_config[0] - 1) {
-        size_t num_gid = buf_offset[i + 1] - buf_offset[i];
-        global_border_vertexes->insert(
-            buf_border_vertexes[i],
-            std::make_pair(num_gid, (buf_gid + buf_offset[i])));
-      } else {
-        size_t num_gid = buf_config[1] - buf_offset[i];
-        global_border_vertexes->insert(
-            buf_border_vertexes[i],
-            std::make_pair(num_gid, (buf_gid + buf_offset[i])));
-      }
-    }
-    return true;
-  }
-
  private:
   bool ReadCSRFromEdgeListCSV(
       graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>* graph,
@@ -289,14 +252,14 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       memset(graph->vdata_, 0, sizeof(VDATA_T) * graph->num_vertexes_);
       vdata_file.read((char*)graph->vdata_,
                       sizeof(VDATA_T) * graph->num_vertexes_);
+      graph->vertexes_state_ =
+          (char*)malloc(sizeof(char) * graph->get_num_vertexes());
+      memset(graph->vertexes_state_, VERTEXDISMATCH,
+             sizeof(char) * graph->get_num_vertexes());
+      vdata_file.read((char*)graph->vertexes_state_,
+                      sizeof(char*) * graph->num_vertexes_);
       vdata_file.close();
     }
-
-    graph->vertexes_state_ =
-        (char*)malloc(sizeof(char) * graph->get_num_vertexes());
-
-    memset(graph->vertexes_state_, VERTEXDISMATCH,
-           sizeof(char) * graph->get_num_vertexes());
 
     LOG_INFO("Load bytes: ",
              total_size + sizeof(VDATA_T) * graph->num_vertexes_);
@@ -330,7 +293,6 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       buf_meta[1] = graph.sum_in_edges_;
       buf_meta[2] = graph.sum_out_edges_;
       meta_file.write((char*)buf_meta, sizeof(size_t) * 3);
-      LOG_INFO("WRITE max_vid: ", graph.max_vid_);
       meta_file.write((char*)&graph.max_vid_, sizeof(VID_T));
       free(buf_meta);
       meta_file.close();
@@ -359,6 +321,8 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       std::ofstream vdata_file(vdata_pt, std::ios::binary | std::ios::app);
       vdata_file.write((char*)graph.vdata_,
                        sizeof(VDATA_T) * graph.num_vertexes_);
+      vdata_file.write((char*)graph.vertexes_state_,
+                       sizeof(char) * graph.num_vertexes_);
       vdata_file.close();
     }
     return true;

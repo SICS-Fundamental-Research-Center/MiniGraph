@@ -32,7 +32,6 @@ class AutoMapBase {
 
  public:
   AutoMapBase() = default;
-  AutoMapBase(const CONTEXT_T context) { context_ = context; };
   ~AutoMapBase() = default;
 
   virtual bool F(const VertexInfo& u, VertexInfo& v,
@@ -77,9 +76,6 @@ class AutoMapBase {
     LOG_INFO("# ", active_vertices);
     return;
   };
-
- public:
-  CONTEXT_T context_;
 
  private:
   void ActiveEReduce(GRAPH_T* graph, Bitmap* in_visited, Bitmap* out_visited,

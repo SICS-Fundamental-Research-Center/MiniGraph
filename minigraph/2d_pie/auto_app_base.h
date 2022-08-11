@@ -24,28 +24,9 @@ namespace minigraph {
 
 template <typename GRAPH_T, typename CONTEXT_T>
 class AutoAppBase {
-  using VMap_T = VMapBase<GRAPH_T, CONTEXT_T>;
-  using EMap_T = EMapBase<GRAPH_T, CONTEXT_T>;
   using AutoMap_T = AutoMapBase<GRAPH_T, CONTEXT_T>;
-  using VertexInfo =
-      graphs::VertexInfo<typename GRAPH_T::vid_t, typename GRAPH_T::vdata_t,
-                         typename GRAPH_T::edata_t>;
 
  public:
-  AutoAppBase(VMap_T* vmap, EMap_T* emap, const CONTEXT_T& context) {
-    emap_ = emap;
-    vmap_ = vmap;
-    context_ = context;
-  }
-
-  AutoAppBase(VMap_T* vmap, EMap_T* emap, AutoMap_T* auto_map,
-              const CONTEXT_T& context) {
-    emap_ = emap;
-    vmap_ = vmap;
-    auto_map_ = auto_map;
-    context_ = context;
-  }
-
   AutoAppBase(AutoMap_T* auto_map, const CONTEXT_T& context) {
     auto_map_ = auto_map;
     context_ = context;
@@ -74,13 +55,19 @@ class AutoAppBase {
   // @param graph, task_runner
   virtual bool IncEval(GRAPH_T& graph, executors::TaskRunner* task_runner) = 0;
 
-  // Bind message manager that necessary to auto app.
+  // @brief Aggregate to implement.
+  // @note: This pure virtual function works as an intaerface, instructing users
+  // to implement in the specific app. The Aggregate in the inherited apps would
+  // be invoked directly, not via virtual functions.
+  // The Aggregate is triggered when all fragements reach a fixpoint.
+  // @param buff_1 and buff_2 to be aggregate, task_runner
+  virtual bool Aggregate(void* partial_result_a, void* partial_result_b,
+                         executors::TaskRunner* task_runner) = 0;
+
   void Bind(message::DefaultMessageManager<GRAPH_T>* msg_mngr) {
     msg_mngr_ = msg_mngr;
   }
 
-  EMap_T* emap_ = nullptr;
-  VMap_T* vmap_ = nullptr;
   AutoMap_T* auto_map_ = nullptr;
 
   CONTEXT_T context_;
@@ -102,12 +89,14 @@ class AppWrapper {
   message::DefaultMessageManager<GRAPH_T>* msg_mngr_;
 
   AppWrapper(AutoApp* auto_app) { auto_app_ = auto_app; }
+
   AppWrapper() = default;
 
   void InitMsgMngr(message::DefaultMessageManager<GRAPH_T>* msg_mngr) {
     msg_mngr_ = msg_mngr;
     auto_app_->Bind(msg_mngr_);
   }
+
 };
 
 }  // namespace minigraph
