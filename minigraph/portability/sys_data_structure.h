@@ -70,9 +70,7 @@ enum GraphFormat {
 
 template <typename T>
 size_t Hash(T k) {
-  // k ^= k >> 33;
   k *= BIG_CONSTANT(0xff51afd7ed558ccd);
-  // k ^= k >> 33;
   k *= BIG_CONSTANT(0xc4ceb9fe1a85ec53);
   k = k >> 3;
   return k;
@@ -88,9 +86,9 @@ struct IsSameType<T1, T1> {
   operator bool() { return true; }
 };
 
-template <typename T>
-void swap(T& a, T& b) noexcept {
-  T temp = std::move(a);
-  a = std::move(b);
-  b = std::move(temp);
-}
+// template <typename T>
+// void swap(T& a, T& b) noexcept {
+//   T temp = std::move(a);
+//   a = std::move(b);
+//   b = std::move(temp);
+// }

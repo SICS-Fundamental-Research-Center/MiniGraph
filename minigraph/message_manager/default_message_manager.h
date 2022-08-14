@@ -1,14 +1,16 @@
 #ifndef MINIGRAPH_DEFAULT_MESSAGE_MANAGER_H
 #define MINIGRAPH_DEFAULT_MESSAGE_MANAGER_H
 
+#include <unordered_map>
+#include <vector>
+
 #include "graphs/graph.h"
 #include "message_manager/border_vertexes.h"
 #include "message_manager/message_manager_base.h"
 #include "message_manager/partial_match.h"
 #include "portability/sys_data_structure.h"
 #include "utility/io/data_mngr.h"
-#include <unordered_map>
-#include <vector>
+
 
 namespace minigraph {
 namespace message {
@@ -98,6 +100,10 @@ class DefaultMessageManager : public MessageManagerBase {
   //   return this->partial_match_->GetPartialMatchingSolutionsofX(gid);
   // }
 
+  void ClearnUp(){
+    active_vertexes_bit_map_->clear();
+  }
+
   PartialMatch<GID_T, VID_T, VDATA_T, EDATA_T>* GetPartialMatch() {
     return partial_match_;
   }
@@ -111,6 +117,8 @@ class DefaultMessageManager : public MessageManagerBase {
   Bitmap* GetGlobalBorderVidMap() { return global_border_vid_map_; }
 
   VDATA_T* GetGlobalVdata() { return global_border_vdata_; }
+
+  Bitmap* GetGlobalActiveVidMap() { return active_vertexes_bit_map_; }
 
   char* GetGlobalState() { return global_vertexes_state_; }
 

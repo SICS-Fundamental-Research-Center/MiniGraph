@@ -207,7 +207,7 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 };
 
 struct Context {
-  size_t root_id = 0;
+  size_t root_id = 12;
 };
 
 using CSR_T = minigraph::graphs::ImmutableCSR<gid_t, vid_t, vdata_t, edata_t>;
@@ -232,7 +232,7 @@ int main(int argc, char* argv[]) {
       work_space, num_workers_lc, num_workers_cc, num_workers_dc, num_cores,
       buffer_size, app_wrapper);
   minigraph_sys.RunSys();
-  minigraph_sys.ShowResult(20);
+  minigraph_sys.ShowResult(200);
   gflags::ShutDownCommandLineFlags();
   exit(0);
 }

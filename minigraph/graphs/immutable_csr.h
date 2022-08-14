@@ -1,11 +1,15 @@
 #ifndef MINIGRAPH_GRAPHS_IMMUTABLECSR_H
 #define MINIGRAPH_GRAPHS_IMMUTABLECSR_H
 
-#include "graphs/graph.h"
-#include "portability/sys_data_structure.h"
-#include "portability/sys_types.h"
-#include "utility/bitmap.h"
-#include "utility/logging.h"
+#include <fstream>
+#include <iostream>
+#include <malloc.h>
+#include <map>
+#include <memory>
+#include <unordered_map>
+
+#include <jemalloc/jemalloc.h>
+
 #include <folly/AtomicHashArray.h>
 #include <folly/AtomicHashMap.h>
 #include <folly/AtomicUnorderedMap.h>
@@ -17,13 +21,13 @@
 #include <folly/portability/Asm.h>
 #include <folly/portability/Atomic.h>
 #include <folly/portability/SysTime.h>
-#include <jemalloc/jemalloc.h>
-#include <fstream>
-#include <iostream>
-#include <malloc.h>
-#include <map>
-#include <memory>
-#include <unordered_map>
+
+#include "graphs/graph.h"
+#include "portability/sys_data_structure.h"
+#include "portability/sys_types.h"
+#include "utility/bitmap.h"
+#include "utility/logging.h"
+
 
 namespace minigraph {
 namespace graphs {
@@ -169,6 +173,7 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       VID_T global_id = globalid_by_index_[i];
       vertex_info.ShowVertexInfo(global_id);
     }
+    std::cout << std::endl;
   }
 
   void ShowGraphAbs(const size_t count = 2) {
@@ -216,7 +221,7 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
 
   bool Serialize() {
     if (vertexes_info_ == nullptr) return false;
-
+    LOG_INFO("Serialize()");
     size_t size_localid = sizeof(VID_T) * num_vertexes_;
     size_t size_globalid = sizeof(VID_T) * num_vertexes_;
     size_t size_index_by_vid = sizeof(size_t) * num_vertexes_;
@@ -239,6 +244,8 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     size_t start_in_edges = start_out_offset + size_out_offset;
     size_t start_out_edges = start_in_edges + size_in_edges;
 
+    vdata_ = (VDATA_T*)malloc(sizeof(VDATA_T) * num_vertexes_);
+    memset(vdata_, 0, sizeof(VDATA_T) * num_vertexes_);
     buf_graph_ = malloc(total_size);
     memset(buf_graph_, 0, total_size);
     size_t i = 0;
@@ -299,11 +306,8 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     in_edges_ = (VID_T*)((char*)buf_graph_ + start_in_edges);
     out_edges_ = (VID_T*)((char*)buf_graph_ + start_out_edges);
 
-    vdata_ = (VDATA_T*)malloc(sizeof(VDATA_T) * num_vertexes_);
-    memset(vdata_, 0, sizeof(VDATA_T) * num_vertexes_);
-
-    vertexes_state_ = (char*)malloc(sizeof(char) * get_num_vertexes());
-    memset(vertexes_state_, VERTEXDISMATCH, sizeof(char) * get_num_vertexes());
+    vertexes_state_ = (char*)malloc(sizeof(char) * num_vertexes_);
+    memset(vertexes_state_, VERTEXDISMATCH, sizeof(char) * num_vertexes_);
     is_serialized_ = true;
     return true;
   }

@@ -2,6 +2,7 @@
 #define MINIGRAPH_UTILITY_EDGE_CUT_PARTITIONER_H
 
 #include <cstring>
+#include <unordered_map>
 #include <vector>
 
 #include <folly/AtomicHashMap.h>
@@ -11,6 +12,7 @@
 #include "utility/io/csr_io_adapter.h"
 #include "utility/io/data_mngr.h"
 #include "utility/io/io_adapter_base.h"
+
 
 namespace minigraph {
 namespace utility {
@@ -97,12 +99,10 @@ class EdgeCutPartitioner {
     memset(communication_matrix_, 0,
            sizeof(bool) * number_partitions * number_partitions);
 
-    if (!SplitImmutableCSR(number_partitions, graph)) {
+    if (!SplitImmutableCSRByHash(number_partitions, graph)) {
       LOG_INFO("SplitFailure()");
       return false;
     };
-
-    auto count = 0;
     global_border_vid_map_ = new Bitmap(max_vid_);
     global_border_vid_map_->clear();
     for (auto& iter_fragments : *fragments_) {
@@ -116,7 +116,6 @@ class EdgeCutPartitioner {
         fragment->InitVdataByVid();
       }
       fragment->SetGlobalBorderVidMap(global_border_vid_map_);
-      count++;
     }
     SetCommunicationMatrix();
     return true;
@@ -396,6 +395,52 @@ class EdgeCutPartitioner {
     } else {
       return false;
     }
+  }
+
+  bool SplitImmutableCSRByHash(const size_t& num_partitions, CSR_T& graph) {
+    fragments_ = new std::vector<GRAPH_BASE_T*>();
+    const size_t num_vertex_per_fragments =
+        graph.get_num_vertexes() / num_partitions;
+    LOG_INFO("Start graph partition: grouping ", graph.get_num_vertexes(),
+             " vertexes into ", num_partitions, " fragments.");
+    globalid2gid_->reserve(graph.get_num_vertexes());
+
+    std::unordered_map<GID_T, CSR_T*> fragments_map;
+    //    std::unordered_map<GID_T, VID_T>
+    VID_T* localid_by_gid = (VID_T*)malloc(sizeof(VID_T) * num_partitions);
+    memset(localid_by_gid, 0, sizeof(VID_T) * num_partitions);
+
+    for (size_t i = 0; i < num_partitions; i++)
+      fragments_map.insert(std::make_pair((GID_T)i, new CSR_T()));
+
+    for (auto& iter : *graph.vertexes_info_) {
+      GID_T bucket_id = iter.second->vid % num_partitions;
+      globalid2gid_->insert(std::make_pair(iter.second->vid, bucket_id));
+      CSR_T* fragment = fragments_map.find(bucket_id)->second;
+      fragment->map_localid2globalid_->emplace(
+          std::make_pair(localid_by_gid[bucket_id], iter.second->vid));
+      fragment->map_globalid2localid_->emplace(
+          std::make_pair(iter.second->vid, localid_by_gid[bucket_id]));
+      vid_map_[iter.second->vid] = localid_by_gid[bucket_id];
+      fragment->sum_in_edges_ += iter.second->indegree;
+      fragment->sum_out_edges_ += iter.second->outdegree;
+      globalid2gid_->insert(std::make_pair(iter.second->vid, bucket_id));
+      fragment->vertexes_info_->emplace(
+          std::make_pair(localid_by_gid[bucket_id], iter.second));
+      iter.second->vid = localid_by_gid[bucket_id];
+      fragment->gid_ = bucket_id;
+      ++localid_by_gid[bucket_id];
+    }
+
+    for (GID_T gid = 0; gid < num_partitions; gid++) {
+      CSR_T* fragment = fragments_map.find(gid)->second;
+      fragment->max_vid_ = max_vid_;
+      fragment->num_vertexes_ = fragment->vertexes_info_->size();
+      LOG_INFO("gid: ", gid, ", num_vertexes: ", fragment->num_vertexes_);
+      fragments_->push_back(fragment);
+    }
+    free(localid_by_gid);
+    return true;
   }
 };
 

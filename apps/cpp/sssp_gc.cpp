@@ -140,7 +140,6 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
       for (i = 0; i < capacity_; i++) {
         if (harr_[i] == v) break;
       }
-      LOG_INFO(i, "/", capacity_);
       if (i = capacity_) {
         // insertKey(v);
         return;
@@ -166,8 +165,11 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
   bool PEval(GRAPH_T& graph,
              minigraph::executors::TaskRunner* task_runner) override {
+    if (!graph.IsInGraph(this->context_.root_id)) {
+      LOG_INFO("PEval() - Skip gid: ", graph.gid_);
+      return false;
+    };
     LOG_INFO("PEval() - Processing gid: ", graph.gid_);
-    if (!graph.IsInGraph(this->context_.root_id)) return false;
     VID_T* vid_map = this->msg_mngr_->GetVidMap();
     Bitmap* global_border_vid_map = this->msg_mngr_->GetGlobalBorderVidMap();
     VDATA_T* global_vdata = this->msg_mngr_->GetGlobalVdata();
@@ -179,6 +181,8 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
     do {
       auto v = h.extractMin();
+      if (global_border_vid_map->get_bit(graph.localid2globalid(v->vid)))
+        write_min(global_vdata + graph.localid2globalid(v->vid), v->vdata[0]);
       if (v == nullptr) break;
       *v->state = VERTEXSCANNED;
       for (size_t i = 0; i < v->outdegree; i++) {
@@ -190,8 +194,9 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
             *nbr->state = VERTEXLABELED;
             nbr->vdata[0] = v->vdata[0] + 1;
             h.insertKey(nbr);
-            if (global_border_vid_map->get_bit(v->out_edges[i]))
+            if (global_border_vid_map->get_bit(v->out_edges[i])) {
               write_min(global_vdata + v->out_edges[i], nbr->vdata[0]);
+            }
           } else if (v->vdata[0] + 1 < nbr->vdata[0]) {
             nbr->vdata[0] = v->vdata[0] + 1;
             h.decreaseKey(v->vdata[0] + 1, nbr);
@@ -210,11 +215,9 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
   bool IncEval(GRAPH_T& graph,
                minigraph::executors::TaskRunner* task_runner) override {
     LOG_INFO("IncEval() - Processing gid: ", graph.gid_);
-
     VID_T* vid_map = this->msg_mngr_->GetVidMap();
     Bitmap* global_border_vid_map = this->msg_mngr_->GetGlobalBorderVidMap();
     VDATA_T* global_border_vdata = this->msg_mngr_->GetGlobalVdata();
-
     MinHeap h(graph.get_num_vertexes());
     Bitmap visited(graph.get_num_vertexes());
     visited.clear();
@@ -254,7 +257,6 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
                   write_min(global_border_vdata + v->out_edges[i],
                             nbr->vdata[0]);
               } else if (v->vdata[0] + 1 < nbr->vdata[0]) {
-                LOG_INFO(*nbr->state);
                 nbr->vdata[0] = v->vdata[0] + 1;
                 h.decreaseKey(v->vdata[0] + 1, nbr);
                 if (global_border_vid_map->get_bit(v->out_edges[i]))
@@ -277,7 +279,7 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 };
 
 struct Context {
-  size_t root_id = 0;
+  size_t root_id = 12;
 };
 
 using CSR_T = minigraph::graphs::ImmutableCSR<gid_t, vid_t, vdata_t, edata_t>;
@@ -302,7 +304,7 @@ int main(int argc, char* argv[]) {
       work_space, num_workers_lc, num_workers_cc, num_workers_dc, num_cores,
       buffer_size, app_wrapper);
   minigraph_sys.RunSys();
-  // minigraph_sys.ShowResult(200);
+  //minigraph_sys.ShowResult(100);
   gflags::ShutDownCommandLineFlags();
   exit(0);
 }
