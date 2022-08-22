@@ -77,15 +77,17 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
         gid = que_gid.front();
         que_gid.pop();
         CheckRTRule(gid);
-        LOG_INFO("---", gid, "--- STEP: ", this->get_global_superstep());
+        LOG_INFO("--- gid: ", gid, "--- STEP: ", this->get_global_superstep());
         this->state_machine_->ShowAllState();
         if (this->TrySync()) {
           if (this->state_machine_->IsTerminated() ||
               this->get_global_superstep() > 1000) {
             auto out_rts = this->state_machine_->EvokeAllX(RTS);
-            if (out_rts.size() != 0) {
-              for (auto& iter : out_rts) ReleaseGraphX(iter);
+            for (auto& iter : out_rts) {
+              CSRPt& csr_pt = pt_by_gid_->find(iter)->second;
+              data_mngr_->WriteGraph(gid, csr_pt, csr_bin, true);
             }
+
             system_switch_cv_->wait(*system_switch_lck_,
                                     [&] { return system_switch_->load(); });
             system_switch_->store(false);
@@ -135,11 +137,6 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
         data_mngr_->WriteGraph(gid, csr_pt, csr_bin, true);
         data_mngr_->EraseGraph(gid);
       }
-      // else if (this->state_machine_->GraphIs(gid, IDLE)) {
-      //   CSRPt& csr_pt = pt_by_gid_->find(gid)->second;
-      //   data_mngr_->WriteGraph(gid, csr_pt, csr_bin, true);
-      //   data_mngr_->EraseGraph(gid);
-      // }
     } else if (IsSameType<GRAPH_T, EDGE_LIST_T>()) {
       if (this->state_machine_->GraphIs(gid, RTS)) {
         CSRPt& csr_pt = pt_by_gid_->find(gid)->second;
@@ -177,7 +174,6 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
         read_trigger_->push(gid);
       }
       LOG_INFO("Evoke all.");
-      this->state_machine_->ShowAllState();
       read_trigger_cv_->notify_all();
     }
   }

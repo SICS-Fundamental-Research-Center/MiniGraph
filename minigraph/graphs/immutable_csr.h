@@ -1,15 +1,11 @@
 #ifndef MINIGRAPH_GRAPHS_IMMUTABLECSR_H
 #define MINIGRAPH_GRAPHS_IMMUTABLECSR_H
 
-#include <fstream>
-#include <iostream>
-#include <malloc.h>
-#include <map>
-#include <memory>
-#include <unordered_map>
-
-#include <jemalloc/jemalloc.h>
-
+#include "graphs/graph.h"
+#include "portability/sys_data_structure.h"
+#include "portability/sys_types.h"
+#include "utility/bitmap.h"
+#include "utility/logging.h"
 #include <folly/AtomicHashArray.h>
 #include <folly/AtomicHashMap.h>
 #include <folly/AtomicUnorderedMap.h>
@@ -21,13 +17,13 @@
 #include <folly/portability/Asm.h>
 #include <folly/portability/Atomic.h>
 #include <folly/portability/SysTime.h>
-
-#include "graphs/graph.h"
-#include "portability/sys_data_structure.h"
-#include "portability/sys_types.h"
-#include "utility/bitmap.h"
-#include "utility/logging.h"
-
+#include <jemalloc/jemalloc.h>
+#include <fstream>
+#include <iostream>
+#include <malloc.h>
+#include <map>
+#include <memory>
+#include <unordered_map>
 
 namespace minigraph {
 namespace graphs {
@@ -446,12 +442,13 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
   }
 
   void SetGlobalBorderVidMap(Bitmap* global_border_vid_map) {
+    assert(global_border_vid_map != nullptr);
     for (size_t index = 0; index < num_vertexes_; index++) {
       graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>&& vertex_info =
           GetVertexByIndex(vid_by_index_[index]);
       for (size_t i = 0; i < vertex_info.outdegree; i++) {
-        if (map_localid2globalid_->find(vertex_info.out_edges[i]) ==
-            map_localid2globalid_->end()) {
+        if (map_globalid2localid_->find(vertex_info.out_edges[i]) ==
+            map_globalid2localid_->end()) {
           global_border_vid_map->set_bit(localid2globalid(vertex_info.vid));
           break;
         }

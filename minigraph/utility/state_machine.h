@@ -3,10 +3,11 @@
 #define MINIGRAPH_UTILITY_STATE_MACHINE_H_
 
 #include <assert.h>
+#include <stdio.h>
+
 #include <iostream>
 #include <map>
 #include <memory>
-#include <stdio.h>
 #include <unordered_map>
 #include <vector>
 
@@ -279,10 +280,12 @@ class StateMachine {
   }
 
   void ShowAllState() {
+    std::cout << "All state: ";
     for (auto& iter : graph_state_) {
       iter.second->visit_current_states(
-          [](auto state) { std::cout << state.c_str() << std::endl; });
+          [](auto state) { std::cout << state.c_str() << "  "; });
     }
+    std::cout << std::endl;
   }
 
  private:
