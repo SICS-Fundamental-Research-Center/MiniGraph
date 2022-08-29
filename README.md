@@ -27,13 +27,13 @@ $make
 To generate graph where vertexes are all 0.
 ```shell
 $cd bin
-$./preprocess_exec  -p -n [the number of fragments] -i [input in csv format] -o [output path] -init_model val -init_val 0
+$./preprocess_exec  -p -n [the number of fragments] -i [input in csv format] -o [output path] -init_model val -init_val 0 -vertexes [the maximum of vid]
 ```
 To obtain graph where vertexes are initialized to its vid (or maximum val).
 ```shell
 $cd bin
-$./preprocess_exec  -p -n [the number of fragments] -i [input in csv format] -o [output path] -init_model vid
-%./preprocess_exec  -p -n [the number of fragments] -i [input in csv format] -o [output path] -init_model max
+$./preprocess_exec  -p -n [the number of fragments] -i [input in csv format] -o [output path] -init_model vid -vertexes [the maximum of vid]
+%./preprocess_exec  -p -n [the number of fragments] -i [input in csv format] -o [output path] -init_model max -vertexes [the maximum of vid]
 ```
 
 ## Executing BFS
