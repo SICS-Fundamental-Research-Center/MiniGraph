@@ -72,6 +72,7 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   ~ComputingComponent() = default;
 
   void Run() override {
+    LOG_INFO("Run CC");
     folly::NativeSemaphore sem(num_workers_);
     std::queue<GID_T> que_gid;
     while (this->switch_.load()) {

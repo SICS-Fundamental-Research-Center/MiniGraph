@@ -41,7 +41,8 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       std::condition_variable* read_trigger_cv,
       std::atomic<bool>* system_switch,
       std::unique_lock<std::mutex>* system_switch_lck,
-      std::condition_variable* system_switch_cv, bool* communication_matrix)
+      std::condition_variable* system_switch_cv, bool* communication_matrix,
+      const size_t num_iter)
       : ComponentBase<GID_T>(thread_pool, superstep_by_gid, global_superstep,
                              state_machine) {
     sem_lc_dc_ = sem_lc_dc;
@@ -57,12 +58,14 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
     system_switch_lck_ = system_switch_lck;
     system_switch_cv_ = system_switch_cv;
     communication_matrix_ = communication_matrix;
+    num_iter_ = num_iter;
     XLOG(INFO, "Init DischargeComponent: Finish.");
   }
 
   ~DischargeComponent() = default;
 
   void Run() override {
+    LOG_INFO("Run DC");
     std::queue<GID_T> que_gid;
     while (this->switch_.load()) {
       GID_T gid = MINIGRAPH_GID_MAX;
@@ -81,7 +84,7 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
         this->state_machine_->ShowAllState();
         if (this->TrySync()) {
           if (this->state_machine_->IsTerminated() ||
-              this->get_global_superstep() > 1000) {
+              this->get_global_superstep() > num_iter_) {
             auto out_rts = this->state_machine_->EvokeAllX(RTS);
             for (auto& iter : out_rts) {
               CSRPt& csr_pt = pt_by_gid_->find(iter)->second;
@@ -123,6 +126,7 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   std::condition_variable* system_switch_cv_;
   std::atomic<bool>* system_switch_;
   bool* communication_matrix_;
+  size_t num_iter_ = 0;
 
   void ReleaseGraphX(const GID_T gid, bool terminate = false) {
     if (IsSameType<GRAPH_T, CSR_T>()) {

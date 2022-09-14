@@ -1,11 +1,13 @@
 #ifndef MINIGRAPH_GRAPHS_IMMUTABLECSR_H
 #define MINIGRAPH_GRAPHS_IMMUTABLECSR_H
 
-#include "graphs/graph.h"
-#include "portability/sys_data_structure.h"
-#include "portability/sys_types.h"
-#include "utility/bitmap.h"
-#include "utility/logging.h"
+#include <fstream>
+#include <iostream>
+#include <malloc.h>
+#include <map>
+#include <memory>
+#include <unordered_map>
+
 #include <folly/AtomicHashArray.h>
 #include <folly/AtomicHashMap.h>
 #include <folly/AtomicUnorderedMap.h>
@@ -18,12 +20,13 @@
 #include <folly/portability/Atomic.h>
 #include <folly/portability/SysTime.h>
 #include <jemalloc/jemalloc.h>
-#include <fstream>
-#include <iostream>
-#include <malloc.h>
-#include <map>
-#include <memory>
-#include <unordered_map>
+
+#include "graphs/graph.h"
+#include "portability/sys_data_structure.h"
+#include "portability/sys_types.h"
+#include "utility/bitmap.h"
+#include "utility/logging.h"
+
 
 namespace minigraph {
 namespace graphs {
@@ -41,6 +44,111 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
   };
 
   ImmutableCSR(const GID_T gid) : Graph<GID_T, VID_T, VDATA_T, EDATA_T>(gid){};
+
+  ImmutableCSR(
+      const GID_T gid,
+      graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>** set_vertexes = nullptr,
+      const size_t num_vertexes = 0, const size_t sum_in_edges = 0,
+      const size_t sum_out_edges = 0)
+      : Graph<GID_T, VID_T, VDATA_T, EDATA_T>(gid) {
+    if (set_vertexes == nullptr) return;
+    num_vertexes_ = num_vertexes;
+    sum_in_edges_ = sum_in_edges;
+    sum_out_edges_ = sum_out_edges;
+
+    size_t size_localid = sizeof(VID_T) * num_vertexes;
+    size_t size_globalid = sizeof(VID_T) * num_vertexes;
+    size_t size_index_by_vid = sizeof(size_t) * num_vertexes;
+    size_t size_indegree = sizeof(size_t) * num_vertexes;
+    size_t size_outdegree = sizeof(size_t) * num_vertexes;
+    size_t size_in_offset = sizeof(size_t) * num_vertexes;
+    size_t size_out_offset = sizeof(size_t) * num_vertexes;
+    size_t size_in_edges = sizeof(VID_T) * sum_in_edges;
+    size_t size_out_edges = sizeof(VID_T) * sum_out_edges;
+    size_t total_size = size_localid + size_globalid + size_index_by_vid +
+                        size_indegree + size_outdegree + size_in_offset +
+                        size_out_offset + size_in_edges + size_out_edges;
+    size_t start_localid = 0;
+    size_t start_globalid = start_localid + size_localid;
+    size_t start_index_by_vid = start_globalid + size_globalid;
+    size_t start_indegree = start_index_by_vid + size_index_by_vid;
+    size_t start_outdegree = start_indegree + size_indegree;
+    size_t start_in_offset = start_outdegree + size_outdegree;
+    size_t start_out_offset = start_in_offset + size_in_offset;
+    size_t start_in_edges = start_out_offset + size_out_offset;
+    size_t start_out_edges = start_in_edges + size_in_edges;
+
+    vdata_ = (VDATA_T*)malloc(sizeof(VDATA_T) * num_vertexes);
+    memset(vdata_, 0, sizeof(VDATA_T) * num_vertexes);
+    buf_graph_ = malloc(total_size);
+    memset(buf_graph_, 0, total_size);
+
+    map_globalid2localid_ = new std::unordered_map<VID_T, VID_T>;
+    map_localid2globalid_ = new std::unordered_map<VID_T, VID_T>();
+    map_globalid2localid_->reserve(num_vertexes);
+    map_localid2globalid_->reserve(num_vertexes);
+    auto max_vid = 0;
+    for (size_t i = 0; i < num_vertexes; i++) {
+      max_vid < set_vertexes[i]->vid ? max_vid = set_vertexes[i]->vid : 0;
+      ((VID_T*)((char*)buf_graph_ + start_localid))[i] = i;
+      ((VID_T*)((char*)buf_graph_ + start_globalid))[i] = set_vertexes[i]->vid;
+      // ((size_t*)((char*)buf_graph_ +
+      //            start_index_by_vid))[i] = 0;
+      ((size_t*)((char*)buf_graph_ + start_indegree))[i] =
+          set_vertexes[i]->indegree;
+      ((size_t*)((char*)buf_graph_ + start_outdegree))[i] =
+          set_vertexes[i]->outdegree;
+      if (i == 0) {
+        ((size_t*)((char*)buf_graph_ + start_in_offset))[i] = 0;
+        if (set_vertexes[i]->indegree > 0) {
+          memcpy((VID_T*)((char*)buf_graph_ + start_in_edges),
+                 set_vertexes[i]->in_edges,
+                 sizeof(VID_T) * set_vertexes[i]->indegree);
+        }
+        ((size_t*)((char*)buf_graph_ + start_out_offset))[i] = 0;
+        if (set_vertexes[i]->outdegree > 0) {
+          memcpy((VID_T*)((char*)buf_graph_ + start_out_edges),
+                 set_vertexes[i]->out_edges,
+                 sizeof(VID_T) * set_vertexes[i]->outdegree);
+        }
+      } else {
+        ((size_t*)((char*)buf_graph_ + start_in_offset))[i] =
+            ((size_t*)((char*)buf_graph_ + start_indegree))[i - 1] +
+            ((size_t*)((char*)buf_graph_ + start_in_offset))[i - 1];
+        if (set_vertexes[i]->indegree > 0) {
+          size_t start = ((size_t*)((char*)buf_graph_ + start_in_offset))[i];
+          memcpy(((char*)buf_graph_ + start_in_edges + start * sizeof(VID_T)),
+                 set_vertexes[i]->in_edges,
+                 sizeof(VID_T) * set_vertexes[i]->indegree);
+        }
+        ((size_t*)((char*)buf_graph_ + start_out_offset))[i] =
+            ((size_t*)((char*)buf_graph_ + start_outdegree))[i - 1] +
+            ((size_t*)((char*)buf_graph_ + start_out_offset))[i - 1];
+
+        if (set_vertexes[i]->outdegree > 0) {
+          size_t start = ((size_t*)((char*)buf_graph_ + start_out_offset))[i];
+          memcpy(((char*)buf_graph_ + start_out_edges + start * sizeof(VID_T)),
+                 set_vertexes[i]->out_edges,
+                 sizeof(VID_T) * set_vertexes[i]->outdegree);
+        }
+      }
+    }
+
+    max_vid_ = max_vid;
+    vid_by_index_ = ((VID_T*)((char*)buf_graph_ + start_localid));
+    index_by_vid_ = ((size_t*)((char*)buf_graph_ + start_index_by_vid));
+    globalid_by_index_ = (VID_T*)((char*)buf_graph_ + start_globalid);
+    out_offset_ = (size_t*)((char*)buf_graph_ + start_out_offset);
+    in_offset_ = (size_t*)((char*)buf_graph_ + start_in_offset);
+    indegree_ = (size_t*)((char*)buf_graph_ + start_indegree);
+    outdegree_ = (size_t*)((char*)buf_graph_ + start_outdegree);
+    in_edges_ = (VID_T*)((char*)buf_graph_ + start_in_edges);
+    out_edges_ = (VID_T*)((char*)buf_graph_ + start_out_edges);
+
+    vertexes_state_ = (char*)malloc(sizeof(char) * num_vertexes_);
+    memset(vertexes_state_, VERTEXDISMATCH, sizeof(char) * num_vertexes_);
+    is_serialized_ = true;
+  };
 
   ~ImmutableCSR() {
     if (vertexes_info_ != nullptr) {
@@ -410,7 +518,7 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
 
   VID_T localid2globalid(const VID_T vid) const {
     if (globalid_by_index_ != nullptr && index_by_vid_ != nullptr) {
-      return globalid_by_index_[index_by_vid_[vid]];
+      return globalid_by_index_[vid];
     } else {
       auto local_id_iter = map_localid2globalid_->find(vid);
       if (local_id_iter != map_localid2globalid_->end()) {

@@ -1,6 +1,16 @@
 #ifndef MINIGRAPH_2D_PIE_AUTO_MAP_REDUCE_H
 #define MINIGRAPH_2D_PIE_AUTO_MAP_REDUCE_H
 
+#include <condition_variable>
+#include <functional>
+#include <future>
+#include <vector>
+
+#include <folly/MPMCQueue.h>
+#include <folly/ProducerConsumerQueue.h>
+#include <folly/concurrency/DynamicBoundedQueue.h>
+#include <folly/executors/ThreadPoolExecutor.h>
+
 #include "executors/task_runner.h"
 #include "graphs/graph.h"
 #include "graphs/immutable_csr.h"
@@ -9,14 +19,7 @@
 #include "utility/atomic.h"
 #include "utility/bitmap.h"
 #include "utility/thread_pool.h"
-#include <folly/MPMCQueue.h>
-#include <folly/ProducerConsumerQueue.h>
-#include <folly/concurrency/DynamicBoundedQueue.h>
-#include <folly/executors/ThreadPoolExecutor.h>
-#include <condition_variable>
-#include <functional>
-#include <future>
-#include <vector>
+
 
 namespace minigraph {
 
@@ -37,7 +40,8 @@ class AutoMapBase {
   virtual bool F(const VertexInfo& u, VertexInfo& v,
                  GRAPH_T* graph = nullptr) = 0;
 
-  virtual bool F(VertexInfo& vertex_info, GRAPH_T* graph = nullptr) = 0;
+  virtual bool F(VertexInfo& u, GRAPH_T* graph = nullptr,
+                 VID_T* vid_map = nullptr) = 0;
 
   bool ActiveEMap(Bitmap* in_visited, Bitmap* out_visited, GRAPH_T& graph,
                   executors::TaskRunner* task_runner, VID_T* vid_map = nullptr,
@@ -133,10 +137,10 @@ class AutoMapBase {
                      Bitmap* visited = nullptr) {
     size_t local_active_vertices = 0;
     for (size_t index = tid; index < graph->get_num_vertexes(); index += step) {
-      if (in_visited->get_bit(index) == 0) continue;
+      if (!in_visited->get_bit(index)) continue;
       if (!graph->IsInGraph(index)) continue;
       VertexInfo&& u = graph->GetVertexByIndex(index);
-      if (F(u, graph)) {
+      if (F(u, graph, vid_map)) {
         for (size_t j = 0; j < u.outdegree; j++) {
           if (graph->IsInGraph(u.out_edges[j]))
             out_visited->set_bit(vid_map[u.out_edges[j]]);

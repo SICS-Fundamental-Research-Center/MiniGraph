@@ -67,6 +67,7 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   }
 
   void Run() override {
+    LOG_INFO("Run LC");
     folly::NativeSemaphore sem(num_workers_);
     while (switch_) {
       GID_T gid = MINIGRAPH_GID_MAX;
