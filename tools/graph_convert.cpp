@@ -14,24 +14,16 @@ using CSR_T = minigraph::graphs::ImmutableCSR<gid_t, vid_t, vdata_t, edata_t>;
 using GRAPH_BASE_T = minigraph::graphs::Graph<gid_t, vid_t, vdata_t, edata_t>;
 using EDGE_LIST_T = minigraph::graphs::EdgeList<gid_t, vid_t, vdata_t, edata_t>;
 
-int main(int argc, char* argv[]) {
-  gflags::ParseCommandLineFlags(&argc, &argv, true);
+void EdgeList2CSR(
+    std::string src_pt, 
+    std::string dst_pt, 
+    std::size_t cores,
+    std::size_t num_partitions,
+    std::string init_model,
+    unsigned init_val
+ ){
 
-  if (FLAGS_p) {
-    assert(FLAGS_i != "" && FLAGS_o != "");
-    std::cout << " #Partitioning: "
-              << " input: " << FLAGS_i << " output: " << FLAGS_o
-              << " init_model: " << FLAGS_init_model
-              << " cores: " << FLAGS_cores << std::endl;
-    std::string src_pt = FLAGS_i;
-    std::string dst_pt = FLAGS_o;
-    std::string init_model = FLAGS_init_model;
-    std::size_t cores = FLAGS_cores;
-    std::size_t num_partitions = FLAGS_n;
-    std::size_t max_vid = FLAGS_vertexes;
-    max_vid = (ceil(max_vid / 64) + 1) * 64;
-    unsigned init_val = FLAGS_init_val;
-
+    vid_t max_vid = (ceil(max_vid / 64) + 1) * 64;
     minigraph::utility::io::DataMngr<CSR_T> data_mngr;
     minigraph::utility::partitioner::EdgeCutPartitioner<CSR_T>
         edge_cut_partitioner(max_vid);
@@ -106,6 +98,56 @@ int main(int argc, char* argv[]) {
         global_border_vid_map,
         dst_pt + "minigraph_message/global_border_vid_map.bin");
     LOG_INFO("End graph partition#");
-  }
+}
+
+void EdgeList2EdgeList(
+
+      std::string src_pt,
+      std::string dst_pt
+
+){
+      std::cout << " #Converting " << FLAGS_t << ": input: " << src_pt
+                << " output: " << dst_pt << std::endl;
+      minigraph::utility::io::EdgeListIOAdapter<gid_t, vid_t, vdata_t, edata_t>
+          edge_list_io_adapter;
+      auto graph = new EDGE_LIST_T;
+            std::string meta_pt =
+          dst_pt + "minigraph_meta/" + ".bin";
+      std::string data_pt =
+          dst_pt + "minigraph_data/" +  ".bin";
+      std::string vdata_pt =
+          dst_pt + "minigraph_vdata/"  + ".bin";
+      edge_list_io_adapter.Read((GRAPH_BASE_T*)graph, edge_list_csv, 0, src_pt);
+      edge_list_io_adapter.Write(*graph, edge_list_bin, false, meta_pt, data_pt,vdata_pt);
+}
+
+int main(int argc, char* argv[]) {
+  gflags::ParseCommandLineFlags(&argc, &argv, true);
+
+  if (FLAGS_p) {
+    assert(FLAGS_i != "" && FLAGS_o != "");
+    std::cout << " #Partitioning: "
+              << " input: " << FLAGS_i << " output: " << FLAGS_o
+              << " init_model: " << FLAGS_init_model
+              << " cores: " << FLAGS_cores << std::endl;
+    std::string src_pt = FLAGS_i;
+    std::string dst_pt = FLAGS_o;
+    std::string init_model = FLAGS_init_model;
+    std::size_t cores = FLAGS_cores;
+    std::size_t num_partitions = FLAGS_n;
+    std::size_t max_vid = FLAGS_vertexes;
+    std::string graph_type = FLAGS_t;
+    if(graph_type == "csr_bin"){
+
+   EdgeList2CSR(src_pt, dst_pt,
+    cores, num_partitions,
+
+    init_model,
+     FLAGS_init_val);
+
+    }else if(graph_type == "edgelist_bin"){
+      EdgeList2EdgeList(src_pt,dst_pt);
+    }
+    }
   gflags::ShutDownCommandLineFlags();
 }
