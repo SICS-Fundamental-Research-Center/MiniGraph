@@ -24,28 +24,14 @@ $make
 
 
 ## Partition input.
-To generate graph where vertexes are all 0.
+To convert graph.
 ```shell
-$cd bin
-$./preprocess_exec  -p -n [the number of fragments] -i [input in csv format] -o [output path] -init_model val -init_val 0 -vertexes [the maximum of vid]
-```
-To obtain graph where vertexes are initialized to its vid (or maximum val).
-```shell
-$cd bin
-$./preprocess_exec  -p -n [the number of fragments] -i [input in csv format] -o [output path] -init_model vid -vertexes [the maximum of vid]
-%./preprocess_exec  -p -n [the number of fragments] -i [input in csv format] -o [output path] -init_model max -vertexes [the maximum of vid]
+$ ./bin/graph_convert_exec -t csr_bin -p -n [the number of fragments] -i [input in csv format] -o [output path] -init_model val -init_val 0 -vertexes [the maximum vid] -cores [degree of parallelism]
 ```
 
-## Executing BFS
+
+## Executing WCC
 
 ```shell
-$cd bin
-$./bfs_exec -i [workspace] -lc [The number of LoadComponent] -cc [The number of ComputingComponent] -dc [The number of DischargeComponent] -cores [total parallism] -buffer_size [buffer size]
-```
-
-## Executing SubIso
-
-```shell
-$cd bin
-$./subiso_exec -pattern [pattern path, e.g. ../inputs/pattern/p1.csv] -i [workspace] -lc [The number of LoadComponent] -cc [The number of ComputingComponent] -dc [The number of DischargeComponent] -cores [total parallism] -buffer_size [buffer size]
+$./bin/wcc_vc_exec -i [workspace] -lc [The number of LoadComponent] -cc [The number of ComputingComponent] -dc [The number of DischargeComponent] -buffer_size [The size of task queue] -vertexes [the maximum vid]  -cores [Degree of parallelism]
 ```
