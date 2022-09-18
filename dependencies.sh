@@ -10,7 +10,7 @@ case "$OSTYPE" in
     brew install folly
     ;;
   linux*)
-    sudo apt-get install -y g++ curl git cmake build-essential autoconf libtool
+    apt-get install -y g++ curl git cmake build-essential autoconf libtool
     ;;
 esac
 

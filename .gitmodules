@@ -5,7 +5,8 @@
 [submodule "third_party/rapidcsv"]
 	path = third_party/rapidcsv
 	url = git@github.com:d99kris/rapidcsv.git
+	branch = master
 [submodule "third_party/googletest"]
 	path = third_party/googletest
-	url = https://github.com/google/googletest
+	url = git@github.com:google/googletest.git
 	branch = main
