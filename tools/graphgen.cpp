@@ -1,17 +1,17 @@
+#include "portability/sys_types.h"
+#include "utility/bitmap.h"
+#include "utility/logging.h"
+#include "utility/thread_pool.h"
+#include <gflags/gflags.h>
+#include <glog/logging.h>
 #include <sys/stat.h>
-#include <unistd.h>
 #include <cstring>
 #include <iostream>
 #include <math.h>
 #include <random>
-#include <string>
-
 #include <rapidcsv.h>
-#include <gflags/gflags.h>
-#include <glog/logging.h>
-
-#include "portability/sys_types.h"
-
+#include <string>
+#include <unistd.h>
 
 class GraphGen {
  public:
@@ -89,6 +89,9 @@ class RMAT final : public GraphGen {
     power_ = power;
     x_signal_ = (bool*)malloc(sizeof(bool) * this->num_vertexes_);
     y_signal_ = (bool*)malloc(sizeof(bool) * this->num_vertexes_);
+    x_signal_bit_ = new Bitmap(this->num_vertexes_);
+    y_signal_bit_ = new Bitmap(this->num_vertexes_);
+
     memset(x_signal_, 0, sizeof(bool) * this->num_vertexes_);
     memset(y_signal_, 0, sizeof(bool) * this->num_vertexes_);
     std::cout << "GraphInfo. num_vertexes: " << 2 << "^" << power_ << "="
@@ -116,6 +119,61 @@ class RMAT final : public GraphGen {
     return std::make_pair(src, dst);
   }
 
+  std::pair<std::vector<size_t>, std::vector<size_t>> ParallelRun(
+      const size_t cores) {
+    std::vector<size_t>** p_src = new std::vector<size_t>*[cores];
+    std::vector<size_t>** p_dst = new std::vector<size_t>*[cores];
+
+    for (size_t i = 0; i < cores; i++) {
+      p_src[i] = new std::vector<size_t>;
+      p_dst[i] = new std::vector<size_t>;
+      p_src[i]->reserve(this->num_edges_ / cores);
+      p_dst[i]->reserve(this->num_edges_ / cores);
+    }
+
+    auto thread_pool = minigraph::utility::CPUThreadPool(cores, 1);
+
+    x_signal_bit_->clear();
+    y_signal_bit_->clear();
+
+    std::mutex mtx;
+    std::condition_variable finish_cv;
+    std::unique_lock<std::mutex> lck(mtx);
+    std::atomic<size_t> pending_packages(cores);
+    for (size_t i = 0; i < cores; i++) {
+      thread_pool.Commit(
+          [this, i, cores, &p_src, &p_dst, &pending_packages, &finish_cv]() {
+            for (size_t j = i; j < this->num_edges_; j += cores) {
+              auto xy = Falling();
+              if (x_signal_bit_->get_bit(xy.first) != 0 &&
+                  y_signal_bit_->get_bit(xy.second) != 0)
+                continue;
+              x_signal_bit_->set_bit(xy.first);
+              y_signal_bit_->set_bit(xy.second);
+              p_src[i]->push_back(xy.first);
+              p_dst[i]->push_back(xy.second);
+            }
+            if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
+            return;
+          });
+    }
+
+    finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
+
+    std::vector<size_t>* src = new std::vector<size_t>;
+    std::vector<size_t>* dst = new std::vector<size_t>;
+    src->reserve(this->num_edges_);
+    dst->reserve(this->num_edges_);
+
+    for (size_t i = 0; i < cores; i++) {
+      src->insert(src->end(), p_src[i]->begin(), p_src[i]->end());
+      dst->insert(dst->end(), p_dst[i]->begin(), p_dst[i]->end());
+      delete p_src[i];
+      delete p_dst[i];
+    }
+    return std::make_pair(*src, *dst);
+  }
+
   void WriteEdgeList(
       const std::pair<std::vector<size_t>, std::vector<size_t>>& data,
       const std::string& out_pt) {
@@ -139,8 +197,10 @@ class RMAT final : public GraphGen {
   float x_ = 0;
   float y_ = 0;
 
-  bool* x_signal_;
-  bool* y_signal_;
+  bool* x_signal_ = nullptr;
+  bool* y_signal_ = nullptr;
+  Bitmap* x_signal_bit_ = nullptr;
+  Bitmap* y_signal_bit_ = nullptr;
 
   std::pair<size_t, size_t> GetCoordinate() {
     std::random_device rd;
@@ -173,6 +233,7 @@ class RMAT final : public GraphGen {
         Y_scope.first += scope;
       }
     }
+    // LOG_INFO(X_scope.first, " ", Y_scope.second);
     return std::make_pair(X_scope.first, Y_scope.second);
   }
 };
@@ -184,11 +245,14 @@ int main(int argc, char* argv[]) {
   size_t power = FLAGS_power;
   size_t num_edges = FLAGS_edges;
   std::string output_pt = FLAGS_o;
+  size_t cores = FLAGS_cores;
   std::cout << "RmatGen: x = " << x << ", y = " << y
             << ", num_vertexes: " << pow(2, power)
             << ", num_edges: " << num_edges << std::endl;
   RMAT rmat(power, num_edges, output_pt, x, y);
-  std::pair<std::vector<size_t>, std::vector<size_t>>&& data = rmat.Run();
+  // std::pair<std::vector<size_t>, std::vector<size_t>>&& data = rmat.Run();
+  std::pair<std::vector<size_t>, std::vector<size_t>>&& data =
+      rmat.ParallelRun(cores);
   if (!RMAT::IsExist(output_pt)) {
     RMAT::Touch(output_pt);
   }

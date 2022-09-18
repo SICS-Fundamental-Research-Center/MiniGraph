@@ -1,6 +1,7 @@
 #ifndef BITMAP_H
 #define BITMAP_H
 #include <stdio.h>
+#include <cstring>
 
 #define WORD_OFFSET(i) (i >> 6)
 #define BIT_OFFSET(i) (i & 0x3f)

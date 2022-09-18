@@ -1,6 +1,12 @@
 #ifndef MINIGRAPH_UTILITY_EDGE_CUT_PARTITIONER_H
 #define MINIGRAPH_UTILITY_EDGE_CUT_PARTITIONER_H
 
+#include <stdio.h>
+
+#include <unordered_map>
+#include <vector>
+#include <cstring>
+
 #include "graphs/graph.h"
 #include "portability/sys_types.h"
 #include "utility/bitmap.h"
@@ -8,12 +14,10 @@
 #include "utility/io/data_mngr.h"
 #include "utility/io/io_adapter_base.h"
 #include "utility/thread_pool.h"
+
 #include <folly/AtomicHashMap.h>
 #include <folly/FBVector.h>
-#include <cstring>
-#include <stdio.h>
-#include <unordered_map>
-#include <vector>
+
 
 namespace minigraph {
 namespace utility {
@@ -186,7 +190,7 @@ class EdgeCutPartitioner {
                           &num_edges, &offset_in_edges, &offset_out_edges,
                           &src_v, &dst_v, &vertex_indicator, &vertexes,
                           &pending_packages, &finish_cv]() {
-        //LOG_INFO(tid);
+        // LOG_INFO(tid);
         for (size_t j = tid; j < num_edges; j += cores) {
           auto src_vid = src_v[j];
           auto dst_vid = dst_v[j];
