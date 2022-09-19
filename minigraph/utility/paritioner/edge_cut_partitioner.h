@@ -1,12 +1,6 @@
 #ifndef MINIGRAPH_UTILITY_EDGE_CUT_PARTITIONER_H
 #define MINIGRAPH_UTILITY_EDGE_CUT_PARTITIONER_H
 
-#include <stdio.h>
-
-#include <unordered_map>
-#include <vector>
-#include <cstring>
-
 #include "graphs/graph.h"
 #include "portability/sys_types.h"
 #include "utility/bitmap.h"
@@ -14,10 +8,12 @@
 #include "utility/io/data_mngr.h"
 #include "utility/io/io_adapter_base.h"
 #include "utility/thread_pool.h"
-
 #include <folly/AtomicHashMap.h>
 #include <folly/FBVector.h>
-
+#include <cstring>
+#include <stdio.h>
+#include <unordered_map>
+#include <vector>
 
 namespace minigraph {
 namespace utility {
@@ -85,8 +81,11 @@ class EdgeCutPartitioner {
     memset(src_v, 0, sizeof(VID_T) * num_edges);
     memset(dst_v, 0, sizeof(VID_T) * num_edges);
 
-    Bitmap *vertex_indicator = new Bitmap(max_vid);
-    vertex_indicator->clear();
+    // Bitmap* vertex_indicator = new Bitmap(max_vid);
+    // vertex_indicator->clear();
+    bool* vertex_indicator = (bool*)malloc(sizeof(bool) * max_vid);
+    memset(vertex_indicator, 0, sizeof(bool) * max_vid);
+
     size_t* num_in_edges = (size_t*)malloc(sizeof(size_t) * max_vid);
     size_t* num_out_edges = (size_t*)malloc(sizeof(size_t) * max_vid);
     memset(num_in_edges, 0, sizeof(size_t) * max_vid);
@@ -132,10 +131,12 @@ class EdgeCutPartitioner {
         for (size_t j = tid; j < num_edges; j += cores) {
           auto src_vid = src_v[j];
           auto dst_vid = dst_v[j];
-          if (!vertex_indicator->get_bit(src_vid))
-            vertex_indicator->set_bit(src_vid);
-          if (!vertex_indicator->get_bit(dst_vid))
-            vertex_indicator->set_bit(dst_vid);
+          // if (!vertex_indicator->get_bit(src_vid))
+          //   vertex_indicator->set_bit(src_vid);
+          // if (!vertex_indicator->get_bit(dst_vid))
+          //   vertex_indicator->set_bit(dst_vid);
+          if (!vertex_indicator[src_vid]) vertex_indicator[src_vid] = 1;
+          if (!vertex_indicator[dst_vid]) vertex_indicator[dst_vid] = 1;
           __sync_add_and_fetch(num_out_edges + src_vid, 1);
           __sync_add_and_fetch(num_in_edges + dst_vid, 1);
         }
@@ -165,7 +166,8 @@ class EdgeCutPartitioner {
                           &finish_cv]() {
         if (tid > max_vid) return;
         for (size_t i = tid; i < max_vid; i += cores) {
-          if (!vertex_indicator->get_bit(i)) continue;
+          // if (!vertex_indicator->get_bit(i)) continue;
+          if (!vertex_indicator[i]) continue;
           auto u = new graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>();
           u->vid = i;
           u->in_edges = (VID_T*)malloc(sizeof(VID_T) * num_in_edges[i]);
@@ -243,7 +245,8 @@ class EdgeCutPartitioner {
                           &finish_cv]() {
         if (tid > max_vid) return;
         for (size_t i = tid; i < max_vid; i += cores) {
-          if (vertex_indicator->get_bit(i) == 0) continue;
+          // if (vertex_indicator->get_bit(i) == 0) continue;
+          if (!vertex_indicator[i]) continue;
           auto u = vertexes[i];
           GID_T gid = Hash(u->vid) % num_partitions;
           auto offset_fragment =
