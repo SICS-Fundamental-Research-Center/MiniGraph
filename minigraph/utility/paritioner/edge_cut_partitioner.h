@@ -101,10 +101,12 @@ class EdgeCutPartitioner {
     for (size_t i = 0; i < cores; i++) {
       size_t tid = i;
       thread_pool.Commit([tid, &cores, &src_v, &dst_v, &src, &dst,
-                          &pending_packages, &finish_cv]() {
+                          &pending_packages, &finish_cv, &max_vid]() {
         for (size_t j = tid; j < src->size(); j += cores) {
           dst_v[j] = dst->at(j);
           src_v[j] = src->at(j);
+          max_vid > dst_v[j] ? 0 : max_vid = dst_v[j];
+          max_vid > src_v[j] ? 0 : max_vid = src_v[j];
         }
         if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
         return;
