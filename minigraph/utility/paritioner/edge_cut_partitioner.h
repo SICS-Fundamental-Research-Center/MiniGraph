@@ -81,15 +81,7 @@ class EdgeCutPartitioner {
     memset(src_v, 0, sizeof(VID_T) * num_edges);
     memset(dst_v, 0, sizeof(VID_T) * num_edges);
 
-    // Bitmap* vertex_indicator = new Bitmap(max_vid);
-    // vertex_indicator->clear();
-    bool* vertex_indicator = (bool*)malloc(sizeof(bool) * max_vid);
-    memset(vertex_indicator, 0, sizeof(bool) * max_vid);
 
-    size_t* num_in_edges = (size_t*)malloc(sizeof(size_t) * max_vid);
-    size_t* num_out_edges = (size_t*)malloc(sizeof(size_t) * max_vid);
-    memset(num_in_edges, 0, sizeof(size_t) * max_vid);
-    memset(num_out_edges, 0, sizeof(size_t) * max_vid);
 
     auto thread_pool = CPUThreadPool(cores, 1);
     std::mutex mtx;
@@ -113,6 +105,17 @@ class EdgeCutPartitioner {
       });
     }
     finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
+
+
+    // Bitmap* vertex_indicator = new Bitmap(max_vid);
+    // vertex_indicator->clear();
+    bool* vertex_indicator = (bool*)malloc(sizeof(bool) * max_vid);
+    memset(vertex_indicator, 0, sizeof(bool) * max_vid);
+
+    size_t* num_in_edges = (size_t*)malloc(sizeof(size_t) * max_vid);
+    size_t* num_out_edges = (size_t*)malloc(sizeof(size_t) * max_vid);
+    memset(num_in_edges, 0, sizeof(size_t) * max_vid);
+    memset(num_out_edges, 0, sizeof(size_t) * max_vid);
 
     src->clear();
     dst->clear();
@@ -278,7 +281,6 @@ class EdgeCutPartitioner {
                           &num_vertexes, &num_partitions, &pending_packages,
                           &finish_cv]() {
         for (size_t i = tid; i < num_partitions; i += cores) {
-          if (i > num_partitions) break;
           auto graph = new graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>(
               i, fragments[i], num_vertexes[i], sum_in_edges_by_fragments[i],
               sum_out_edges_by_fragments[i]);
@@ -314,7 +316,7 @@ class EdgeCutPartitioner {
       fragment->SetGlobalBorderVidMap(global_border_vid_map_);
     }
     SetCommunicationMatrix();
-
+    LOG_INFO("Real MAXIMUM ID: ", max_vid);
     delete num_vertexes;
     delete sum_in_edges_by_fragments;
     delete sum_out_edges_by_fragments;
