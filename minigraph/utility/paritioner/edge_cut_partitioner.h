@@ -85,8 +85,8 @@ class EdgeCutPartitioner {
     memset(src_v, 0, sizeof(VID_T) * num_edges);
     memset(dst_v, 0, sizeof(VID_T) * num_edges);
 
-    Bitmap vertex_indicator = Bitmap(max_vid);
-    vertex_indicator.clear();
+    Bitmap *vertex_indicator = new Bitmap(max_vid);
+    vertex_indicator->clear();
     size_t* num_in_edges = (size_t*)malloc(sizeof(size_t) * max_vid);
     size_t* num_out_edges = (size_t*)malloc(sizeof(size_t) * max_vid);
     memset(num_in_edges, 0, sizeof(size_t) * max_vid);
@@ -132,10 +132,10 @@ class EdgeCutPartitioner {
         for (size_t j = tid; j < num_edges; j += cores) {
           auto src_vid = src_v[j];
           auto dst_vid = dst_v[j];
-          if (!vertex_indicator.get_bit(src_vid))
-            vertex_indicator.set_bit(src_vid);
-          if (!vertex_indicator.get_bit(dst_vid))
-            vertex_indicator.set_bit(dst_vid);
+          if (!vertex_indicator->get_bit(src_vid))
+            vertex_indicator->set_bit(src_vid);
+          if (!vertex_indicator->get_bit(dst_vid))
+            vertex_indicator->set_bit(dst_vid);
           __sync_add_and_fetch(num_out_edges + src_vid, 1);
           __sync_add_and_fetch(num_in_edges + dst_vid, 1);
         }
@@ -165,7 +165,7 @@ class EdgeCutPartitioner {
                           &finish_cv]() {
         if (tid > max_vid) return;
         for (size_t i = tid; i < max_vid; i += cores) {
-          if (!vertex_indicator.get_bit(i)) continue;
+          if (!vertex_indicator->get_bit(i)) continue;
           auto u = new graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>();
           u->vid = i;
           u->in_edges = (VID_T*)malloc(sizeof(VID_T) * num_in_edges[i]);
@@ -209,8 +209,6 @@ class EdgeCutPartitioner {
     }
     finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
 
-    LOG_INFO("#");
-    LOG_INFO("#");
     size_t* offset_fragments = (size_t*)malloc(sizeof(size_t) * num_partitions);
     memset(offset_fragments, 0, sizeof(size_t) * num_partitions);
 
@@ -245,7 +243,7 @@ class EdgeCutPartitioner {
                           &finish_cv]() {
         if (tid > max_vid) return;
         for (size_t i = tid; i < max_vid; i += cores) {
-          if (vertex_indicator.get_bit(i) == 0) continue;
+          if (vertex_indicator->get_bit(i) == 0) continue;
           auto u = vertexes[i];
           GID_T gid = Hash(u->vid) % num_partitions;
           auto offset_fragment =
