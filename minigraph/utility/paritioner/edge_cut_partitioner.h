@@ -208,10 +208,16 @@ class EdgeCutPartitioner {
               __sync_fetch_and_add(offset_in_edges + dst_vid, 1);
           auto src_out_offset =
               __sync_fetch_and_add(offset_out_edges + src_vid, 1);
-          if (vertexes[src_vid] != nullptr)
+          if (vertexes[src_vid] != nullptr) {
             vertexes[src_vid]->out_edges[src_out_offset] = dst_vid;
-          if (vertexes[dst_vid] != nullptr)
+            //      LOG_INFO(src_vid, " out- offset", src_out_offset, " vid",
+            //      dst_vid);
+          }
+          if (vertexes[dst_vid] != nullptr) {
             vertexes[dst_vid]->in_edges[dst_in_offset] = src_vid;
+            //       LOG_INFO(dst_vid, " in- offset", dst_in_offset, " vid",
+            //       src_vid);
+          }
         }
         if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
         return;
@@ -219,6 +225,7 @@ class EdgeCutPartitioner {
     }
     finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
 
+    LOG_INFO("#");
     size_t* offset_fragments = (size_t*)malloc(sizeof(size_t) * num_partitions);
     memset(offset_fragments, 0, sizeof(size_t) * num_partitions);
 
