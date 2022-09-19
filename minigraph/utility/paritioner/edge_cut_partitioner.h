@@ -81,8 +81,6 @@ class EdgeCutPartitioner {
     memset(src_v, 0, sizeof(VID_T) * num_edges);
     memset(dst_v, 0, sizeof(VID_T) * num_edges);
 
-
-
     auto thread_pool = CPUThreadPool(cores, 1);
     std::mutex mtx;
     std::condition_variable finish_cv;
@@ -106,7 +104,6 @@ class EdgeCutPartitioner {
     }
     finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
 
-
     // Bitmap* vertex_indicator = new Bitmap(max_vid);
     // vertex_indicator->clear();
     bool* vertex_indicator = (bool*)malloc(sizeof(bool) * max_vid);
@@ -116,6 +113,12 @@ class EdgeCutPartitioner {
     size_t* num_out_edges = (size_t*)malloc(sizeof(size_t) * max_vid);
     memset(num_in_edges, 0, sizeof(size_t) * max_vid);
     memset(num_out_edges, 0, sizeof(size_t) * max_vid);
+
+    if (max_vid != max_vid_) {
+      free(vid_map_);
+      vid_map_ = (VID_T)malloc(sizeof(VID_T) * max_vid);
+      max_vid_ = max_vid;
+    }
 
     src->clear();
     dst->clear();
