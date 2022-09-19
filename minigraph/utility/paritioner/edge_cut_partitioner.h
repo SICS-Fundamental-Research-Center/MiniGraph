@@ -116,7 +116,7 @@ class EdgeCutPartitioner {
 
     if (max_vid != max_vid_) {
       free(vid_map_);
-      vid_map_ = (VID_T)malloc(sizeof(VID_T) * max_vid);
+      vid_map_ = (VID_T*)malloc(sizeof(VID_T) * max_vid);
       max_vid_ = max_vid;
     }
 
