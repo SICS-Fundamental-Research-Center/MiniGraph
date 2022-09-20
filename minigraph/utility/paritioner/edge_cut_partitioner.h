@@ -227,6 +227,7 @@ class EdgeCutPartitioner {
           }
         }
         if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
+        LOG_INFO("exit tid: ", tid);
         return;
       });
     }
