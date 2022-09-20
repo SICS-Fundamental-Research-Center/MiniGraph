@@ -210,13 +210,11 @@ class EdgeCutPartitioner {
               __sync_fetch_and_add(offset_out_edges + src_vid, 1);
           if (vertexes[src_vid] != nullptr) {
             vertexes[src_vid]->out_edges[src_out_offset] = dst_vid;
-            //      LOG_INFO(src_vid, " out- offset", src_out_offset, " vid",
-            //      dst_vid);
+            LOG_INFO(src_vid, " out- offset", src_out_offset, " vid", dst_vid);
           }
           if (vertexes[dst_vid] != nullptr) {
             vertexes[dst_vid]->in_edges[dst_in_offset] = src_vid;
-            //       LOG_INFO(dst_vid, " in- offset", dst_in_offset, " vid",
-            //       src_vid);
+            LOG_INFO(dst_vid, " in- offset", dst_in_offset, " vid", src_vid);
           }
         }
         if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
