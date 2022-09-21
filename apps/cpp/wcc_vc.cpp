@@ -207,7 +207,7 @@ int main(int argc, char* argv[]) {
       work_space, num_workers_lc, num_workers_cc, num_workers_dc, num_cores,
       buffer_size, app_wrapper);
   minigraph_sys.RunSys();
-  minigraph_sys.ShowResult(20);
+  //minigraph_sys.ShowResult(20);
   gflags::ShutDownCommandLineFlags();
   exit(0);
 }
