@@ -317,7 +317,6 @@ class EdgeCutPartitioner {
           auto graph = new graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>(
               i, fragments[i], num_vertexes_per_bucket[i],
               sum_in_edges_by_fragments[i], sum_out_edges_by_fragments[i]);
-          graph->ShowGraph(100);
           set_graphs[i] = (graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>*)graph;
           for (size_t j = 0; j < graph->get_num_vertexes(); j++) {
             auto u = graph->GetVertexByIndex(j);
@@ -367,8 +366,6 @@ class EdgeCutPartitioner {
           auto dst_vid = dst_v[j];
           auto src_gid = gid_by_vid[src_vid];
           auto dst_gid = gid_by_vid[dst_vid];
-          LOG_INFO(tid, " -  --", src_gid, " ", dst_gid);
-
           if (src_gid == dst_gid) continue;
           *(communication_matrix_ + dst_gid * fragments_->size() + src_gid) = 1;
         }
