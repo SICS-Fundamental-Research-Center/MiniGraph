@@ -1,6 +1,15 @@
 #ifndef MINIGRAPH_UTILITY_EDGE_CUT_PARTITIONER_H
 #define MINIGRAPH_UTILITY_EDGE_CUT_PARTITIONER_H
 
+#include <stdio.h>
+
+#include <cstring>
+#include <unordered_map>
+#include <vector>
+
+#include <folly/AtomicHashMap.h>
+#include <folly/FBVector.h>
+
 #include "graphs/graph.h"
 #include "portability/sys_types.h"
 #include "utility/bitmap.h"
@@ -8,12 +17,7 @@
 #include "utility/io/data_mngr.h"
 #include "utility/io/io_adapter_base.h"
 #include "utility/thread_pool.h"
-#include <folly/AtomicHashMap.h>
-#include <folly/FBVector.h>
-#include <cstring>
-#include <stdio.h>
-#include <unordered_map>
-#include <vector>
+
 
 namespace minigraph {
 namespace utility {
@@ -159,6 +163,7 @@ class EdgeCutPartitioner {
     }
     finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
 
+    LOG_INFO("Real MAXIMUM ID: ", max_vid_atom.load());
     size_t* offset_in_edges =
         (size_t*)malloc(sizeof(size_t) * max_vid_atom.load());
     size_t* offset_out_edges =
@@ -186,10 +191,15 @@ class EdgeCutPartitioner {
           if (!vertex_indicator->get_bit(i)) continue;
           auto u = new graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>();
           u->vid = i;
-          u->in_edges = (VID_T*)malloc(sizeof(VID_T) * num_in_edges[i]);
-          memset(u->in_edges, 0, sizeof(VID_T) * num_in_edges[i]);
-          u->out_edges = (VID_T*)malloc(sizeof(VID_T) * num_out_edges[i]);
-          memset(u->out_edges, 0, sizeof(VID_T) * num_out_edges[i]);
+          u->in_edges = (VID_T*)malloc(sizeof(VID_T) * (num_in_edges[i] + 64));
+          memset(u->in_edges, 0, sizeof(VID_T) * (num_in_edges[i] + 64));
+          u->out_edges =
+              (VID_T*)malloc(sizeof(VID_T) * (num_out_edges[i] + 64));
+          memset(u->out_edges, 0, sizeof(VID_T) * (num_out_edges[i] + 64));
+          // u->in_edges = (VID_T*)malloc(sizeof(VID_T) * 13906);
+          // memset(u->in_edges, 0, sizeof(VID_T) * 13906);
+          // u->out_edges = (VID_T*)malloc(sizeof(VID_T) * 20293);
+          // memset(u->out_edges, 0, sizeof(VID_T) * 20293);
           u->indegree = num_in_edges[i];
           u->outdegree = num_out_edges[i];
           vertexes[u->vid] = u;
@@ -211,6 +221,9 @@ class EdgeCutPartitioner {
         for (size_t j = tid; j < num_edges; j += cores) {
           auto src_vid = src_v[j];
           auto dst_vid = dst_v[j];
+          if (j % 10000 == 0) {
+            LOG_INFO(src_vid, " ", dst_vid);
+          }
           auto dst_in_offset =
               __sync_fetch_and_add(offset_in_edges + dst_vid, 1);
           auto src_out_offset =
@@ -227,7 +240,7 @@ class EdgeCutPartitioner {
       });
     }
     finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
-
+    LOG_INFO("#");
     size_t* offset_fragments = (size_t*)malloc(sizeof(size_t) * num_partitions);
     memset(offset_fragments, 0, sizeof(size_t) * num_partitions);
 
@@ -244,7 +257,7 @@ class EdgeCutPartitioner {
     for (size_t i = 0; i < num_partitions; i++) {
       fragments[i] = (graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>**)malloc(
           sizeof(graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>*) *
-          (max_vid / num_partitions) * 2);
+          (max_vid_atom.load() / num_partitions) * 2);
     }
 
     size_t* num_vertexes_per_bucket =
@@ -283,7 +296,7 @@ class EdgeCutPartitioner {
     size_t count = 0;
     GID_T gid = 0;
 
-    for (size_t i = 0; i < max_vid_atom.load(); i++ ) {
+    for (size_t i = 0; i < max_vid_atom.load(); i++) {
       if (!vertex_indicator->get_bit(i)) continue;
       auto u = vertexes[i];
       auto offset_fragment = __sync_fetch_and_add(offset_fragments + gid, 1);
@@ -375,7 +388,6 @@ class EdgeCutPartitioner {
     }
     finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
 
-    LOG_INFO("Real MAXIMUM ID: ", max_vid_atom.load());
     delete num_vertexes_per_bucket;
     delete sum_in_edges_by_fragments;
     delete sum_out_edges_by_fragments;
