@@ -1,17 +1,21 @@
+#include <gflags/gflags.h>
+#include <glog/logging.h>
+#include <sys/stat.h>
+#include <math.h>
+#include <unistd.h>
+
+#include <cstring>
+#include <iostream>
+#include <random>
+#include <string>
+
+#include <rapidcsv.h>
+
 #include "portability/sys_types.h"
 #include "utility/bitmap.h"
 #include "utility/logging.h"
 #include "utility/thread_pool.h"
-#include <gflags/gflags.h>
-#include <glog/logging.h>
-#include <sys/stat.h>
-#include <cstring>
-#include <iostream>
-#include <math.h>
-#include <random>
-#include <rapidcsv.h>
-#include <string>
-#include <unistd.h>
+
 
 class GraphGen {
  public:

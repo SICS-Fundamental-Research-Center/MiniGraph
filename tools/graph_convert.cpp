@@ -1,3 +1,9 @@
+#include <iostream>
+#include <string>
+
+#include <gflags/gflags.h>
+#include <sys/stat.h>
+
 #include "graphs/edge_list.h"
 #include "graphs/immutable_csr.h"
 #include "portability/sys_data_structure.h"
@@ -5,10 +11,6 @@
 #include "utility/io/data_mngr.h"
 #include "utility/io/edge_list_io_adapter.h"
 #include "utility/paritioner/edge_cut_partitioner.h"
-#include <gflags/gflags.h>
-#include <sys/stat.h>
-#include <iostream>
-#include <string>
 
 using CSR_T = minigraph::graphs::ImmutableCSR<gid_t, vid_t, vdata_t, edata_t>;
 using GRAPH_BASE_T = minigraph::graphs::Graph<gid_t, vid_t, vdata_t, edata_t>;
@@ -80,9 +82,7 @@ void EdgeList2CSR(std::string src_pt, std::string dst_pt, std::size_t cores,
 
   LOG_INFO("WriteVidMap.");
   auto vid_map = edge_cut_partitioner.GetVidMap();
-  for (size_t i = 0; i < 34; i++) {
-    //      LOG_INFO("local: ", i, ", global: ", vid_map[i]);
-  }
+
   data_mngr.WriteVidMap(max_vid, vid_map,
                         dst_pt + "minigraph_message/vid_map.bin");
 
