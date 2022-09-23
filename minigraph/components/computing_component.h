@@ -108,7 +108,7 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
 
   // task_queue.
   folly::ProducerConsumerQueue<GID_T>* task_queue_ = nullptr;
-  std::queue<GID_T>* partial_result_queue_;
+  std::queue<GID_T>* partial_result_queue_ = nullptr;
 
   // data manager.
   utility::io::DataMngr<GRAPH_T>* data_mngr_ = nullptr;
@@ -118,14 +118,14 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
 
   // cv && lck.
   std::unique_ptr<executors::ScheduledExecutor> scheduled_executor_ = nullptr;
-  std::unique_lock<std::mutex>* partial_result_lck_;
+  std::unique_lock<std::mutex>* partial_result_lck_ = nullptr;
   std::unique_lock<std::mutex>* task_queue_lck_;
-  std::condition_variable* partial_result_cv_;
-  std::condition_variable* task_queue_cv_;
+  std::condition_variable* partial_result_cv_ = nullptr;
+  std::condition_variable* task_queue_cv_ = nullptr;
 
   std::unique_ptr<std::mutex> executor_mtx_;
-  std::unique_ptr<std::unique_lock<std::mutex>> executor_lck_;
-  std::unique_ptr<std::condition_variable> executor_cv_;
+  std::unique_ptr<std::unique_lock<std::mutex>> executor_lck_ = nullptr;
+  std::unique_ptr<std::condition_variable> executor_cv_ = nullptr;
 
   void ProcessGraph(const GID_T& gid, folly::NativeSemaphore& sem) {
     // executor_cv_->wait(*executor_lck_, [&] { return true; });

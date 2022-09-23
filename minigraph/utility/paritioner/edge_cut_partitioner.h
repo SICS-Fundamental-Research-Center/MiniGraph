@@ -375,17 +375,6 @@ class EdgeCutPartitioner {
     }
     finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
 
-    // memset(communication_matrix_, 1,
-    //        sizeof(bool) * fragments_->size() * fragments_->size());
-    for (size_t i = 0; i < fragments_->size(); i++) {
-      for (size_t j = 0; j < fragments_->size(); j++) {
-        std::cout << *(communication_matrix_ + i * fragments_->size() + j)
-                  << ", ";
-      }
-      std::cout << std::endl;
-    }
-
-    // SetCommunicationMatrix();
     LOG_INFO("Real MAXIMUM ID: ", max_vid_atom.load());
     delete num_vertexes_per_bucket;
     delete sum_in_edges_by_fragments;
@@ -394,68 +383,6 @@ class EdgeCutPartitioner {
     delete offset_in_edges;
     delete num_in_edges;
     delete num_out_edges;
-    return true;
-  }
-
-  bool RunPartition(EDGE_LIST_T& graph, const size_t number_partitions,
-                    const std::string init_model = "val",
-                    const VDATA_T init_vdata = 0) {
-    communication_matrix_ =
-        (bool*)malloc(sizeof(bool) * number_partitions * number_partitions);
-    memset(communication_matrix_, 0,
-           sizeof(bool) * number_partitions * number_partitions);
-
-    if (!SplitEdgeList(number_partitions, graph)) {
-      LOG_INFO("SplitFault");
-      return false;
-    }
-    auto count = 0;
-    for (auto& iter_fragments : *fragments_) {
-      auto fragment = (EDGE_LIST_T*)iter_fragments;
-      auto border_vertexes = fragment->GetVertexesThatRequiredByOtherGraphs();
-      if (init_model == "val") {
-        fragment->InitVdata2AllX(init_vdata);
-      } else if (init_model == "max") {
-        fragment->InitVdata2AllMax();
-      } else if (init_model == "vid") {
-        fragment->InitVdataByVid();
-      }
-      MergeBorderVertexes(border_vertexes);
-      count++;
-    }
-    SetCommunicationMatrix();
-    return true;
-  }
-
-  bool RunPartition(CSR_T& graph, const size_t number_partitions,
-                    const std::string init_model = "val",
-                    const VDATA_T init_vdata = 0) {
-    XLOG(INFO, "RunPartition");
-    communication_matrix_ =
-        (bool*)malloc(sizeof(bool) * number_partitions * number_partitions);
-    memset(communication_matrix_, 0,
-           sizeof(bool) * number_partitions * number_partitions);
-
-    if (!SplitImmutableCSRByHash(number_partitions, graph)) {
-      // if (!SplitImmutableCSR(number_partitions, graph)) {
-      LOG_INFO("SplitFailure()");
-      return false;
-    };
-    global_border_vid_map_ = new Bitmap(max_vid_);
-    global_border_vid_map_->clear();
-    for (auto& iter_fragments : *fragments_) {
-      auto fragment = (CSR_T*)iter_fragments;
-      fragment->Serialize();
-      if (init_model == "val") {
-        fragment->InitVdata2AllX(init_vdata);
-      } else if (init_model == "max") {
-        fragment->InitVdata2AllMax();
-      } else if (init_model == "vid") {
-        fragment->InitVdataByVid();
-      }
-      fragment->SetGlobalBorderVidMap(global_border_vid_map_);
-    }
-    SetCommunicationMatrix();
     return true;
   }
 
@@ -551,59 +478,6 @@ class EdgeCutPartitioner {
     }
     global_border_vertexes_with_dependencies_ =
         global_border_vertex_with_dependencies;
-    return true;
-  }
-
-  bool SetCommunicationMatrix() {
-    LOG_INFO("SetCommunicationMatrix",
-             " Num of Fragments: ", fragments_->size());
-    // if (global_border_vertexes_with_dependencies_ == nullptr) {
-    //   if (communication_matrix_ == nullptr) {
-    //     LOG_ERROR("segmentation fault: communication_matrix is nullptr");
-    //     return false;
-    //   }
-    //   if (global_border_vertexes_ == nullptr || fragments_->size() == 0) {
-    //     LOG_ERROR(
-    //         "segmentation fault: global_border_vertexes is nullptr or "
-    //         "fragments_ is emtpy");
-    //     return false;
-    //   }
-    //   size_t num_graphs = fragments_->size();
-    //   for (size_t i = 0; i < num_graphs; i++) {
-    //     for (size_t j = 0; j < num_graphs; j++)
-    //       if (i != j) *(communication_matrix_ + num_graphs * i + j) = 1;
-    //   }
-    // } else {
-    //   if (communication_matrix_ == nullptr) {
-    //     LOG_ERROR("segmentation fault: communication_matrix is nullptr");
-    //     return false;
-    //   }
-    //   size_t num_graphs = fragments_->size();
-    //   for (auto& iter : *global_border_vertexes_with_dependencies_) {
-    //     for (auto& iter_who_need : *iter.second->who_need_) {
-    //       for (auto& iter_who_provide : *iter.second->who_provide_) {
-    //         *(communication_matrix_ + num_graphs * iter_who_need +
-    //           iter_who_provide) = 1;
-    //       }
-    //     }
-    //   }
-    // }
-    //  temporary used
-    if (communication_matrix_ == nullptr)
-      communication_matrix_ =
-          (bool*)malloc(sizeof(bool) * fragments_->size() * fragments_->size());
-
-    memset(communication_matrix_, 1,
-           sizeof(bool) * fragments_->size() * fragments_->size());
-    for (size_t i = 0; i < fragments_->size(); i++)
-      *(communication_matrix_ + i * fragments_->size() + i) = 0;
-    for (size_t i = 0; i < fragments_->size(); i++) {
-      for (size_t j = 0; j < fragments_->size(); j++) {
-        std::cout << *(communication_matrix_ + i * fragments_->size() + j)
-                  << ", ";
-      }
-      std::cout << std::endl;
-    }
     return true;
   }
 

@@ -26,6 +26,7 @@ using edata_t = size_t;
 #define CHANGED 'C'
 #define AGGREGATE 'A'
 #define SHORTCUT 'S'
+#define SHORTCUTREAD 'J'
 #define FIXPOINT 'F'
 #define GOON 'G'
 

@@ -35,14 +35,14 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       std::queue<GID_T>* partial_result_queue, std::queue<GID_T>* read_trigger,
       folly::AtomicHashMap<GID_T, CSRPt>* pt_by_gid,
       utility::io::DataMngr<GRAPH_T>* data_mngr,
+      message::DefaultMessageManager<GRAPH_T>* msg_mngr,
       std::unique_lock<std::mutex>* partial_result_lck,
       std::unique_lock<std::mutex>* read_trigger_lck,
       std::condition_variable* partial_result_cv,
       std::condition_variable* read_trigger_cv,
       std::atomic<bool>* system_switch,
       std::unique_lock<std::mutex>* system_switch_lck,
-      std::condition_variable* system_switch_cv, bool* communication_matrix,
-      const size_t num_iter)
+      std::condition_variable* system_switch_cv, const size_t num_iter)
       : ComponentBase<GID_T>(thread_pool, superstep_by_gid, global_superstep,
                              state_machine) {
     sem_lc_dc_ = sem_lc_dc;
@@ -57,7 +57,8 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
     system_switch_ = system_switch;
     system_switch_lck_ = system_switch_lck;
     system_switch_cv_ = system_switch_cv;
-    communication_matrix_ = communication_matrix;
+    msg_mngr_ = msg_mngr;
+    communication_matrix_ = this->msg_mngr_->GetCommunicationMatrix();
     num_iter_ = num_iter;
     XLOG(INFO, "Init DischargeComponent: Finish.");
   }
@@ -80,7 +81,6 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
         gid = que_gid.front();
         que_gid.pop();
         CheckRTRule(gid);
-        LOG_INFO("--- gid: ", gid, "--- STEP: ", this->get_global_superstep());
         this->state_machine_->ShowAllState();
         if (this->TrySync()) {
           if (this->state_machine_->IsTerminated() ||
@@ -117,13 +117,14 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   std::queue<GID_T>* partial_result_queue_ = nullptr;
   std::queue<GID_T>* read_trigger_ = nullptr;
   utility::io::DataMngr<GRAPH_T>* data_mngr_ = nullptr;
+  message::DefaultMessageManager<GRAPH_T>* msg_mngr_ = nullptr;
   folly::AtomicHashMap<GID_T, CSRPt>* pt_by_gid_ = nullptr;
-  std::unique_lock<std::mutex>* read_trigger_lck_;
-  std::unique_lock<std::mutex>* partial_result_lck_;
-  std::condition_variable* read_trigger_cv_;
-  std::condition_variable* partial_result_cv_;
-  std::unique_lock<std::mutex>* system_switch_lck_;
-  std::condition_variable* system_switch_cv_;
+  std::unique_lock<std::mutex>* read_trigger_lck_ = nullptr;
+  std::unique_lock<std::mutex>* partial_result_lck_ = nullptr;
+  std::condition_variable* read_trigger_cv_ = nullptr;
+  std::condition_variable* partial_result_cv_ = nullptr;
+  std::unique_lock<std::mutex>* system_switch_lck_ = nullptr;
+  std::condition_variable* system_switch_cv_ = nullptr;
   std::atomic<bool>* system_switch_;
   bool* communication_matrix_;
   size_t num_iter_ = 0;
@@ -157,8 +158,15 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   }
 
   void WriteAllGraphsBack(const GID_T current_gid) {
+    LOG_INFO("WriteAllGraphsBack");
     GID_T gid = this->state_machine_->GetXStateOf(RC);
     if (gid != MINIGRAPH_GID_MAX) {
+      // Snapshot
+      for (GID_T tmp_gid = 0; tmp_gid < pt_by_gid_->size(); tmp_gid++) {
+        msg_mngr_->SetStateMatrix(tmp_gid,
+                                  this->state_machine_->GetState(tmp_gid));
+      }
+
       auto out_rc = this->state_machine_->EvokeAllX(RC);
       auto out_rt = this->state_machine_->EvokeAllX(RT);
       auto out_rts = this->state_machine_->EvokeAllX(RTS);
@@ -196,8 +204,6 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
         this->state_machine_->ProcessEvent(gid, SHORTCUT);
         LOG_INFO("Shortcut: ", gid);
       }
-    } else {
-      return false;
     }
     return false;
   }

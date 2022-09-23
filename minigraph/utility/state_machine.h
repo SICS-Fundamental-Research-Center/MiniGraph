@@ -2,8 +2,9 @@
 #ifndef MINIGRAPH_UTILITY_STATE_MACHINE_H_
 #define MINIGRAPH_UTILITY_STATE_MACHINE_H_
 
-#include <assert.h>
 #include <stdio.h>
+#include <string.h>
+#include <assert.h>
 
 #include <iostream>
 #include <map>
@@ -15,6 +16,7 @@
 #include <folly/AtomicHashMap.h>
 
 #include "portability/sys_types.h"
+#include "utility/logging.h"
 
 
 namespace minigraph {
@@ -32,12 +34,14 @@ struct Aggregate {};
 struct Fixpoint {};
 struct Shortcut {};
 struct GoOn {};
+struct ShortcutRead {};
 
 // Define State Machine for each single graph.
 struct GraphStateMachine {
   auto operator()() const {
     using namespace sml;
     front::event<Load> event_load;
+    front::event<ShortcutRead> event_shortcut_read;
     front::event<Unload> event_unload;
     front::event<NothingChanged> event_nothing_changed;
     front::event<Changed> event_changed;
@@ -47,6 +51,7 @@ struct GraphStateMachine {
     front::event<GoOn> event_go_on;
     return make_transition_table(
         *"Idle"_s + event_load = "Active"_s, "Idle"_s + event_unload = "Idle"_s,
+        "Idle"_s + event_shortcut_read = "RT"_s,
         "Active"_s + event_nothing_changed = "RT"_s,
         "Active"_s + event_changed = "RC"_s,
         "RC"_s + event_aggregate = "Idle"_s, "RC"_s + event_shortcut = "RTS"_s,
@@ -98,9 +103,21 @@ class StateMachine {
     if (iter != graph_state_.end()) {
       iter->second->visit_current_states(
           [](auto state) { std::cout << state.c_str() << std::endl; });
-    } else {
     }
   };
+
+  char GetState(const GID_T& gid) {
+    assert(graph_state_.find(gid) != graph_state_.end());
+    auto iter = graph_state_.find(gid);
+    char out_state;
+    iter->second->visit_current_states([&out_state](auto state) {
+      if (strcmp(state.c_str(), "RT") == 0) out_state = RT;
+      if (strcmp(state.c_str(), "Idle") == 0) out_state = IDLE;
+      if (strcmp(state.c_str(), "RC") == 0) out_state = RC;
+      if (strcmp(state.c_str(), "RTS") == 0) out_state = RTS;
+    });
+    return out_state;
+  }
 
   bool GraphIs(const GID_T& gid, const char& state) const {
     assert(state == IDLE || state == ACTIVE || state == RT || state == RC ||
@@ -177,7 +194,7 @@ class StateMachine {
     using namespace sml;
     assert(event == LOAD || event == UNLOAD || event == NOTHINGCHANGED ||
            event == CHANGED || event == AGGREGATE || event == FIXPOINT ||
-           event == GOON || event == SHORTCUT);
+           event == GOON || event == SHORTCUT || event == SHORTCUTREAD);
     auto iter = graph_state_.find(gid);
     if (iter != graph_state_.end()) {
       switch (event) {
@@ -214,6 +231,10 @@ class StateMachine {
         case GOON:
           iter->second->process_event(GoOn{});
           assert(iter->second->is("Idle"_s));
+          break;
+        case SHORTCUTREAD:
+          iter->second->process_event(ShortcutRead{});
+          assert(iter->second->is("RT"_s));
           break;
         default:
           break;

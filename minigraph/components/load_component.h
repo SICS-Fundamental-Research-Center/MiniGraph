@@ -40,24 +40,32 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       utility::StateMachine<GID_T>* state_machine,
       std::queue<GID_T>* read_trigger,
       folly::ProducerConsumerQueue<GID_T>* task_queue,
+      std::queue<GID_T>* partial_result_queue,
       folly::AtomicHashMap<GID_T, CSRPt>* pt_by_gid,
       utility::io::DataMngr<GRAPH_T>* data_mngr,
+      message::DefaultMessageManager<GRAPH_T>* msg_mngr,
       std::unique_lock<std::mutex>* read_trigger_lck,
       std::unique_lock<std::mutex>* task_queue_lck,
+      std::unique_lock<std::mutex>* partial_result_lck,
       std::condition_variable* read_trigger_cv,
-      std::condition_variable* task_queue_cv)
+      std::condition_variable* task_queue_cv,
+      std::condition_variable* partial_result_cv)
       : ComponentBase<GID_T>(thread_pool, superstep_by_gid, global_superstep,
                              state_machine) {
     num_workers_ = num_workers;
     sem_lc_dc_ = sem_lc_dc;
     pt_by_gid_ = pt_by_gid;
     data_mngr_ = data_mngr;
+    msg_mngr_ = msg_mngr;
     task_queue_ = task_queue;
+    partial_result_queue_ = partial_result_queue;
     read_trigger_ = read_trigger;
+    partial_result_lck_ = partial_result_lck;
     read_trigger_lck_ = read_trigger_lck;
     task_queue_lck_ = task_queue_lck;
     read_trigger_cv_ = read_trigger_cv;
     task_queue_cv_ = task_queue_cv;
+    partial_result_cv_ = partial_result_cv;
 
     executor_mtx_ = std::make_unique<std::mutex>();
     executor_lck_ =
@@ -82,7 +90,6 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
         auto task = std::bind(&components::LoadComponent<GRAPH_T>::ProcessGraph,
                               this, gid, sem);
         this->thread_pool_->Commit(task);
-        // this->ProcessGraph(gid, sem);
       }
     }
   }
@@ -94,35 +101,61 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   folly::NativeSemaphore* sem_lc_dc_ = nullptr;
   std::queue<GID_T>* read_trigger_ = nullptr;
   folly::ProducerConsumerQueue<GID_T>* task_queue_ = nullptr;
-  folly::AtomicHashMap<GID_T, CSRPt>* pt_by_gid_;
+  std::queue<GID_T>* partial_result_queue_ = nullptr;
+  folly::AtomicHashMap<GID_T, CSRPt>* pt_by_gid_ = nullptr;
   utility::io::DataMngr<GRAPH_T>* data_mngr_ = nullptr;
+  message::DefaultMessageManager<GRAPH_T>* msg_mngr_ = nullptr;
   bool switch_ = true;
-  std::unique_lock<std::mutex>* read_trigger_lck_;
-  std::unique_lock<std::mutex>* task_queue_lck_;
-  std::condition_variable* read_trigger_cv_;
-  std::condition_variable* task_queue_cv_;
+  std::unique_lock<std::mutex>* read_trigger_lck_ = nullptr;
+  std::unique_lock<std::mutex>* task_queue_lck_ = nullptr;
+  std::unique_lock<std::mutex>* partial_result_lck_ = nullptr;
+  std::condition_variable* read_trigger_cv_ = nullptr;
+  std::condition_variable* task_queue_cv_ = nullptr;
+  std::condition_variable* partial_result_cv_;
 
   std::unique_ptr<std::mutex> executor_mtx_;
   std::unique_ptr<std::unique_lock<std::mutex>> executor_lck_;
   std::unique_ptr<std::condition_variable> executor_cv_;
 
   void ProcessGraph(GID_T gid, folly::NativeSemaphore& sem) {
-    CSRPt& csr_pt = pt_by_gid_->find(gid)->second;
-    auto tag = false;
-    if (IsSameType<GRAPH_T, CSR_T>())
-      tag = this->data_mngr_->ReadGraph(gid, csr_pt, csr_bin);
-    else if (IsSameType<GRAPH_T, EDGE_LIST_T>())
-      tag = this->data_mngr_->ReadGraph(gid, csr_pt, edge_list_bin);
-    if (tag) {
-      this->state_machine_->ProcessEvent(gid, LOAD);
-      while (!task_queue_->write(gid))
-        ;
-      task_queue_cv_->notify_all();
+    auto read = false;
+
+    if (this->get_global_superstep() == 0) {
+      read = true;
     } else {
-      this->state_machine_->ProcessEvent(gid, UNLOAD);
-      LOG_ERROR("Read graph fault: ", gid);
+      for (GID_T y = 0; y < pt_by_gid_->size(); y++) {
+        if (this->msg_mngr_->CheckDependenes(gid, y)) {
+          if (msg_mngr_->GetStateMatrix(y) == RC) {
+            read = true;
+            break;
+          }
+        }
+      }
     }
-    sem.post();
+
+    if (read) {
+      CSRPt& csr_pt = pt_by_gid_->find(gid)->second;
+      auto tag = false;
+      if (IsSameType<GRAPH_T, CSR_T>())
+        tag = this->data_mngr_->ReadGraph(gid, csr_pt, csr_bin);
+      else if (IsSameType<GRAPH_T, EDGE_LIST_T>())
+        tag = this->data_mngr_->ReadGraph(gid, csr_pt, edge_list_bin);
+      if (tag) {
+        this->state_machine_->ProcessEvent(gid, LOAD);
+        while (!task_queue_->write(gid))
+          ;
+        task_queue_cv_->notify_all();
+      } else {
+        this->state_machine_->ProcessEvent(gid, UNLOAD);
+        LOG_ERROR("Read graph fault: ", gid);
+      }
+      sem.post();
+    } else {
+      this->add_superstep_via_gid(gid);
+      partial_result_queue_->push(gid);
+      this->state_machine_->ProcessEvent(gid, SHORTCUTREAD);
+      partial_result_cv_->notify_all();
+    }
   }
 };
 

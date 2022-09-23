@@ -1,16 +1,14 @@
 #ifndef MINIGRAPH_DEFAULT_MESSAGE_MANAGER_H
 #define MINIGRAPH_DEFAULT_MESSAGE_MANAGER_H
 
-#include <unordered_map>
-#include <vector>
-
 #include "graphs/graph.h"
 #include "message_manager/border_vertexes.h"
 #include "message_manager/message_manager_base.h"
 #include "message_manager/partial_match.h"
 #include "portability/sys_data_structure.h"
 #include "utility/io/data_mngr.h"
-
+#include <unordered_map>
+#include <vector>
 
 namespace minigraph {
 namespace message {
@@ -72,6 +70,12 @@ class DefaultMessageManager : public MessageManagerBase {
       std::cout << std::endl;
     }
 
+    historical_state_matrix_ = (char*)malloc(sizeof(char) * num_graphs_);
+    memset(historical_state_matrix_, 0, sizeof(char) * num_graphs_);
+    for (size_t i = 0; i < num_graphs_; i++) {
+      *(historical_state_matrix_ + i) = IDLE;
+    }
+
     active_vertexes_bit_map_ = new Bitmap(max_vid_);
     active_vertexes_bit_map_->clear();
     global_vertexes_state_ = (char*)malloc(sizeof(char) * max_vid_);
@@ -100,9 +104,7 @@ class DefaultMessageManager : public MessageManagerBase {
   //   return this->partial_match_->GetPartialMatchingSolutionsofX(gid);
   // }
 
-  void ClearnUp(){
-    active_vertexes_bit_map_->clear();
-  }
+  void ClearnUp() { active_vertexes_bit_map_->clear(); }
 
   PartialMatch<GID_T, VID_T, VDATA_T, EDATA_T>* GetPartialMatch() {
     return partial_match_;
@@ -133,6 +135,18 @@ class DefaultMessageManager : public MessageManagerBase {
 
   bool GetMsgQueue() { return msg_bucket[offset_bucket]; }
 
+  void SetStateMatrix(const size_t gid, char state) {
+    assert(gid < num_graphs_);
+    *(historical_state_matrix_ + gid) = state;
+    return;
+  }
+
+  char GetStateMatrix(size_t gid) { return *(historical_state_matrix_ + gid); }
+
+  bool CheckDependenes(const GID_T x, const GID_T y) {
+    return *(this->communication_matrix_ + x * num_graphs_ + y) == 1;
+  }
+
  private:
   size_t num_graphs_ = 0;
   utility::io::DataMngr<GRAPH_T>* data_mngr_ = nullptr;
@@ -143,6 +157,7 @@ class DefaultMessageManager : public MessageManagerBase {
   VDATA_T* global_border_vdata_ = nullptr;
   char* global_vertexes_state_ = nullptr;
   bool* communication_matrix_ = nullptr;
+  char* historical_state_matrix_ = nullptr;
   void** msg_bucket = nullptr;
   std::atomic<size_t> offset_bucket = 0;
 };
