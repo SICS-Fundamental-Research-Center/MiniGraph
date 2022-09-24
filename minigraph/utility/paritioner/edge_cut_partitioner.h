@@ -1,10 +1,9 @@
 #ifndef MINIGRAPH_UTILITY_EDGE_CUT_PARTITIONER_H
 #define MINIGRAPH_UTILITY_EDGE_CUT_PARTITIONER_H
 
-#include <stdio.h>
-
 #include <atomic>
 #include <cstring>
+#include <stdio.h>
 #include <unordered_map>
 #include <vector>
 
@@ -59,9 +58,9 @@ class EdgeCutPartitioner {
     globalid2gid_ = new std::unordered_map<VID_T, GID_T>;
     global_border_vertexes_by_gid_ =
         new std::unordered_map<GID_T, std::vector<VID_T>*>;
-    vid_map_ = (VID_T*)malloc(sizeof(VID_T) * (max_vid + 1));
     max_vid_ = max_vid;
-    memset(vid_map_, 0, sizeof(VID_T) * (max_vid));
+    vid_map_ = (VID_T*)malloc(sizeof(VID_T) * (max_vid_ + 64));
+    memset(vid_map_, 0, sizeof(VID_T) * (max_vid + 64));
   }
 
   ~EdgeCutPartitioner() = default;
@@ -148,12 +147,10 @@ class EdgeCutPartitioner {
           auto dst_vid = dst_v[j];
           if (!vertex_indicator->get_bit(src_vid)) {
             vertex_indicator->set_bit(src_vid);
-            // num_vertexes.fetch_add(1);
             __sync_add_and_fetch(&num_vertexes, 1);
           }
           if (!vertex_indicator->get_bit(dst_vid)) {
             vertex_indicator->set_bit(dst_vid);
-            //            num_vertexes.fetch_add(1);
             __sync_add_and_fetch(&num_vertexes, 1);
           }
           __sync_add_and_fetch(num_out_edges + src_vid, 1);
@@ -322,7 +319,8 @@ class EdgeCutPartitioner {
         for (size_t i = tid; i < num_partitions; i += cores) {
           auto graph = new graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>(
               i, fragments[i], num_vertexes_per_bucket[i],
-              sum_in_edges_by_fragments[i], sum_out_edges_by_fragments[i]);
+              sum_in_edges_by_fragments[i], sum_out_edges_by_fragments[i],
+              max_vid_);
           set_graphs[i] = (graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>*)graph;
           for (size_t j = 0; j < graph->get_num_vertexes(); j++) {
             auto u = graph->GetVertexByIndex(j);
@@ -418,6 +416,8 @@ class EdgeCutPartitioner {
       const {
     return global_border_vertexes_by_gid_;
   }
+
+  VID_T GetMaxVid() const { return max_vid_; }
 
   Bitmap* GetGlobalBorderVidMap() { return global_border_vid_map_; }
 

@@ -1,9 +1,10 @@
 #ifndef MINIGRAPH_GRAPHS_IMMUTABLECSR_H
 #define MINIGRAPH_GRAPHS_IMMUTABLECSR_H
 
+#include <malloc.h>
+
 #include <fstream>
 #include <iostream>
-#include <malloc.h>
 #include <map>
 #include <memory>
 #include <unordered_map>
@@ -49,7 +50,7 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       const GID_T gid,
       graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>** set_vertexes = nullptr,
       const size_t num_vertexes = 0, const size_t sum_in_edges = 0,
-      const size_t sum_out_edges = 0)
+      const size_t sum_out_edges = 0, const VID_T global_max_vid = 0)
       : Graph<GID_T, VID_T, VDATA_T, EDATA_T>(gid) {
     if (set_vertexes == nullptr) return;
     num_vertexes_ = num_vertexes;
@@ -92,8 +93,8 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       max_vid < set_vertexes[i]->vid ? max_vid = set_vertexes[i]->vid : 0;
       ((VID_T*)((char*)buf_graph_ + start_localid))[i] = i;
       ((VID_T*)((char*)buf_graph_ + start_globalid))[i] = set_vertexes[i]->vid;
-      // ((size_t*)((char*)buf_graph_ +
-      //            start_index_by_vid))[i] = 0;
+      //((size_t*)((char*)buf_graph_ +
+      //           start_index_by_vid))[i] = 0;
       ((size_t*)((char*)buf_graph_ + start_indegree))[i] =
           set_vertexes[i]->indegree;
       ((size_t*)((char*)buf_graph_ + start_outdegree))[i] =
@@ -134,7 +135,8 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       }
     }
 
-    max_vid_ = max_vid;
+    // max_vid_ = max_vid;
+    max_vid_ = global_max_vid > max_vid ? global_max_vid : max_vid;
     vid_by_index_ = ((VID_T*)((char*)buf_graph_ + start_localid));
     index_by_vid_ = ((size_t*)((char*)buf_graph_ + start_index_by_vid));
     globalid_by_index_ = (VID_T*)((char*)buf_graph_ + start_globalid);
@@ -461,7 +463,8 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
   graphs::VertexInfo<VID_T, VDATA_T, EDATA_T> GetVertexByVid(const VID_T vid) {
     graphs::VertexInfo<VID_T, VDATA_T, EDATA_T> vertex_info;
     vertex_info.vid = vid;
-    size_t index = index_by_vid_[vid];
+    // size_t index = index_by_vid_[vid];
+    size_t index = vid;
     if (index != num_vertexes_ - 1) {
       vertex_info.outdegree = outdegree_[index];
       vertex_info.indegree = indegree_[index];

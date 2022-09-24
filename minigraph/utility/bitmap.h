@@ -1,7 +1,12 @@
 #ifndef BITMAP_H
 #define BITMAP_H
+
 #include <stdio.h>
+#include <cassert>
 #include <cstring>
+
+#include "utility/logging.h"
+
 
 #define WORD_OFFSET(i) (i >> 6)
 #define BIT_OFFSET(i) (i & 0x3f)
@@ -70,6 +75,7 @@ class Bitmap {
   }
 
   unsigned long get_bit(size_t i) {
+    assert(i <= size_);
     return data_[WORD_OFFSET(i)] & (1ul << BIT_OFFSET(i));
   }
 
@@ -78,18 +84,21 @@ class Bitmap {
   }
 
   void set_bit(size_t i) {
+    assert(i <= size_);
     __sync_fetch_and_or(data_ + WORD_OFFSET(i), 1ul << BIT_OFFSET(i));
     return;
   }
 
   void try_set_bit(size_t i) {
     //__sync_fetch_and_or(data_ + WORD_OFFSET(i), 1ul << BIT_OFFSET(i));
+    assert(i <= size_);
     *(data_ + WORD_OFFSET(i)) =
         *(data_ + WORD_OFFSET(i)) | (1ul << BIT_OFFSET(i));
     return;
   }
 
   void rm_bit(const size_t i) {
+    assert(i <= size_);
     __sync_fetch_and_and(data_ + WORD_OFFSET(i), ~(1ul << BIT_OFFSET(i)));
     return;
   }
@@ -128,7 +137,6 @@ class Bitmap {
     }
     return true;
   }
-
 
   bool copy_bit(Bitmap& b) {
     if (size_ != b.size_) return false;
