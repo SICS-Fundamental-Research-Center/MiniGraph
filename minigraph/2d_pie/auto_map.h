@@ -114,8 +114,10 @@ class AutoMapBase {
                      Bitmap* visited = nullptr) {
     size_t local_active_vertices = 0;
     for (size_t index = tid; index < graph->get_num_vertexes(); index += step) {
+      //LOG_INFO(index);
       if (in_visited->get_bit(index) == 0) continue;
       VertexInfo&& u = graph->GetVertexByIndex(index);
+      //u.ShowVertexInfo();
       for (size_t i = 0; i < u.outdegree; ++i) {
         if (!graph->IsInGraph(u.out_edges[i])) continue;
         auto local_id = vid_map[u.out_edges[i]];

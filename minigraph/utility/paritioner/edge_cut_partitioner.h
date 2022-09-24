@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 
+#include <atomic>
 #include <cstring>
 #include <unordered_map>
 #include <vector>
@@ -109,22 +110,20 @@ class EdgeCutPartitioner {
     }
     finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
 
-    size_t* num_in_edges =
-        (size_t*)malloc(sizeof(size_t) * max_vid_atom.load());
-    size_t* num_out_edges =
-        (size_t*)malloc(sizeof(size_t) * max_vid_atom.load());
-    memset(num_in_edges, 0, sizeof(size_t) * max_vid_atom.load());
-    memset(num_out_edges, 0, sizeof(size_t) * max_vid_atom.load());
-
     if (max_vid_atom.load() != max_vid_) {
       free(vid_map_);
-      vid_map_ = (VID_T*)malloc(sizeof(VID_T) * max_vid_atom.load());
-      max_vid_ = max_vid_atom.load();
+      max_vid_ = ((max_vid_atom.load() / 64) + 1) * 64;
+      vid_map_ = (VID_T*)malloc(sizeof(VID_T) * max_vid_);
     }
+
+    size_t* num_in_edges = (size_t*)malloc(sizeof(size_t) * max_vid_);
+    size_t* num_out_edges = (size_t*)malloc(sizeof(size_t) * max_vid_);
+    memset(num_in_edges, 0, sizeof(size_t) * max_vid_);
+    memset(num_out_edges, 0, sizeof(size_t) * max_vid_);
 
     GID_T* gid_by_vid = (GID_T*)malloc(sizeof(GID_T) * max_vid_);
     memset(gid_by_vid, 0, sizeof(GID_T) * max_vid_);
-    Bitmap* vertex_indicator = new Bitmap(max_vid_atom.load());
+    Bitmap* vertex_indicator = new Bitmap(max_vid_);
     vertex_indicator->clear();
 
     src->clear();
@@ -133,7 +132,8 @@ class EdgeCutPartitioner {
     delete dst;
     doc->Clear();
     delete doc;
-    std::atomic num_vertexes(0);
+    // std::atomic num_vertexes(0);
+    size_t num_vertexes = 0;
     // Go through every edges to count the size of each vertex.
     LOG_INFO("Run: Go through every edges to count the size of each vertex");
     pending_packages.store(cores);
@@ -148,11 +148,13 @@ class EdgeCutPartitioner {
           auto dst_vid = dst_v[j];
           if (!vertex_indicator->get_bit(src_vid)) {
             vertex_indicator->set_bit(src_vid);
-            num_vertexes.fetch_add(1);
+            // num_vertexes.fetch_add(1);
+            __sync_add_and_fetch(&num_vertexes, 1);
           }
           if (!vertex_indicator->get_bit(dst_vid)) {
             vertex_indicator->set_bit(dst_vid);
-            num_vertexes.fetch_add(1);
+            //            num_vertexes.fetch_add(1);
+            __sync_add_and_fetch(&num_vertexes, 1);
           }
           __sync_add_and_fetch(num_out_edges + src_vid, 1);
           __sync_add_and_fetch(num_in_edges + dst_vid, 1);
@@ -163,45 +165,32 @@ class EdgeCutPartitioner {
     }
     finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
 
-    LOG_INFO("Real MAXIMUM ID: ", max_vid_atom.load());
-    size_t* offset_in_edges =
-        (size_t*)malloc(sizeof(size_t) * max_vid_atom.load());
-    size_t* offset_out_edges =
-        (size_t*)malloc(sizeof(size_t) * max_vid_atom.load());
-    memset(offset_in_edges, 0, sizeof(size_t) * max_vid_atom.load());
-    memset(offset_out_edges, 0, sizeof(size_t) * max_vid_atom.load());
-    graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>** vertexes =
-        (graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>**)malloc(
-            sizeof(graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>*) *
-            max_vid_atom.load());
-    memset(vertexes, 0,
-           sizeof(graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>*) *
-               max_vid_atom.load());
-    for (size_t i = 0; i < max_vid_atom.load(); i++) vertexes[i] = nullptr;
+    LOG_INFO("Real MAXIMUM ID: ", max_vid_);
+
+    graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>** vertexes = nullptr;
+    vertexes = (graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>**)malloc(
+        sizeof(graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>*) * max_vid_);
+
+    for (size_t i = 0; i < max_vid_; i++) vertexes[i] = nullptr;
 
     LOG_INFO("Run: Merge edges");
     pending_packages.store(cores);
     for (size_t i = 0; i < cores; i++) {
       size_t tid = i;
-      thread_pool.Commit([tid, &cores, &max_vid_atom, &num_in_edges,
-                          &num_out_edges, &vertex_indicator, &vertexes,
-                          &pending_packages, &finish_cv]() {
-        if (tid > max_vid_atom.load()) return;
-        for (size_t i = tid; i < max_vid_atom.load(); i += cores) {
-          if (!vertex_indicator->get_bit(i)) continue;
+      thread_pool.Commit([this, tid, &cores, &num_in_edges, &num_out_edges,
+                          &vertex_indicator, &vertexes, &pending_packages,
+                          &finish_cv]() {
+        if (tid > max_vid_) return;
+        for (size_t j = tid; j < max_vid_; j += cores) {
+          if (!vertex_indicator->get_bit(j)) continue;
           auto u = new graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>();
-          u->vid = i;
-          u->in_edges = (VID_T*)malloc(sizeof(VID_T) * (num_in_edges[i] + 64));
-          memset(u->in_edges, 0, sizeof(VID_T) * (num_in_edges[i] + 64));
-          u->out_edges =
-              (VID_T*)malloc(sizeof(VID_T) * (num_out_edges[i] + 64));
-          memset(u->out_edges, 0, sizeof(VID_T) * (num_out_edges[i] + 64));
-          // u->in_edges = (VID_T*)malloc(sizeof(VID_T) * 13906);
-          // memset(u->in_edges, 0, sizeof(VID_T) * 13906);
-          // u->out_edges = (VID_T*)malloc(sizeof(VID_T) * 20293);
-          // memset(u->out_edges, 0, sizeof(VID_T) * 20293);
-          u->indegree = num_in_edges[i];
-          u->outdegree = num_out_edges[i];
+          u->vid = j;
+          u->indegree = num_in_edges[u->vid];
+          u->outdegree = num_out_edges[u->vid];
+          u->in_edges = (VID_T*)malloc(sizeof(VID_T) * (u->indegree + 64));
+          memset(u->in_edges, 0, sizeof(VID_T) * (u->indegree + 64));
+          u->out_edges = (VID_T*)malloc(sizeof(VID_T) * (u->outdegree + 64));
+          memset(u->out_edges, 0, sizeof(VID_T) * (u->outdegree + 64));
           vertexes[u->vid] = u;
         }
         if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
@@ -210,8 +199,12 @@ class EdgeCutPartitioner {
     }
     finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
 
-    pending_packages.store(cores);
     LOG_INFO("Run: Edges fill");
+    size_t* offset_in_edges = (size_t*)malloc(sizeof(size_t) * max_vid_);
+    size_t* offset_out_edges = (size_t*)malloc(sizeof(size_t) * max_vid_);
+    memset(offset_in_edges, 0, sizeof(size_t) * max_vid_);
+    memset(offset_out_edges, 0, sizeof(size_t) * max_vid_);
+    pending_packages.store(cores);
     for (size_t i = 0; i < cores; i++) {
       size_t tid = i;
       thread_pool.Commit([tid, &cores, &num_in_edges, &num_out_edges,
@@ -221,13 +214,14 @@ class EdgeCutPartitioner {
         for (size_t j = tid; j < num_edges; j += cores) {
           auto src_vid = src_v[j];
           auto dst_vid = dst_v[j];
-          if (j % 10000 == 0) {
-            LOG_INFO(src_vid, " ", dst_vid);
-          }
+          assert(vertexes[src_vid] != nullptr);
+          assert(vertexes[dst_vid] != nullptr);
           auto dst_in_offset =
               __sync_fetch_and_add(offset_in_edges + dst_vid, 1);
           auto src_out_offset =
               __sync_fetch_and_add(offset_out_edges + src_vid, 1);
+          assert(dst_in_offset < num_in_edges[dst_vid]);
+          assert(src_out_offset < num_out_edges[src_vid]);
           if (vertexes[src_vid] != nullptr) {
             vertexes[src_vid]->out_edges[src_out_offset] = dst_vid;
           }
@@ -240,7 +234,6 @@ class EdgeCutPartitioner {
       });
     }
     finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
-    LOG_INFO("#");
     size_t* offset_fragments = (size_t*)malloc(sizeof(size_t) * num_partitions);
     memset(offset_fragments, 0, sizeof(size_t) * num_partitions);
 
@@ -305,7 +298,7 @@ class EdgeCutPartitioner {
       __sync_fetch_and_add(sum_in_edges_by_fragments + gid, u->indegree);
       __sync_fetch_and_add(sum_out_edges_by_fragments + gid, u->outdegree);
       __sync_fetch_and_add(num_vertexes_per_bucket + gid, 1);
-      if (count > num_vertexes.load() / num_partitions) {
+      if (count > num_vertexes / num_partitions) {
         gid++;
         count = 0;
       } else {
@@ -395,6 +388,7 @@ class EdgeCutPartitioner {
     delete offset_in_edges;
     delete num_in_edges;
     delete num_out_edges;
+    LOG_INFO("END");
     return true;
   }
 
