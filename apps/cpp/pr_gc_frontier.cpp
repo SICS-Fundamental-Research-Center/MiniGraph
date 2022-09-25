@@ -185,7 +185,6 @@ class PRPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
       std::swap(out_visited, in_visited);
       out_visited->clear();
     }
-    LOG_INFO(num_iter);
     //      return num_iter > 1;
     return visited.get_num_bit();
   }
@@ -197,9 +196,9 @@ class PRPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 };
 
 struct Context {
-  size_t num_iter = 20;
-  float epsilon = 0.01;
-  float gamma = 0.01;
+  size_t num_iter = 10;
+  float epsilon = 0.000001;
+  float gamma = 0.00001;
 };
 
 using CSR_T = minigraph::graphs::ImmutableCSR<gid_t, vid_t, vdata_t, edata_t>;
