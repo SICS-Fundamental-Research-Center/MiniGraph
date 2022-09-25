@@ -1,24 +1,20 @@
 #ifndef MINIGRAPH_UTILITY_IO_CSR_IO_ADAPTER_H
 #define MINIGRAPH_UTILITY_IO_CSR_IO_ADAPTER_H
 
-#include <sys/stat.h>
-
-#include <fstream>
-#include <iostream>
-#include <string>
-#include <unordered_map>
-
-#include "rapidcsv.h"
-#include <folly/AtomicHashArray.h>
-#include <folly/AtomicHashMap.h>
-#include <folly/FileUtil.h>
-
 #include "graphs/immutable_csr.h"
 #include "io_adapter_base.h"
 #include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
+#include "rapidcsv.h"
 #include "utility/logging.h"
-
+#include <folly/AtomicHashArray.h>
+#include <folly/AtomicHashMap.h>
+#include <folly/FileUtil.h>
+#include <sys/stat.h>
+#include <fstream>
+#include <iostream>
+#include <string>
+#include <unordered_map>
 
 namespace minigraph {
 namespace utility {
@@ -198,7 +194,6 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       // read bitmap
       meta_file.read((char*)&graph->max_vid_, sizeof(VID_T));
       graph->max_vid_ = int(ceil(graph->max_vid_ / 64) + 1) * 64;
-      LOG_INFO(graph->max_vid_);
       graph->bitmap_ = new Bitmap(graph->max_vid_);
       graph->bitmap_->clear();
       meta_file.close();
@@ -266,7 +261,7 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       vdata_file.close();
     }
 
-    LOG_INFO("Load bytes: ",
+    LOG_INFO("Gid: ", gid, " - Load bytes: ",
              total_size + sizeof(VDATA_T) * graph->num_vertexes_);
     graph->is_serialized_ = true;
     graph->gid_ = gid;
