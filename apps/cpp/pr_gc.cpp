@@ -197,7 +197,7 @@ class PRPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 struct Context {
   size_t num_iter = 5;
   float epsilon = 0.001;
-  float gamma = 0.001;
+  float gamma = 0.01;
 };
 
 using CSR_T = minigraph::graphs::ImmutableCSR<gid_t, vid_t, vdata_t, edata_t>;
