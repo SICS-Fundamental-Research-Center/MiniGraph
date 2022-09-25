@@ -80,12 +80,12 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
              minigraph::executors::TaskRunner* task_runner) override {
     LOG_INFO("PEval() - Processing gid: ", graph.gid_);
     if (!graph.IsInGraph(this->context_.root_id)) return false;
+    VertexInfo u, v;
     Bitmap* global_border_vid_map = this->msg_mngr_->GetGlobalBorderVidMap();
     VID_T* vid_map = this->msg_mngr_->GetVidMap();
     VDATA_T* global_vdata = this->msg_mngr_->GetGlobalVdata();
     Bitmap visited(graph.get_num_vertexes());
     visited.clear();
-    VertexInfo u, v;
 
     // process root_vertex
     auto local_root_id = vid_map[this->context_.root_id];
@@ -100,10 +100,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
       for (size_t i = 0; i < u.outdegree; i++) {
         if (!graph.IsInGraph(u.out_edges[i])) continue;
         auto v = graph.GetVertexByVid(vid_map[u.out_edges[i]]);
-        if (v.vdata[0] > u.vdata[0]) {
-          write_min(v.vdata, u.vdata[0]);
-          frontier.enqueue(v);
-        }
+        if (v.vdata[0] > u.vdata[0]) write_min(v.vdata, u.vdata[0]);
       }
     }
 
@@ -135,7 +132,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
   bool IncEval(GRAPH_T& graph,
                minigraph::executors::TaskRunner* task_runner) override {
-    LOG_INFO("IncEval() - Processing gid: ", graph.gid_);
+    //LOG_INFO("IncEval() - Processing gid: ", graph.gid_);
     Bitmap* global_border_vid_map = this->msg_mngr_->GetGlobalBorderVidMap();
     VID_T* vid_map = this->msg_mngr_->GetVidMap();
     VDATA_T* global_vdata = this->msg_mngr_->GetGlobalVdata();
@@ -201,7 +198,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
         }
       }
     }
-    LOG_INFO("Gid: ", graph.gid_, " active_vertexes: ", visited.get_num_bit());
+    //LOG_INFO("Gid: ", graph.gid_, " active_vertexes: ", visited.get_num_bit());
     return !visited.empty();
   }
 
@@ -212,7 +209,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 };
 
 struct Context {
-  size_t root_id = 12;
+  size_t root_id = 0;
 };
 
 using CSR_T = minigraph::graphs::ImmutableCSR<gid_t, vid_t, vdata_t, edata_t>;
