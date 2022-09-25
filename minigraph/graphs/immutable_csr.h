@@ -197,6 +197,10 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       free(vertexes_state_);
       vertexes_state_ = nullptr;
     }
+    if (bitmap_ != nullptr) {
+      delete bitmap_;
+      bitmap_ = nullptr;
+    }
     malloc_trim(0);
   };
 
