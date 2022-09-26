@@ -196,7 +196,7 @@ class PRPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 };
 
 struct Context {
-  size_t num_iter = 10;
+  size_t num_iter = 1;
   float epsilon = 0.001;
   float gamma = 0.01;
 };
@@ -221,7 +221,7 @@ int main(int argc, char* argv[]) {
 
   minigraph::MiniGraphSys<CSR_T, PRPIE_T> minigraph_sys(
       work_space, num_workers_lc, num_workers_cc, num_workers_dc, num_cores,
-      buffer_size, app_wrapper);
+      buffer_size, app_wrapper, FLAGS_iter);
   minigraph_sys.RunSys();
   //minigraph_sys.ShowResult(30);
   gflags::ShutDownCommandLineFlags();
