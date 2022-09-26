@@ -85,6 +85,7 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
         if (this->TrySync()) {
           if (this->state_machine_->IsTerminated() ||
               this->get_global_superstep() > num_iter_) {
+            LOG_INFO(this->get_global_superstep());
             auto out_rts = this->state_machine_->EvokeAllX(RTS);
             for (auto& iter : out_rts) {
               CSRPt& csr_pt = pt_by_gid_->find(iter)->second;

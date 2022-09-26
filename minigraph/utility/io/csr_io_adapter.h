@@ -261,8 +261,8 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       vdata_file.close();
     }
 
-    LOG_INFO("Gid: ", gid, " - Load bytes: ",
-             total_size + sizeof(VDATA_T) * graph->num_vertexes_);
+    //LOG_INFO("Gid: ", gid, " - Load bytes: ",
+    //         total_size + sizeof(VDATA_T) * graph->num_vertexes_);
     graph->is_serialized_ = true;
     graph->gid_ = gid;
     free(buf_meta);
