@@ -1,15 +1,12 @@
 #ifndef MINIGRAPH_DISCHARGE_COMPONENT_H
 #define MINIGRAPH_DISCHARGE_COMPONENT_H
 
-#include <string>
-
-#include <folly/ProducerConsumerQueue.h>
-
 #include "components/component_base.h"
 #include "portability/sys_data_structure.h"
 #include "utility/io/csr_io_adapter.h"
 #include "utility/thread_pool.h"
-
+#include <folly/ProducerConsumerQueue.h>
+#include <string>
 
 namespace minigraph {
 namespace components {
@@ -81,11 +78,13 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
         gid = que_gid.front();
         que_gid.pop();
         CheckRTRule(gid);
-        LOG_INFO("discharge ", gid);
-        //this->state_machine_->ShowAllState();
+        // this->state_machine_->ShowAllState();
+        if (this->get_global_superstep() > num_iter_) {
+          LOG_INFO(this->get_global_superstep(), " iter", num_iter_);
+        }
+
         if (this->TrySync()) {
-          if (this->state_machine_->IsTerminated() ||
-              this->get_global_superstep() > num_iter_) {
+          if (this->state_machine_->IsTerminated()) {
             LOG_INFO(this->get_global_superstep());
             auto out_rts = this->state_machine_->EvokeAllX(RTS);
             for (auto& iter : out_rts) {
