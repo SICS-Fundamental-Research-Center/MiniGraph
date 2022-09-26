@@ -57,7 +57,7 @@ class MiniGraphSys {
              ", num_workers_cc: ", num_workers_cc,
              ", num_worker_dc: ", num_workers_dc, ", num_threads: ", num_cores);
 
-    num_threads_ = num_workers_lc + num_workers_dc + num_workers_cc + 1;
+    num_threads_ = num_workers_lc + num_workers_dc + num_workers_cc + buffer_size;
     InitWorkList(work_space);
 
     // init Data Manager.
