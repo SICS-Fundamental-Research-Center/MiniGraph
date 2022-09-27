@@ -122,6 +122,6 @@ int main(int argc, char* argv[]) {
   assert(FLAGS_i != "" && FLAGS_o != "");
   size_t cores = FLAGS_cores;
   LOG_INFO("Statistic: ", FLAGS_i);
-  GetGraphStatistic<vid_t>(FLAGS_i, FLAGS_o, cores, ',');
+  GetGraphStatistic<vid_t>(FLAGS_i, FLAGS_o, cores, FLAGS_sep.c_str());
   gflags::ShutDownCommandLineFlags();
 }
