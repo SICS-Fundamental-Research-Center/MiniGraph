@@ -57,7 +57,7 @@ class MiniGraphSys {
              ", num_workers_cc: ", num_workers_cc,
              ", num_worker_dc: ", num_workers_dc, ", num_threads: ", num_cores);
 
-    num_threads_ = num_workers_lc + num_workers_dc + num_workers_cc + buffer_size;
+    num_threads_ = 3;
     InitWorkList(work_space);
 
     // init Data Manager.
@@ -98,6 +98,9 @@ class MiniGraphSys {
 
     // init thread pool
     thread_pool_ = std::make_unique<utility::EDFThreadPool>(num_threads_);
+    lc_thread_pool_ = std::make_unique<utility::EDFThreadPool>(num_workers_lc);
+    cc_thread_pool_ = std::make_unique<utility::EDFThreadPool>(num_workers_cc);
+    dc_thread_pool_ = std::make_unique<utility::EDFThreadPool>(num_workers_dc);
 
     // init state_machine
     state_machine_ = new utility::StateMachine<GID_T>(vec_gid);
@@ -133,7 +136,7 @@ class MiniGraphSys {
 
     // init components
     load_component_ = std::make_unique<components::LoadComponent<GRAPH_T>>(
-        num_workers_lc, sem_lc_dc, thread_pool_.get(), superstep_by_gid_,
+        num_workers_lc, sem_lc_dc, lc_thread_pool_.get(), superstep_by_gid_,
         global_superstep_, state_machine_, read_trigger_.get(),
         task_queue_.get(), partial_result_queue_.get(), pt_by_gid_,
         data_mngr_.get(), msg_mngr_.get(), read_trigger_lck_.get(),
@@ -141,14 +144,14 @@ class MiniGraphSys {
         read_trigger_cv_.get(), task_queue_cv_.get(), partial_result_cv_.get());
     computing_component_ =
         std::make_unique<components::ComputingComponent<GRAPH_T, AUTOAPP_T>>(
-            num_workers_cc, num_cores, thread_pool_.get(), superstep_by_gid_,
+            num_workers_cc, num_cores, cc_thread_pool_.get(), superstep_by_gid_,
             global_superstep_, state_machine_, task_queue_.get(),
             partial_result_queue_.get(), data_mngr_.get(), app_wrapper_.get(),
             task_queue_lck_.get(), partial_result_lck_.get(),
             task_queue_cv_.get(), partial_result_cv_.get());
     discharge_component_ =
         std::make_unique<components::DischargeComponent<GRAPH_T>>(
-            num_workers_dc, sem_lc_dc, thread_pool_.get(), superstep_by_gid_,
+            num_workers_dc, sem_lc_dc, dc_thread_pool_.get(), superstep_by_gid_,
             global_superstep_, state_machine_, partial_result_queue_.get(),
             read_trigger_.get(), pt_by_gid_, data_mngr_.get(), msg_mngr_.get(),
             partial_result_lck_.get(), read_trigger_lck_.get(),
@@ -253,6 +256,9 @@ class MiniGraphSys {
   // thread pool.
   size_t num_threads_ = 0;
   std::unique_ptr<utility::EDFThreadPool> thread_pool_ = nullptr;
+  std::unique_ptr<utility::EDFThreadPool> lc_thread_pool_ = nullptr;
+  std::unique_ptr<utility::EDFThreadPool> cc_thread_pool_ = nullptr;
+  std::unique_ptr<utility::EDFThreadPool> dc_thread_pool_ = nullptr;
 
   // superstep.
   std::unordered_map<GID_T, std::atomic<size_t>*>* superstep_by_gid_ = nullptr;
