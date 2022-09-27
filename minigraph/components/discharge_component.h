@@ -68,6 +68,7 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   void Run() override {
     LOG_INFO("Run DC");
     std::queue<GID_T> que_gid;
+    folly::NativeSemaphore sem(num_workers_);
     while (this->switch_.load()) {
       GID_T gid = MINIGRAPH_GID_MAX;
       partial_result_cv_->wait(*partial_result_lck_, [&] { return true; });
@@ -80,31 +81,36 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       while (!que_gid.empty()) {
         gid = que_gid.front();
         que_gid.pop();
-        CheckRTRule(gid);
 
-        if (this->TrySync()) {
-          if (this->state_machine_->IsTerminated() ||
-              this->get_global_superstep() > num_iter_) {
-            LOG_INFO(this->get_global_superstep());
-            auto out_rts = this->state_machine_->EvokeAllX(RTS);
-            for (auto& iter : out_rts) {
-              CSRPt& csr_pt = pt_by_gid_->find(iter)->second;
-              data_mngr_->WriteGraph(gid, csr_pt, csr_bin, true);
-            }
+        sem.try_wait();
+        auto task =
+            std::bind(&components::DischargeComponent<GRAPH_T>::ProcessGraph,
+                      this, gid, sem);
+        this->thread_pool_->Commit(task);
+        // CheckRTRule(gid);
+        // if (this->TrySync()) {
+        //   if (this->state_machine_->IsTerminated() ||
+        //       this->get_global_superstep() > num_iter_) {
+        //     LOG_INFO(this->get_global_superstep());
+        //     auto out_rts = this->state_machine_->EvokeAllX(RTS);
+        //     for (auto& iter : out_rts) {
+        //       CSRPt& csr_pt = pt_by_gid_->find(iter)->second;
+        //       data_mngr_->WriteGraph(gid, csr_pt, csr_bin, true);
+        //     }
 
-            system_switch_cv_->wait(*system_switch_lck_,
-                                    [&] { return system_switch_->load(); });
-            system_switch_->store(false);
-            system_switch_cv_->notify_all();
-            LOG_INFO("DC exit");
-            return;
-          } else {
-            ReleaseGraphX(gid);
-            WriteAllGraphsBack(gid);
-          }
-        } else {
-          ReleaseGraphX(gid);
-        }
+        //    system_switch_cv_->wait(*system_switch_lck_,
+        //                            [&] { return system_switch_->load(); });
+        //    system_switch_->store(false);
+        //    system_switch_cv_->notify_all();
+        //    LOG_INFO("DC exit");
+        //    return;
+        //  } else {
+        //    ReleaseGraphX(gid);
+        //    WriteAllGraphsBack(gid);
+        //  }
+        //} else {
+        //  ReleaseGraphX(gid);
+        //}
       }
     }
   }
@@ -156,6 +162,33 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       }
     }
     sem_lc_dc_->post();
+  }
+
+  void ProcessGraph(const GID_T& gid, folly::NativeSemaphore& sem) {
+    CheckRTRule(gid);
+    if (this->TrySync()) {
+      if (this->state_machine_->IsTerminated() ||
+          this->get_global_superstep() > num_iter_) {
+        LOG_INFO(this->get_global_superstep());
+        auto out_rts = this->state_machine_->EvokeAllX(RTS);
+        for (auto& iter : out_rts) {
+          CSRPt& csr_pt = pt_by_gid_->find(iter)->second;
+          data_mngr_->WriteGraph(gid, csr_pt, csr_bin, true);
+        }
+
+        system_switch_cv_->wait(*system_switch_lck_,
+                                [&] { return system_switch_->load(); });
+        system_switch_->store(false);
+        system_switch_cv_->notify_all();
+        LOG_INFO("DC exit");
+        return;
+      } else {
+        ReleaseGraphX(gid);
+        WriteAllGraphsBack(gid);
+      }
+    } else {
+      ReleaseGraphX(gid);
+    }
   }
 
   void WriteAllGraphsBack(const GID_T current_gid) {

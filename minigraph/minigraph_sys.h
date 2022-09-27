@@ -68,7 +68,7 @@ class MiniGraphSys {
         data_mngr_.get(), work_space, false);
     msg_mngr_->Init(work_space);
 
-    pt_by_gid_ = new folly::AtomicHashMap<GID_T, CSRPt>(4096);
+    pt_by_gid_ = new folly::AtomicHashMap<GID_T, CSRPt>(8096);
     InitPtByGid(work_space);
 
     // init global superstep
