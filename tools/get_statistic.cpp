@@ -1,26 +1,22 @@
-#include <sys/stat.h>
-#include <math.h>
-#include <unistd.h>
-
-#include <cstring>
-#include <fstream>
-#include <iostream>
-#include <random>
-#include <string>
-
-#include <gflags/gflags.h>
-#include <glog/logging.h>
-#include <rapidcsv.h>
-
 #include "portability/sys_types.h"
 #include "utility/bitmap.h"
 #include "utility/logging.h"
 #include "utility/thread_pool.h"
-
+#include <gflags/gflags.h>
+#include <glog/logging.h>
+#include <sys/stat.h>
+#include <cstring>
+#include <fstream>
+#include <iostream>
+#include <math.h>
+#include <random>
+#include <rapidcsv.h>
+#include <string>
+#include <unistd.h>
 
 template <typename VID_T>
 void GetGraphStatistic(const std::string input_pt, const std::string output_pt,
-                       const size_t cores, char *separator_params = ',') {
+                       const size_t cores, char separator_params = ',') {
   std::mutex mtx;
   std::condition_variable finish_cv;
   std::unique_lock<std::mutex> lck(mtx);
@@ -29,7 +25,7 @@ void GetGraphStatistic(const std::string input_pt, const std::string output_pt,
 
   rapidcsv::Document* doc =
       new rapidcsv::Document(input_pt, rapidcsv::LabelParams(),
-                             rapidcsv::SeparatorParams(*separator_params));
+                             rapidcsv::SeparatorParams(separator_params));
   std::vector<VID_T>* src = new std::vector<VID_T>();
   *src = doc->GetColumn<VID_T>("src");
   std::vector<VID_T>* dst = new std::vector<VID_T>();
@@ -122,6 +118,6 @@ int main(int argc, char* argv[]) {
   assert(FLAGS_i != "" && FLAGS_o != "");
   size_t cores = FLAGS_cores;
   LOG_INFO("Statistic: ", FLAGS_i);
-  GetGraphStatistic<vid_t>(FLAGS_i, FLAGS_o, cores, FLAGS_sep.c_str());
+  GetGraphStatistic<vid_t>(FLAGS_i, FLAGS_o, cores, *(FLAGS_sep.c_str()));
   gflags::ShutDownCommandLineFlags();
 }
