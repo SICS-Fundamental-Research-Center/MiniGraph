@@ -119,7 +119,7 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
 
   void ProcessGraph(GID_T gid, folly::NativeSemaphore& sem) {
     auto read = false;
-
+    LOG_INFO("read: ", gid);
     if (this->get_global_superstep() == 0) {
       read = true;
     } else {
@@ -133,6 +133,7 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       }
     }
 
+    LOG_INFO("#");
     if (read) {
       CSRPt& csr_pt = pt_by_gid_->find(gid)->second;
       auto tag = false;
