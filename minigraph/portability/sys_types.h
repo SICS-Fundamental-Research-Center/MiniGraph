@@ -56,7 +56,7 @@ DEFINE_string(
     "two types of edge list files are supported: csr_bin, edge_list_bin");
 DEFINE_bool(p, false, "partition input graph");
 DEFINE_string(t, "edgelist", "type");
-DEFINE_string(sep, "seperator", ',');
+DEFINE_string(sep, "seperator", ",");
 DEFINE_uint64(n, 1, "the number of fragments");
 DEFINE_uint64(vertexes, 1, "the number of vertexes");
 DEFINE_uint64(edges, 1, "the number of edges");
