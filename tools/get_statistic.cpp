@@ -20,7 +20,7 @@
 
 template <typename VID_T>
 void GetGraphStatistic(const std::string input_pt, const std::string output_pt,
-                       const size_t cores, char separator_params = ',') {
+                       const size_t cores, char *separator_params = ',') {
   std::mutex mtx;
   std::condition_variable finish_cv;
   std::unique_lock<std::mutex> lck(mtx);
@@ -29,7 +29,7 @@ void GetGraphStatistic(const std::string input_pt, const std::string output_pt,
 
   rapidcsv::Document* doc =
       new rapidcsv::Document(input_pt, rapidcsv::LabelParams(),
-                             rapidcsv::SeparatorParams(separator_params));
+                             rapidcsv::SeparatorParams(*separator_params));
   std::vector<VID_T>* src = new std::vector<VID_T>();
   *src = doc->GetColumn<VID_T>("src");
   std::vector<VID_T>* dst = new std::vector<VID_T>();
