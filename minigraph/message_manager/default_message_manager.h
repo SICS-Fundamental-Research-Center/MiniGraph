@@ -66,11 +66,11 @@ class DefaultMessageManager : public MessageManagerBase {
 
     global_border_vid_map_ = data_mngr_->ReadBitmap(
         work_space + "minigraph_message/global_border_vid_map.bin");
-    for (size_t i = 0; i < num_graphs_; i++) {
-      for (size_t j = 0; j < num_graphs_; j++)
-        std::cout << *(communication_matrix_ + i * num_graphs_ + j) << ", ";
-      std::cout << std::endl;
-    }
+    //for (size_t i = 0; i < num_graphs_; i++) {
+    //  for (size_t j = 0; j < num_graphs_; j++)
+    //    std::cout << *(communication_matrix_ + i * num_graphs_ + j) << ", ";
+    //  std::cout << std::endl;
+    //}
 
     historical_state_matrix_ = (char*)malloc(sizeof(char) * num_graphs_);
     memset(historical_state_matrix_, 0, sizeof(char) * num_graphs_);

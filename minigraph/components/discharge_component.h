@@ -195,7 +195,7 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   }
 
   void WriteAllGraphsBack(const GID_T current_gid) {
-    LOG_INFO("WriteAllGraphsBack");
+    LOG_INFO("WriteAllGraphsBack triggered by: ", current_gid);
     GID_T gid = this->state_machine_->GetXStateOf(RC);
     if (gid != MINIGRAPH_GID_MAX) {
       // Snapshot
