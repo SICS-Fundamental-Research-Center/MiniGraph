@@ -189,6 +189,8 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
     } else {
       ReleaseGraphX(gid);
     }
+    sem.post();
+    return;
   }
 
   void WriteAllGraphsBack(const GID_T current_gid) {
