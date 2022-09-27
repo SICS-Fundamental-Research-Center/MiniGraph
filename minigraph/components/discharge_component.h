@@ -45,6 +45,7 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       std::condition_variable* system_switch_cv, const size_t num_iter)
       : ComponentBase<GID_T>(thread_pool, superstep_by_gid, global_superstep,
                              state_machine) {
+    num_workers_ = num_workers;
     sem_lc_dc_ = sem_lc_dc;
     partial_result_queue_ = partial_result_queue;
     pt_by_gid_ = pt_by_gid;
