@@ -46,7 +46,6 @@ void GetGraphStatistic(const std::string input_pt, const std::string output_pt,
   std::atomic<size_t> max_outdegree(0);
   std::atomic<size_t> max_degree(0);
 
-  LOG_INFO("Run: get maximum vid");
   for (size_t i = 0; i < cores; i++) {
     size_t tid = i;
     thread_pool.Commit([tid, &cores, &src_v, &dst_v, &src, &dst,
