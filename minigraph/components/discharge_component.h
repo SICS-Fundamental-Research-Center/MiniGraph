@@ -1,12 +1,15 @@
 #ifndef MINIGRAPH_DISCHARGE_COMPONENT_H
 #define MINIGRAPH_DISCHARGE_COMPONENT_H
 
+#include <string>
+
+#include <folly/ProducerConsumerQueue.h>
+
 #include "components/component_base.h"
 #include "portability/sys_data_structure.h"
 #include "utility/io/csr_io_adapter.h"
 #include "utility/thread_pool.h"
-#include <folly/ProducerConsumerQueue.h>
-#include <string>
+
 
 namespace minigraph {
 namespace components {
@@ -80,35 +83,35 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
         gid = que_gid.front();
         que_gid.pop();
 
-        sem.try_wait();
-        auto task =
-            std::bind(&components::DischargeComponent<GRAPH_T>::ProcessGraph,
-                      this, gid, sem);
-        this->thread_pool_->Commit(task);
-        // CheckRTRule(gid);
-        // if (this->TrySync()) {
-        //   if (this->state_machine_->IsTerminated() ||
-        //       this->get_global_superstep() > num_iter_) {
-        //     LOG_INFO(this->get_global_superstep());
-        //     auto out_rts = this->state_machine_->EvokeAllX(RTS);
-        //     for (auto& iter : out_rts) {
-        //       CSRPt& csr_pt = pt_by_gid_->find(iter)->second;
-        //       data_mngr_->WriteGraph(gid, csr_pt, csr_bin, true);
-        //     }
+        // sem.try_wait();
+        // auto task =
+        //     std::bind(&components::DischargeComponent<GRAPH_T>::ProcessGraph,
+        //               this, gid, sem);
+        // this->thread_pool_->Commit(task);
+        CheckRTRule(gid);
+        if (this->TrySync()) {
+          if (this->state_machine_->IsTerminated() ||
+              this->get_global_superstep() > num_iter_) {
+            LOG_INFO(this->get_global_superstep());
+            auto out_rts = this->state_machine_->EvokeAllX(RTS);
+            for (auto& iter : out_rts) {
+              CSRPt& csr_pt = pt_by_gid_->find(iter)->second;
+              data_mngr_->WriteGraph(gid, csr_pt, csr_bin, true);
+            }
 
-        //    system_switch_cv_->wait(*system_switch_lck_,
-        //                            [&] { return system_switch_->load(); });
-        //    system_switch_->store(false);
-        //    system_switch_cv_->notify_all();
-        //    LOG_INFO("DC exit");
-        //    return;
-        //  } else {
-        //    ReleaseGraphX(gid);
-        //    WriteAllGraphsBack(gid);
-        //  }
-        //} else {
-        //  ReleaseGraphX(gid);
-        //}
+            system_switch_cv_->wait(*system_switch_lck_,
+                                    [&] { return system_switch_->load(); });
+            system_switch_->store(false);
+            system_switch_cv_->notify_all();
+            LOG_INFO("DC exit");
+            return;
+          } else {
+            ReleaseGraphX(gid);
+            WriteAllGraphsBack(gid);
+          }
+        } else {
+          ReleaseGraphX(gid);
+        }
       }
     }
   }
@@ -193,7 +196,7 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
 
   void WriteAllGraphsBack(const GID_T current_gid) {
     LOG_INFO("WriteAllGraphsBack triggered by: ", current_gid);
-    //this->state_machine_->ShowAllState();
+    // this->state_machine_->ShowAllState();
     GID_T gid = this->state_machine_->GetXStateOf(RC);
     if (gid != MINIGRAPH_GID_MAX) {
       // Snapshot
