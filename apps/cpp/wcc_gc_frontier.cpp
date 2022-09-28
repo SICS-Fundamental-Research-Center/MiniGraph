@@ -67,7 +67,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
   bool Init(GRAPH_T& graph,
             minigraph::executors::TaskRunner* task_runner) override {
-    LOG_INFO("Init() - Processing gid: ", graph.gid_);
+    //LOG_INFO("Init() - Processing gid: ", graph.gid_);
     Bitmap* visited = new Bitmap(graph.max_vid_);
     visited->fill();
     this->auto_map_->ActiveMap(graph, task_runner, visited,
@@ -78,7 +78,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
   bool PEval(GRAPH_T& graph,
              minigraph::executors::TaskRunner* task_runner) override {
-    LOG_INFO("PEval() - Processing gid: ", graph.gid_);
+    //LOG_INFO("PEval() - Processing gid: ", graph.gid_);
     if (!graph.IsInGraph(this->context_.root_id)) return false;
     VertexInfo u, v;
     Bitmap* global_border_vid_map = this->msg_mngr_->GetGlobalBorderVidMap();

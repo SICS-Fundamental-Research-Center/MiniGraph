@@ -157,7 +157,7 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
   bool Init(GRAPH_T& graph,
             minigraph::executors::TaskRunner* task_runner) override {
-    LOG_INFO("Init() - Processing gid: ", graph.gid_);
+    //LOG_INFO("Init() - Processing gid: ", graph.gid_);
     Bitmap* visited = new Bitmap(graph.max_vid_);
     visited->fill();
     this->auto_map_->ActiveMap(graph, task_runner, visited,
@@ -173,7 +173,7 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
       LOG_INFO("PEval() - Skip gid: ", graph.gid_);
       return false;
     };
-    LOG_INFO("PEval() - Processing gid: ", graph.gid_);
+    //LOG_INFO("PEval() - Processing gid: ", graph.gid_);
     VID_T* vid_map = this->msg_mngr_->GetVidMap();
     Bitmap* global_border_vid_map = this->msg_mngr_->GetGlobalBorderVidMap();
     VDATA_T* global_vdata = this->msg_mngr_->GetGlobalVdata();

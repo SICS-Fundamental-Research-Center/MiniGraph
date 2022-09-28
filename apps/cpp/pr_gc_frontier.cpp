@@ -64,7 +64,7 @@ class PRPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
   bool Init(GRAPH_T& graph,
             minigraph::executors::TaskRunner* task_runner) override {
-    LOG_INFO("Init() - Processing gid: ", graph.gid_);
+    //LOG_INFO("Init() - Processing gid: ", graph.gid_);
     Bitmap* visited = new Bitmap(graph.max_vid_);
     visited->fill();
     this->auto_map_->ActiveMap(graph, task_runner, visited,
@@ -134,7 +134,7 @@ class PRPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
   bool IncEval(GRAPH_T& graph,
                minigraph::executors::TaskRunner* task_runner) override {
-    LOG_INFO("IncEval() - Processing gid: ", graph.gid_);
+    //LOG_INFO("IncEval() - Processing gid: ", graph.gid_);
 
     Bitmap* in_visited = new Bitmap(graph.get_num_vertexes());
     Bitmap* out_visited = new Bitmap(graph.get_num_vertexes());
