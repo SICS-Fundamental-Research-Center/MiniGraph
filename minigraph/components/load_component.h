@@ -26,7 +26,6 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   using VID_T = typename GRAPH_T::vid_t;
   using VDATA_T = typename GRAPH_T::vdata_t;
   using EDATA_T = typename GRAPH_T::edata_t;
-  using GRAPH_BASE_T = graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>;
   using CSR_T = graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>;
   using EDGE_LIST_T =
       minigraph::graphs::EdgeList<gid_t, vid_t, vdata_t, edata_t>;
