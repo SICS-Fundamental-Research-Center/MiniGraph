@@ -132,7 +132,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
   bool IncEval(GRAPH_T& graph,
                minigraph::executors::TaskRunner* task_runner) override {
-    LOG_INFO("IncEval() - Processing gid: ", graph.gid_);
+    //LOG_INFO("IncEval() - Processing gid: ", graph.gid_);
     Bitmap* global_border_vid_map = this->msg_mngr_->GetGlobalBorderVidMap();
     VID_T* vid_map = this->msg_mngr_->GetVidMap();
     VDATA_T* global_vdata = this->msg_mngr_->GetGlobalVdata();
