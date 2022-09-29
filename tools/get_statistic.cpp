@@ -103,6 +103,12 @@ void GetGraphStatistic(const std::string input_pt, const std::string output_pt,
   std::ofstream ofs;
   ofs.open(output_pt, std::ios::out);
 
+  LOG_INFO("#maximum vid: ", max_vid_atom.load());
+  LOG_INFO("#maximum indegree: ", max_indegree.load());
+  LOG_INFO("#maximum outdegree: ", max_outdegree.load());
+  LOG_INFO("#maximum degree: ", max_degree.load());
+  LOG_INFO("#num_edges", num_edges);
+
   ofs << "#maximum vid: " << max_vid_atom.load() << std::endl;
   ofs << "#maximum indegree: " << max_indegree.load() << std::endl;
   ofs << "#maximum outdegree: " << max_outdegree.load() << std::endl;
