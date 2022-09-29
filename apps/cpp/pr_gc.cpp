@@ -183,8 +183,6 @@ class PRPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
       std::swap(out_visited, in_visited);
       out_visited->clear();
     }
-    LOG_INFO("Active: ", visited.get_num_bit(), " / ",
-             graph.get_num_vertexes());
     return !visited.empty();
   }
 
