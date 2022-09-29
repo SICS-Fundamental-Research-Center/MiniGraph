@@ -56,8 +56,8 @@ void GetGraphStatistic(const std::string input_pt, const std::string output_pt,
 
   size_t* outdegree = (size_t*)malloc(sizeof(size_t) * max_vid_atom.load());
   size_t* indegree = (size_t*)malloc(sizeof(size_t) * max_vid_atom.load());
-  memset(outdegree, 0, sizeof(VID_T) * max_vid_atom.load());
-  memset(indegree, 0, sizeof(VID_T) * max_vid_atom.load());
+  memset(outdegree, 0, sizeof(size_t) * max_vid_atom.load());
+  memset(indegree, 0, sizeof(size_t) * max_vid_atom.load());
 
   pending_packages.store(cores);
   for (size_t i = 0; i < cores; i++) {
