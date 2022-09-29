@@ -267,7 +267,7 @@ class PRPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
 struct Context {
   size_t num_iter = 5;
-  float epsilon = 0.0001;
+  float epsilon = 0.000001;
   float gamma = 0.01;
 };
 
