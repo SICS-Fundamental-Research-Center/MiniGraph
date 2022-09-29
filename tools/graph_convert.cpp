@@ -1,10 +1,3 @@
-#include <sys/stat.h>
-
-#include <iostream>
-#include <string>
-
-#include <gflags/gflags.h>
-
 #include "graphs/edge_list.h"
 #include "graphs/immutable_csr.h"
 #include "portability/sys_data_structure.h"
@@ -12,7 +5,10 @@
 #include "utility/io/data_mngr.h"
 #include "utility/io/edge_list_io_adapter.h"
 #include "utility/paritioner/edge_cut_partitioner.h"
-
+#include <gflags/gflags.h>
+#include <sys/stat.h>
+#include <iostream>
+#include <string>
 
 using CSR_T = minigraph::graphs::ImmutableCSR<gid_t, vid_t, vdata_t, edata_t>;
 using GRAPH_BASE_T = minigraph::graphs::Graph<gid_t, vid_t, vdata_t, edata_t>;
@@ -20,14 +16,16 @@ using EDGE_LIST_T = minigraph::graphs::EdgeList<gid_t, vid_t, vdata_t, edata_t>;
 
 void EdgeList2CSR(std::string src_pt, std::string dst_pt, std::size_t cores,
                   std::size_t num_partitions, size_t max_vid,
-                  std::string init_model, unsigned init_val) {
+                  std::string init_model, unsigned init_val,
+                  char separator_params = ',') {
   max_vid = (ceil(max_vid / 64) + 1) * 64;
   minigraph::utility::io::DataMngr<CSR_T> data_mngr;
   minigraph::utility::partitioner::EdgeCutPartitioner<CSR_T>
       edge_cut_partitioner(max_vid);
 
-  edge_cut_partitioner.ParallelPartition(src_pt, ',', num_partitions, max_vid,
-                                         cores, init_model, init_val);
+  edge_cut_partitioner.ParallelPartition(src_pt, separator_params,
+                                         num_partitions, max_vid, cores,
+                                         init_model, init_val);
 
   if (!data_mngr.IsExist(dst_pt + "minigraph_meta/")) {
     data_mngr.MakeDirectory(dst_pt + "minigraph_meta/");
@@ -130,7 +128,7 @@ int main(int argc, char* argv[]) {
     std::string graph_type = FLAGS_t;
     if (graph_type == "csr_bin") {
       EdgeList2CSR(src_pt, dst_pt, cores, num_partitions, max_vid, init_model,
-                   FLAGS_init_val);
+                   FLAGS_init_val, *FLAGS_sep.c_str());
 
     } else if (graph_type == "edgelist_bin") {
       EdgeList2EdgeList(src_pt, dst_pt);

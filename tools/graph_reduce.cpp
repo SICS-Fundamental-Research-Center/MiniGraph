@@ -115,7 +115,7 @@ void GraphReduce(const std::string input_pt, const std::string output_pt,
   }
 
   rapidcsv::Document doc_out("", rapidcsv::LabelParams(0, -1),
-                             rapidcsv::SeparatorParams(',', false, false));
+                             rapidcsv::SeparatorParams(separator_params, false, false));
   doc_out.SetColumnName(0, "src");
   doc_out.SetColumnName(1, "dst");
   doc_out.SetColumn<VID_T>(0, *out_src);
@@ -139,6 +139,6 @@ int main(int argc, char* argv[]) {
 
   assert(FLAGS_i != "" && FLAGS_o != "");
   LOG_INFO("Reduce: ", FLAGS_i);
-  GraphReduce<vid_t>(FLAGS_i, FLAGS_o, cores, ',');
+  GraphReduce<vid_t>(FLAGS_i, FLAGS_o, cores, *FLAGS_sep.c_str());
   gflags::ShutDownCommandLineFlags();
 }
