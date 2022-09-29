@@ -1,18 +1,12 @@
 #include "portability/sys_types.h"
-#include "utility/bitmap.h"
 #include "utility/logging.h"
 #include "utility/thread_pool.h"
 #include <gflags/gflags.h>
-#include <glog/logging.h>
-#include <sys/stat.h>
 #include <cstring>
-#include <fstream>
 #include <iostream>
 #include <math.h>
-#include <random>
 #include <rapidcsv.h>
 #include <string>
-#include <unistd.h>
 
 template <typename VID_T>
 void GetGraphStatistic(const std::string input_pt, const std::string output_pt,
@@ -88,6 +82,7 @@ void GetGraphStatistic(const std::string input_pt, const std::string output_pt,
                         &finish_cv, &max_vid_atom, &max_indegree,
                         &max_outdegree, &max_degree]() {
       for (size_t j = tid; j < max_vid_atom.load(); j += cores) {
+        LOG_INFO(indegree[j], " ", outdegree[j]);
         if (indegree[j] > max_indegree.load()) max_indegree.store(indegree[j]);
         if (outdegree[j] > max_outdegree.load())
           max_outdegree.store(outdegree[j]);
