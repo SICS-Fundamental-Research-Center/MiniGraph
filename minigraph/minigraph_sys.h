@@ -212,7 +212,8 @@ class MiniGraphSys {
     return true;
   }
 
-  void ShowResult(const size_t num_vertexes_to_show = 20) {
+  void ShowResult(const size_t num_vertexes_to_show = 20,
+                  char separator_params = ',') {
     LOG_INFO("**************Show Result****************");
     for (auto& iter : *pt_by_gid_) {
       GID_T gid = iter.first;
@@ -225,8 +226,8 @@ class MiniGraphSys {
         ((CSR_T*)graph)->ShowGraph(num_vertexes_to_show);
       } else if (IsSameType<GRAPH_T, EDGE_LIST_T>()) {
         data_mngr_->edge_list_io_adapter_->Read(
-            (GRAPH_BASE_T*)graph, edge_list_bin, gid, csr_pt.meta_pt,
-            csr_pt.data_pt, csr_pt.vdata_pt);
+            (GRAPH_BASE_T*)graph, edge_list_bin, separator_params, gid,
+            csr_pt.meta_pt, csr_pt.data_pt, csr_pt.vdata_pt);
         ((EDGE_LIST_T*)graph)->ShowGraph(num_vertexes_to_show);
       }
     }

@@ -92,7 +92,8 @@ void EdgeList2CSR(std::string src_pt, std::string dst_pt, std::size_t cores,
   LOG_INFO("End graph partition#");
 }
 
-void EdgeList2EdgeList(std::string src_pt, std::string dst_pt) {
+void EdgeList2EdgeList(std::string src_pt, std::string dst_pt,
+                       char separator_params = ',') {
   std::cout << " #Converting " << FLAGS_t << ": input: " << src_pt
             << " output: " << dst_pt << std::endl;
   minigraph::utility::io::EdgeListIOAdapter<gid_t, vid_t, vdata_t, edata_t>
@@ -104,7 +105,27 @@ void EdgeList2EdgeList(std::string src_pt, std::string dst_pt) {
   LOG_INFO("Write: ", meta_pt);
   LOG_INFO("Write: ", data_pt);
   LOG_INFO("Write: ", vdata_pt);
-  edge_list_io_adapter.Read((GRAPH_BASE_T*)graph, edge_list_csv, 0, src_pt);
+  edge_list_io_adapter.Read((GRAPH_BASE_T*)graph, edge_list_csv,
+                            separator_params, 0, src_pt);
+  edge_list_io_adapter.Write(*graph, edge_list_bin, false, meta_pt, data_pt,
+                             vdata_pt);
+}
+
+void EdgeListCSV2EdgeListBin(std::string src_pt, std::string dst_pt,
+                       char separator_params = ',') {
+  std::cout << " #Converting " << FLAGS_t << ": input: " << src_pt
+            << " output: " << dst_pt << std::endl;
+  minigraph::utility::io::EdgeListIOAdapter<gid_t, vid_t, vdata_t, edata_t>
+      edge_list_io_adapter;
+  auto graph = new EDGE_LIST_T;
+  std::string meta_pt = dst_pt + "minigraph_meta" + ".bin";
+  std::string data_pt = dst_pt + "minigraph_data" + ".bin";
+  std::string vdata_pt = dst_pt + "minigraph_vdata" + ".bin";
+  LOG_INFO("Write: ", meta_pt);
+  LOG_INFO("Write: ", data_pt);
+  LOG_INFO("Write: ", vdata_pt);
+  edge_list_io_adapter.Read((GRAPH_BASE_T*)graph, edge_list_csv,
+                            separator_params, 0, src_pt);
   edge_list_io_adapter.Write(*graph, edge_list_bin, false, meta_pt, data_pt,
                              vdata_pt);
 }
@@ -113,25 +134,28 @@ int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
   assert(FLAGS_i != "" && FLAGS_o != "");
+  std::string src_pt = FLAGS_i;
+  std::string dst_pt = FLAGS_o;
+  std::string init_model = FLAGS_init_model;
+  std::size_t cores = FLAGS_cores;
+  std::size_t max_vid = FLAGS_vertexes;
+  std::string graph_type = FLAGS_t;
 
   if (FLAGS_p) {
+    std::size_t num_partitions = FLAGS_n;
     std::cout << " #Partitioning: "
               << " input: " << FLAGS_i << " output: " << FLAGS_o
               << " init_model: " << FLAGS_init_model
               << " cores: " << FLAGS_cores << std::endl;
-    std::string src_pt = FLAGS_i;
-    std::string dst_pt = FLAGS_o;
-    std::string init_model = FLAGS_init_model;
-    std::size_t cores = FLAGS_cores;
-    std::size_t num_partitions = FLAGS_n;
-    std::size_t max_vid = FLAGS_vertexes;
-    std::string graph_type = FLAGS_t;
+
     if (graph_type == "csr_bin") {
       EdgeList2CSR(src_pt, dst_pt, cores, num_partitions, max_vid, init_model,
                    FLAGS_init_val, *FLAGS_sep.c_str());
-
-    } else if (graph_type == "edgelist_bin") {
-      EdgeList2EdgeList(src_pt, dst_pt);
+    }
+  }
+  if (FLAGS_tobin) {
+    if (graph_type == "edgelist_bin") {
+      EdgeList2EdgeList(src_pt, dst_pt, *FLAGS_sep.c_str());
     }
   }
   gflags::ShutDownCommandLineFlags();

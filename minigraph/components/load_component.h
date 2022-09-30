@@ -134,10 +134,10 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
     if (read) {
       CSRPt& csr_pt = pt_by_gid_->find(gid)->second;
       auto tag = false;
-      if (IsSameType<GRAPH_T, CSR_T>())
-        tag = this->data_mngr_->ReadGraph(gid, csr_pt, csr_bin);
-      else if (IsSameType<GRAPH_T, EDGE_LIST_T>())
-        tag = this->data_mngr_->ReadGraph(gid, csr_pt, edge_list_bin);
+      // if (IsSameType<GRAPH_T, CSR_T>())
+      tag = this->data_mngr_->ReadGraph(gid, csr_pt, csr_bin);
+      // else if (IsSameType<GRAPH_T, EDGE_LIST_T>())
+      //   tag = this->data_mngr_->ReadGraph(gid, csr_pt, edge_list_bin);
       if (tag) {
         this->state_machine_->ProcessEvent(gid, LOAD);
         while (!task_queue_->write(gid))

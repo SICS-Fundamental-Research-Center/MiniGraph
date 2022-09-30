@@ -52,7 +52,7 @@ class DataMngr {
   };
 
   bool ReadGraph(const GID_T& gid, const CSRPt& csr_pt,
-                 const GraphFormat& graph_format) {
+                 const GraphFormat& graph_format, char separator_params = ',') {
     bool out = false;
     GRAPH_BASE_T* graph = nullptr;
     if (graph_format == csr_bin) {
@@ -63,8 +63,8 @@ class DataMngr {
     } else if (graph_format == edge_list_bin) {
       graph = new EDGE_LIST_T;
       out = edge_list_io_adapter_->Read((GRAPH_BASE_T*)graph, edge_list_bin,
-                                        gid, csr_pt.meta_pt, csr_pt.data_pt,
-                                        csr_pt.vdata_pt);
+                                        separator_params, gid, csr_pt.meta_pt,
+                                        csr_pt.data_pt, csr_pt.vdata_pt);
     }
 
     if (out) {
@@ -80,7 +80,8 @@ class DataMngr {
   }
 
   bool ReadGraph(const GID_T& gid, const EdgeListPt& edge_list_pt,
-                 const GraphFormat& graph_format = edge_list_csv) {
+                 const GraphFormat& graph_format = edge_list_csv,
+                 char separator_params = ',') {
     LOG_INFO("Read gid: ", gid);
     auto graph = new EDGE_LIST_T;
 

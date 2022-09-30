@@ -1,16 +1,19 @@
 #ifndef MINIGRAPH_UTILITY_IO_EDGE_LIST_IO_ADAPTER_H
 #define MINIGRAPH_UTILITY_IO_EDGE_LIST_IO_ADAPTER_H
 
-#include "graphs/edge_list.h"
-#include "io_adapter_base.h"
-#include "portability/sys_data_structure.h"
-#include "portability/sys_types.h"
-#include "rapidcsv.h"
 #include <sys/stat.h>
+
 #include <fstream>
 #include <iostream>
 #include <string>
 #include <unordered_map>
+
+#include "rapidcsv.h"
+
+#include "graphs/edge_list.h"
+#include "io_adapter_base.h"
+#include "portability/sys_data_structure.h"
+#include "portability/sys_types.h"
 
 namespace minigraph {
 namespace utility {
@@ -34,12 +37,12 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
 
   template <class... Args>
   bool Read(GRAPH_BASE_T* graph, const GraphFormat& graph_format,
-            const GID_T& gid, Args&&... args) {
+            char separator_params, const GID_T& gid, Args&&... args) {
     std::string pt[] = {(args)...};
     bool tag = false;
     switch (graph_format) {
       case edge_list_csv:
-        tag = ReadEdgeListFromCSV(graph, pt[0], gid, true);
+        tag = ReadEdgeListFromCSV(graph, pt[0], gid, true, separator_params);
         break;
       case weight_edge_list_csv:
         break;
@@ -74,7 +77,8 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
  private:
   bool ReadEdgeListFromCSV(graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>* graph,
                            const std::string& pt, const GID_T gid = 0,
-                           const bool assemble = false) {
+                           const bool assemble = false,
+                           char separator_params = ',') {
     if (!this->IsExist(pt)) {
       XLOG(ERR, "Read file fault: ", pt);
       return false;
@@ -85,14 +89,15 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     }
     // auto edge_list = (EDGE_LIST_T*)graph;
     rapidcsv::Document doc(pt, rapidcsv::LabelParams(),
-                           rapidcsv::SeparatorParams(','));
+                           rapidcsv::SeparatorParams(separator_params));
     std::vector<VID_T> src = doc.GetColumn<VID_T>("src");
     std::vector<VID_T> dst = doc.GetColumn<VID_T>("dst");
     ((EDGE_LIST_T*)graph)->buf_graph_ =
         (vid_t*)malloc(sizeof(vid_t) * (src.size() + dst.size()));
 
     VID_T* buff = (VID_T*)((EDGE_LIST_T*)graph)->buf_graph_;
-    memset((char*)buff, 0, sizeof(vid_t) * (src.size() + dst.size()));
+    memset((char*)buff, 0, sizeof(VID_T) * (src.size() + dst.size()));
+    LOG_INFO("num edges: ", src.size(), " sizeof(VID_T)", sizeof(VID_T));
     for (size_t i = 0; i < src.size(); i++) {
       *(buff + i * 2) = src.at(i);
       *((VID_T*)((EDGE_LIST_T*)graph)->buf_graph_ + i * 2 + 1) = dst.at(i);
@@ -274,18 +279,18 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
 
     meta_file.write((char*)meta_buff, 2 * sizeof(size_t));
     data_file.write((char*)((EDGE_LIST_T*)&graph)->buf_graph_,
-                    sizeof(vid_t) * 2 * ((EDGE_LIST_T*)&graph)->num_edges_);
+                    sizeof(VID_T) * 2 * ((EDGE_LIST_T*)&graph)->num_edges_);
 
     vdata_file.write((char*)((EDGE_LIST_T*)&graph)->vdata_,
-                     sizeof(vdata_t) * ((EDGE_LIST_T*)&graph)->num_vertexes_);
+                     sizeof(VID_T) * ((EDGE_LIST_T*)&graph)->num_vertexes_);
 
     vdata_file.write((char*)((EDGE_LIST_T*)&graph)->globalid_by_localid_,
-                     sizeof(vid_t) * ((EDGE_LIST_T*)&graph)->num_vertexes_);
+                     sizeof(VID_T) * ((EDGE_LIST_T*)&graph)->num_vertexes_);
 
-    LOG_INFO("EDGE_UNIT: ", sizeof(vid_t) * 2,
+    LOG_INFO("EDGE_UNIT: ", sizeof(VID_T) * 2,
              ", num_edges: ", ((EDGE_LIST_T*)&graph)->num_edges_,
              ", write size: ",
-             sizeof(vid_t) * 2 * ((EDGE_LIST_T*)&graph)->num_edges_);
+             sizeof(VID_T) * 2 * ((EDGE_LIST_T*)&graph)->num_edges_);
     free(meta_buff);
     data_file.close();
     meta_file.close();
