@@ -67,7 +67,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
   bool Init(GRAPH_T& graph,
             minigraph::executors::TaskRunner* task_runner) override {
-    //LOG_INFO("Init() - Processing gid: ", graph.gid_);
+    // LOG_INFO("Init() - Processing gid: ", graph.gid_);
     Bitmap* visited = new Bitmap(graph.max_vid_);
     visited->fill();
     this->auto_map_->ActiveMap(graph, task_runner, visited,
@@ -78,7 +78,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
   bool PEval(GRAPH_T& graph,
              minigraph::executors::TaskRunner* task_runner) override {
-    //LOG_INFO("PEval() - Processing gid: ", graph.gid_);
+    // LOG_INFO("PEval() - Processing gid: ", graph.gid_);
     if (!graph.IsInGraph(this->context_.root_id)) return false;
     VertexInfo u, v;
     Bitmap* global_border_vid_map = this->msg_mngr_->GetGlobalBorderVidMap();
@@ -132,7 +132,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
   bool IncEval(GRAPH_T& graph,
                minigraph::executors::TaskRunner* task_runner) override {
-    //LOG_INFO("IncEval() - Processing gid: ", graph.gid_);
+    // LOG_INFO("IncEval() - Processing gid: ", graph.gid_);
     Bitmap* global_border_vid_map = this->msg_mngr_->GetGlobalBorderVidMap();
     VID_T* vid_map = this->msg_mngr_->GetVidMap();
     VDATA_T* global_vdata = this->msg_mngr_->GetGlobalVdata();
@@ -146,6 +146,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
       for (size_t j = 0; j < root.indegree; j++) {
         if (global_border_vid_map->get_bit(root.in_edges[j]) == 0) continue;
         if (global_vdata[root.in_edges[j]] == VDATA_MAX) continue;
+        if (graph.IsInGraph(root.in_edges[j])) continue;
         global_vdata[root.in_edges[j]] < tmp_vdata
             ? tmp_vdata = global_vdata[root.in_edges[j]]
             : 0;
@@ -198,7 +199,8 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
         }
       }
     }
-    //LOG_INFO("Gid: ", graph.gid_, " active_vertexes: ", visited.get_num_bit());
+    // LOG_INFO("Gid: ", graph.gid_, " active_vertexes: ",
+    // visited.get_num_bit());
     return !visited.empty();
   }
 
