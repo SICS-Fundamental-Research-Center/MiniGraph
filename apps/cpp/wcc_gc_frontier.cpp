@@ -146,7 +146,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
       for (size_t j = 0; j < root.indegree; j++) {
         if (global_border_vid_map->get_bit(root.in_edges[j]) == 0) continue;
         if (global_vdata[root.in_edges[j]] == VDATA_MAX) continue;
-        if (graph.IsInGraph(root.in_edges[j])) continue;
+        //if (graph.IsInGraph(root.in_edges[j])) continue;
         global_vdata[root.in_edges[j]] < tmp_vdata
             ? tmp_vdata = global_vdata[root.in_edges[j]]
             : 0;
