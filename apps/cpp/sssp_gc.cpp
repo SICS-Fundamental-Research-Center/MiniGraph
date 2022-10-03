@@ -296,7 +296,7 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 };
 
 struct Context {
-  size_t root_id = 12;
+  size_t root_id = 0;
 };
 
 using CSR_T = minigraph::graphs::ImmutableCSR<gid_t, vid_t, vdata_t, edata_t>;
