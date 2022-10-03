@@ -75,7 +75,10 @@ class Bitmap {
   }
 
   unsigned long get_bit(size_t i) {
-    assert(i <= size_);
+    if(i>size_){
+      LOG_INFO("size: "size_, " i: ", i );
+    }
+    //assert(i <= size_);
     return data_[WORD_OFFSET(i)] & (1ul << BIT_OFFSET(i));
   }
 
