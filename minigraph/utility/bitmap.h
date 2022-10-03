@@ -78,7 +78,7 @@ class Bitmap {
     if(i>size_){
       LOG_INFO("size: ", size_, " i: ", i );
     }
-    //assert(i <= size_);
+    assert(i <= size_);
     return data_[WORD_OFFSET(i)] & (1ul << BIT_OFFSET(i));
   }
 
