@@ -85,8 +85,8 @@ void EdgeList2CSR(std::string src_pt, std::string dst_pt, std::size_t cores,
   data_mngr.WriteVidMap(edge_cut_partitioner.GetMaxVid(), vid_map,
                         dst_pt + "minigraph_message/vid_map.bin");
 
-  LOG_INFO("WriteGlobalBorderVidMap.");
   auto global_border_vid_map = edge_cut_partitioner.GetGlobalBorderVidMap();
+  LOG_INFO("WriteGlobalBorderVidMap. size: ", global_border_vid_map->size_);
   data_mngr.WriteBitmap(global_border_vid_map,
                         dst_pt + "minigraph_message/global_border_vid_map.bin");
   LOG_INFO("End graph partition#");
@@ -112,7 +112,7 @@ void EdgeList2EdgeList(std::string src_pt, std::string dst_pt,
 }
 
 void EdgeListCSV2EdgeListBin(std::string src_pt, std::string dst_pt,
-                       char separator_params = ',') {
+                             char separator_params = ',') {
   std::cout << " #Converting " << FLAGS_t << ": input: " << src_pt
             << " output: " << dst_pt << std::endl;
   minigraph::utility::io::EdgeListIOAdapter<gid_t, vid_t, vdata_t, edata_t>
