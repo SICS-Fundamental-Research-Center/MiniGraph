@@ -1,16 +1,20 @@
-#include "portability/sys_types.h"
-#include "utility/logging.h"
-#include "utility/thread_pool.h"
+#include <math.h>
+#include <rapidcsv.h>
+
 #include <gflags/gflags.h>
 #include <cstring>
 #include <iostream>
-#include <math.h>
-#include <rapidcsv.h>
 #include <string>
+
+#include "portability/sys_types.h"
+#include "utility/logging.h"
+#include "utility/thread_pool.h"
+
 
 template <typename VID_T>
 void GetGraphStatistic(const std::string input_pt, const std::string output_pt,
-                       const size_t cores, char separator_params = ',') {
+                       const size_t cores, char separator_params = ',',
+                       const size_t expected_edges = 1073741824) {
   std::mutex mtx;
   std::condition_variable finish_cv;
   std::unique_lock<std::mutex> lck(mtx);
@@ -20,8 +24,10 @@ void GetGraphStatistic(const std::string input_pt, const std::string output_pt,
   rapidcsv::Document* doc =
       new rapidcsv::Document(input_pt, rapidcsv::LabelParams(),
                              rapidcsv::SeparatorParams(separator_params));
-  std::vector<VID_T>* src;
-  std::vector<VID_T>* dst;
+  std::vector<VID_T>* src = new std::vector<VID_T>();
+  std::vector<VID_T>* dst = new std::vector<VID_T>();
+  src->reserve(expected_edges);
+  dst->reserve(expected_edges);
   *src = doc->GetColumn<VID_T>("src");
   *dst = doc->GetColumn<VID_T>("dst");
 
@@ -31,7 +37,7 @@ void GetGraphStatistic(const std::string input_pt, const std::string output_pt,
   memset(src_v, 0, sizeof(VID_T) * num_edges);
   memset(dst_v, 0, sizeof(VID_T) * num_edges);
 
-  LOG_INFO("read: ", num_edges, " edges.");
+  LOG_INFO("read: ", num_edges, " edges");
   std::atomic<VID_T> max_vid_atom(0);
   std::atomic<size_t> max_indegree(0);
   std::atomic<size_t> max_outdegree(0);
@@ -116,9 +122,10 @@ void GetGraphStatistic(const std::string input_pt, const std::string output_pt,
 
 int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
-  assert(FLAGS_i != "" && FLAGS_o != "");
+  assert(FLAGS_i != "" && FLAGS_o != "" && FLAGS_edges != 0);
   size_t cores = FLAGS_cores;
   LOG_INFO("Statistic: ", FLAGS_i);
-  GetGraphStatistic<vid_t>(FLAGS_i, FLAGS_o, cores, *(FLAGS_sep.c_str()));
+  GetGraphStatistic<vid_t>(FLAGS_i, FLAGS_o, cores, *(FLAGS_sep.c_str()),
+                           FLAGS_edges);
   gflags::ShutDownCommandLineFlags();
 }
