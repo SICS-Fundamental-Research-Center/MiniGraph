@@ -20,9 +20,9 @@ void GetGraphStatistic(const std::string input_pt, const std::string output_pt,
   rapidcsv::Document* doc =
       new rapidcsv::Document(input_pt, rapidcsv::LabelParams(),
                              rapidcsv::SeparatorParams(separator_params));
-  std::vector<VID_T>* src = new std::vector<VID_T>();
+  std::vector<VID_T>* src;
+  std::vector<VID_T>* dst;
   *src = doc->GetColumn<VID_T>("src");
-  std::vector<VID_T>* dst = new std::vector<VID_T>();
   *dst = doc->GetColumn<VID_T>("dst");
 
   size_t num_edges = src->size();
@@ -31,6 +31,7 @@ void GetGraphStatistic(const std::string input_pt, const std::string output_pt,
   memset(src_v, 0, sizeof(VID_T) * num_edges);
   memset(dst_v, 0, sizeof(VID_T) * num_edges);
 
+  LOG_INFO("read: ", num_edges, " edges.");
   std::atomic<VID_T> max_vid_atom(0);
   std::atomic<size_t> max_indegree(0);
   std::atomic<size_t> max_outdegree(0);
