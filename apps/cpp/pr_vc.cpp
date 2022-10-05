@@ -282,8 +282,9 @@ int main(int argc, char* argv[]) {
   size_t num_workers_dc = FLAGS_dc;
   size_t num_cores = FLAGS_cores;
   size_t buffer_size = FLAGS_buffer_size;
-  size_t num_iter = FLAGS_iter;
+  size_t num_iter = FLAGS_niters;
   Context context;
+  context.num_iter = FLAGS_inner_niters;
   auto pr_auto_map = new PRAutoMap<CSR_T, Context>(context);
   auto pr_pie = new PRPIE<CSR_T, Context>(pr_auto_map, context);
   auto app_wrapper =

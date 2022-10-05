@@ -211,6 +211,7 @@ int main(int argc, char* argv[]) {
   size_t num_cores = FLAGS_cores;
   size_t buffer_size = FLAGS_buffer_size;
   Context context;
+  context.num_iter = FLAGS_inner_niters;
   auto pr_auto_map = new PRAutoMap<CSR_T, Context>(context);
   auto pr_pie = new PRPIE<CSR_T, Context>(pr_auto_map, context);
   auto app_wrapper =
@@ -218,7 +219,7 @@ int main(int argc, char* argv[]) {
 
   minigraph::MiniGraphSys<CSR_T, PRPIE_T> minigraph_sys(
       work_space, num_workers_lc, num_workers_cc, num_workers_dc, num_cores,
-      buffer_size, app_wrapper, FLAGS_iter);
+      buffer_size, app_wrapper, FLAGS_niters);
   minigraph_sys.RunSys();
   // minigraph_sys.ShowResult(30);
   gflags::ShutDownCommandLineFlags();
