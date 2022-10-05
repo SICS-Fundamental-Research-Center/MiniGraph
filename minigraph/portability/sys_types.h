@@ -70,6 +70,7 @@ DEFINE_uint64(buffer_size, 1, "buffer size");
 DEFINE_uint64(iter, 4, "number of iterations for inner while loop");
 DEFINE_string(init_model, "val", "init model for vdata of all vertexes");
 DEFINE_uint64(init_val, 0, "init value for vdata of all vertexes");
+DEFINE_uint64(root, 0, "the id of root vertex");
 DEFINE_double(
     a, 0.25,
     "probability of an edge falling into partition a in the R-MAT model");

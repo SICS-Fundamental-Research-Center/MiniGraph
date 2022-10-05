@@ -157,7 +157,7 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
   bool Init(GRAPH_T& graph,
             minigraph::executors::TaskRunner* task_runner) override {
-    //LOG_INFO("Init() - Processing gid: ", graph.gid_);
+    // LOG_INFO("Init() - Processing gid: ", graph.gid_);
     Bitmap* visited = new Bitmap(graph.max_vid_);
     visited->fill();
     this->auto_map_->ActiveMap(graph, task_runner, visited,
@@ -173,7 +173,7 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
       LOG_INFO("PEval() - Skip gid: ", graph.gid_);
       return false;
     };
-    //LOG_INFO("PEval() - Processing gid: ", graph.gid_);
+    // LOG_INFO("PEval() - Processing gid: ", graph.gid_);
     VID_T* vid_map = this->msg_mngr_->GetVidMap();
     Bitmap* global_border_vid_map = this->msg_mngr_->GetGlobalBorderVidMap();
     VDATA_T* global_vdata = this->msg_mngr_->GetGlobalVdata();
@@ -218,7 +218,7 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
   bool IncEval(GRAPH_T& graph,
                minigraph::executors::TaskRunner* task_runner) override {
-    //LOG_INFO("IncEval() - Processing gid: ", graph.gid_);
+    // LOG_INFO("IncEval() - Processing gid: ", graph.gid_);
     memset(graph.vertexes_state_, VERTEXUNLABELED, graph.get_num_vertexes());
     VID_T* vid_map = this->msg_mngr_->GetVidMap();
     Bitmap* global_border_vid_map = this->msg_mngr_->GetGlobalBorderVidMap();
@@ -296,7 +296,7 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 };
 
 struct Context {
-  size_t root_id = 0;
+  size_t root_id = 12;
 };
 
 using CSR_T = minigraph::graphs::ImmutableCSR<gid_t, vid_t, vdata_t, edata_t>;
@@ -312,6 +312,7 @@ int main(int argc, char* argv[]) {
   size_t buffer_size = FLAGS_buffer_size;
 
   Context context;
+  context.root_id = FLAGS_root;
   auto wcc_auto_map = new SSSPAutoMap<CSR_T, Context>();
   auto bfs_pie = new SSSPPIE<CSR_T, Context>(wcc_auto_map, context);
   auto app_wrapper =

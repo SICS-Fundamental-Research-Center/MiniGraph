@@ -215,6 +215,7 @@ int main(int argc, char* argv[]) {
   size_t buffer_size = FLAGS_buffer_size;
 
   Context context;
+  context.root_id = FLAGS_root;
   auto sssp_auto_map = new SSSPAutoMap<CSR_T, Context>();
   auto sssp_pie = new SSSPPIE<CSR_T, Context>(sssp_auto_map, context);
   auto app_wrapper =

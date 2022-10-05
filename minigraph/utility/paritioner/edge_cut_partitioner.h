@@ -80,18 +80,15 @@ class EdgeCutPartitioner {
     *dst = doc->GetColumn<VID_T>("dst");
     size_t num_edges = src->size();
 
-    LOG_INFO("X", num_edges);
     VID_T* src_v = (VID_T*)malloc(sizeof(VID_T) * num_edges);
     VID_T* dst_v = (VID_T*)malloc(sizeof(VID_T) * num_edges);
     memset(src_v, 0, sizeof(VID_T) * num_edges);
     memset(dst_v, 0, sizeof(VID_T) * num_edges);
-    LOG_INFO("X");
 
     auto thread_pool = CPUThreadPool(cores, 1);
     std::mutex mtx;
     std::condition_variable finish_cv;
     std::unique_lock<std::mutex> lck(mtx);
-    LOG_INFO("X");
 
     std::atomic max_vid_atom(max_vid);
     LOG_INFO("Run: Convert std::vector to array.");
