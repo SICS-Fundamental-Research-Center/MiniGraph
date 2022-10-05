@@ -1,15 +1,12 @@
-#include <math.h>
-#include <rapidcsv.h>
-
-#include <gflags/gflags.h>
-#include <cstring>
-#include <iostream>
-#include <string>
-
 #include "portability/sys_types.h"
 #include "utility/logging.h"
 #include "utility/thread_pool.h"
-
+#include <gflags/gflags.h>
+#include <cstring>
+#include <iostream>
+#include <math.h>
+#include <rapidcsv.h>
+#include <string>
 
 template <typename VID_T>
 void GetGraphStatistic(const std::string input_pt, const std::string output_pt,
@@ -59,6 +56,7 @@ void GetGraphStatistic(const std::string input_pt, const std::string output_pt,
   }
   finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
 
+  LOG_INFO("MAXVID: ", max_vid_atom.load());
   max_vid_atom.store((int(max_vid_atom.load() / 64) + 1) * 64);
 
   size_t* outdegree = (size_t*)malloc(sizeof(size_t) * max_vid_atom.load());
@@ -66,6 +64,7 @@ void GetGraphStatistic(const std::string input_pt, const std::string output_pt,
   memset(outdegree, 0, sizeof(size_t) * max_vid_atom.load());
   memset(indegree, 0, sizeof(size_t) * max_vid_atom.load());
 
+  LOG_INFO("Aggregate indegree and outdegree");
   pending_packages.store(cores);
   for (size_t i = 0; i < cores; i++) {
     size_t tid = i;
@@ -82,6 +81,7 @@ void GetGraphStatistic(const std::string input_pt, const std::string output_pt,
   }
   finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
 
+  LOG_INFO("Compute Maximum degree");
   pending_packages.store(cores);
   for (size_t i = 0; i < cores; i++) {
     size_t tid = i;
