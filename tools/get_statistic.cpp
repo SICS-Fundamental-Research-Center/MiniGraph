@@ -42,9 +42,10 @@ void GetGraphStatistic(const std::string input_pt, const std::string output_pt,
 
   for (size_t i = 0; i < cores; i++) {
     size_t tid = i;
-    thread_pool.Commit([tid, &cores, &src_v, &dst_v, &src, &dst,
+    thread_pool.Commit([tid, &cores, &src_v, &dst_v, &src, &dst, &num_edges,
                         &pending_packages, &finish_cv, &max_vid_atom]() {
-      for (size_t j = tid; j < src->size(); j += cores) {
+      for (size_t j = tid; j < num_edges; j += cores) {
+        LOG_INFO(j);
         dst_v[j] = dst->at(j);
         src_v[j] = src->at(j);
         if (max_vid_atom.load() < dst_v[j]) max_vid_atom.store(dst_v[j]);
@@ -58,6 +59,7 @@ void GetGraphStatistic(const std::string input_pt, const std::string output_pt,
 
   LOG_INFO("MAXVID: ", max_vid_atom.load());
   max_vid_atom.store((int(max_vid_atom.load() / 64) + 1) * 64);
+  LOG_INFO("update MAXVID: ", max_vid_atom.load());
 
   size_t* outdegree = (size_t*)malloc(sizeof(size_t) * max_vid_atom.load());
   size_t* indegree = (size_t*)malloc(sizeof(size_t) * max_vid_atom.load());
@@ -67,11 +69,9 @@ void GetGraphStatistic(const std::string input_pt, const std::string output_pt,
   LOG_INFO("Aggregate indegree and outdegree");
   pending_packages.store(cores);
   for (size_t i = 0; i < cores; i++) {
-    size_t tid = i;
-    thread_pool.Commit([tid, &cores, &src_v, &dst_v, &outdegree, &indegree,
-                        &num_edges, &pending_packages, &finish_cv,
-                        &max_vid_atom]() {
-      for (size_t j = tid; j < num_edges; j += cores) {
+    thread_pool.Commit([i, &cores, &src_v, &dst_v, &src, &dst, &outdegree, &indegree,
+                        &num_edges, &pending_packages, &finish_cv]() {
+      for (size_t j = i; j < num_edges; j += cores) {
         __sync_fetch_and_add(indegree + dst_v[j], 1);
         __sync_fetch_and_add(outdegree + src_v[j], 1);
       }
