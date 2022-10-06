@@ -45,7 +45,6 @@ void GetGraphStatistic(const std::string input_pt, const std::string output_pt,
     thread_pool.Commit([tid, &cores, &src_v, &dst_v, &src, &dst, &num_edges,
                         &pending_packages, &finish_cv, &max_vid_atom]() {
       for (size_t j = tid; j < num_edges; j += cores) {
-        LOG_INFO(j);
         dst_v[j] = dst->at(j);
         src_v[j] = src->at(j);
         if (max_vid_atom.load() < dst_v[j]) max_vid_atom.store(dst_v[j]);
