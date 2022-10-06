@@ -141,6 +141,7 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
         }
         ((EDGE_LIST_T*)graph)->vertexes_info_->emplace(iter.first, vertex_info);
       }
+
       for (auto& iter : graph_out_edges) {
         auto iter_vertexes_info =
             ((EDGE_LIST_T*)graph)->vertexes_info_->find(iter.first);
@@ -185,7 +186,7 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     ((EDGE_LIST_T*)graph)->vid_by_index_ =
         (VID_T*)malloc(sizeof(VID_T) * ((EDGE_LIST_T*)graph)->num_vertexes_);
     memset(((EDGE_LIST_T*)graph)->vid_by_index_, 0,
-           ((EDGE_LIST_T*)graph)->max_vid_ * sizeof(VID_T));
+           ((EDGE_LIST_T*)graph)->num_vertexes_ * sizeof(VID_T));
 
     size_t index = 0;
     for (auto& iter : *((EDGE_LIST_T*)graph)->vertexes_info_) {
