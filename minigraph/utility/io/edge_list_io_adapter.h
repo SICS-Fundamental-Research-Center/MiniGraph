@@ -1,19 +1,16 @@
 #ifndef MINIGRAPH_UTILITY_IO_EDGE_LIST_IO_ADAPTER_H
 #define MINIGRAPH_UTILITY_IO_EDGE_LIST_IO_ADAPTER_H
 
-#include <sys/stat.h>
-
-#include <fstream>
-#include <iostream>
-#include <string>
-#include <unordered_map>
-
-#include "rapidcsv.h"
-
 #include "graphs/edge_list.h"
 #include "io_adapter_base.h"
 #include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
+#include "rapidcsv.h"
+#include <sys/stat.h>
+#include <fstream>
+#include <iostream>
+#include <string>
+#include <unordered_map>
 
 namespace minigraph {
 namespace utility {
@@ -285,8 +282,8 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     vdata_file.write((char*)((EDGE_LIST_T*)&graph)->vdata_,
                      sizeof(VID_T) * ((EDGE_LIST_T*)&graph)->num_vertexes_);
 
-    vdata_file.write((char*)((EDGE_LIST_T*)&graph)->globalid_by_localid_,
-                     sizeof(VID_T) * ((EDGE_LIST_T*)&graph)->num_vertexes_);
+    //vdata_file.write((char*)((EDGE_LIST_T*)&graph)->globalid_by_localid_,
+    //                 sizeof(VID_T) * ((EDGE_LIST_T*)&graph)->num_vertexes_);
 
     LOG_INFO("EDGE_UNIT: ", sizeof(VID_T) * 2,
              ", num_edges: ", ((EDGE_LIST_T*)&graph)->num_edges_,
