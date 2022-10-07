@@ -4,8 +4,8 @@
 
 #include <gflags/gflags.h>
 
-using gid_t = unsigned;
-using vid_t = unsigned;
+using gid_t = size_t;
+using vid_t = size_t;
 using vdata_t = float;
 using edata_t = size_t;
 
