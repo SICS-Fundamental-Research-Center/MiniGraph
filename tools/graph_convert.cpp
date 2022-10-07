@@ -1,3 +1,10 @@
+#include <sys/stat.h>
+
+#include <iostream>
+#include <string>
+
+#include <gflags/gflags.h>
+
 #include "graphs/edge_list.h"
 #include "graphs/immutable_csr.h"
 #include "portability/sys_data_structure.h"
@@ -5,10 +12,6 @@
 #include "utility/io/data_mngr.h"
 #include "utility/io/edge_list_io_adapter.h"
 #include "utility/paritioner/edge_cut_partitioner.h"
-#include <gflags/gflags.h>
-#include <sys/stat.h>
-#include <iostream>
-#include <string>
 
 using CSR_T = minigraph::graphs::ImmutableCSR<gid_t, vid_t, vdata_t, edata_t>;
 using GRAPH_BASE_T = minigraph::graphs::Graph<gid_t, vid_t, vdata_t, edata_t>;
@@ -93,7 +96,7 @@ void EdgeList2CSR(std::string src_pt, std::string dst_pt, std::size_t cores,
 }
 
 void EdgeList2EdgeList(std::string src_pt, std::string dst_pt,
-                       char separator_params = ',') {
+                       char separator_params = ',', const size_t cores= 1) {
   std::cout << " #Converting " << FLAGS_t << ": input: " << src_pt
             << " output: " << dst_pt << std::endl;
   minigraph::utility::io::EdgeListIOAdapter<gid_t, vid_t, vdata_t, edata_t>
@@ -105,8 +108,8 @@ void EdgeList2EdgeList(std::string src_pt, std::string dst_pt,
   LOG_INFO("Write: ", meta_pt);
   LOG_INFO("Write: ", data_pt);
   LOG_INFO("Write: ", vdata_pt);
-  edge_list_io_adapter.Read((GRAPH_BASE_T*)graph, edge_list_csv,
-                            separator_params, 0, src_pt);
+  edge_list_io_adapter.ParallelRead((GRAPH_BASE_T*)graph, edge_list_csv,
+                            separator_params, 0, cores, src_pt);
   edge_list_io_adapter.Write(*graph, edge_list_bin, false, meta_pt, data_pt,
                              vdata_pt);
 }

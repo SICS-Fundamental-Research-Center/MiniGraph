@@ -1,16 +1,21 @@
 #ifndef MINIGRAPH_UTILITY_IO_EDGE_LIST_IO_ADAPTER_H
 #define MINIGRAPH_UTILITY_IO_EDGE_LIST_IO_ADAPTER_H
 
-#include "graphs/edge_list.h"
-#include "io_adapter_base.h"
-#include "portability/sys_data_structure.h"
-#include "portability/sys_types.h"
-#include "rapidcsv.h"
 #include <sys/stat.h>
+
 #include <fstream>
 #include <iostream>
 #include <string>
 #include <unordered_map>
+
+#include "rapidcsv.h"
+
+#include "graphs/edge_list.h"
+#include "io_adapter_base.h"
+#include "portability/sys_data_structure.h"
+#include "portability/sys_types.h"
+#include "utility/thread_pool.h"
+
 
 namespace minigraph {
 namespace utility {
@@ -45,6 +50,23 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
         break;
       case edge_list_bin:
         tag = ReadEdgeListFromBin(graph, gid, pt[0], pt[1], pt[2]);
+      default:
+        break;
+    }
+    return tag;
+  }
+
+  template <class... Args>
+  bool ParallelRead(GRAPH_BASE_T* graph, const GraphFormat& graph_format,
+                    char separator_params, const GID_T& gid, const size_t cores,
+                    Args&&... args) {
+    std::string pt[] = {(args)...};
+    bool tag = false;
+    switch (graph_format) {
+      case edge_list_csv:
+        tag = ParallelReadEdgeListFromCSV(graph, pt[0], gid, true,
+                                          separator_params, cores);
+        break;
       default:
         break;
     }
@@ -96,7 +118,7 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     memset((char*)buff, 0, sizeof(VID_T) * (src.size() + dst.size()));
     LOG_INFO("num edges: ", src.size(), " sizeof(VID_T)", sizeof(VID_T));
     for (size_t i = 0; i < src.size(); i++) {
-      *(buff + i * 2) = src.at(i);
+      *((VID_T*)((EDGE_LIST_T*)graph)->buf_graph_ + i * 2) = src.at(i);
       *((VID_T*)((EDGE_LIST_T*)graph)->buf_graph_ + i * 2 + 1) = dst.at(i);
     }
     if (assemble) {
@@ -251,6 +273,56 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     return true;
   }
 
+  bool ParallelReadEdgeListFromCSV(
+      graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>* graph,
+      const std::string& pt, const GID_T gid = 0, const bool assemble = false,
+      char separator_params = ',', const size_t cores = 1) {
+    if (!this->IsExist(pt)) {
+      XLOG(ERR, "Read file fault: ", pt);
+      return false;
+    }
+    if (graph == nullptr) {
+      XLOG(ERR, "segmentation fault: graph is nullptr");
+      return false;
+    }
+
+    auto thread_pool = CPUThreadPool(cores, 1);
+    std::mutex mtx;
+    std::condition_variable finish_cv;
+    std::unique_lock<std::mutex> lck(mtx);
+
+    // auto edge_list = (EDGE_LIST_T*)graph;
+    rapidcsv::Document doc(pt, rapidcsv::LabelParams(),
+                           rapidcsv::SeparatorParams(separator_params));
+    std::vector<VID_T> src = doc.GetColumn<VID_T>("src");
+    std::vector<VID_T> dst = doc.GetColumn<VID_T>("dst");
+    ((EDGE_LIST_T*)graph)->buf_graph_ =
+        (vid_t*)malloc(sizeof(vid_t) * (src.size() + dst.size()));
+
+    VID_T* buff = (VID_T*)((EDGE_LIST_T*)graph)->buf_graph_;
+    memset((char*)buff, 0, sizeof(VID_T) * (src.size() + dst.size()));
+    LOG_INFO("num edges: ", src.size(), " sizeof(VID_T)", sizeof(VID_T));
+    std::atomic<size_t> pending_packages(cores);
+
+    for (size_t i = 0; i < cores; i++) {
+      size_t tid = i;
+      thread_pool.Commit([tid, &cores, &src, &dst, &graph, &pending_packages,
+                          &finish_cv]() {
+        for (size_t j = tid; j < src.size(); j += cores) {
+          *((VID_T*)((EDGE_LIST_T*)graph)->buf_graph_ + j * 2) = src.at(j);
+          *((VID_T*)((EDGE_LIST_T*)graph)->buf_graph_ + j * 2 + 1) = dst.at(j);
+        }
+        if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
+        return;
+      });
+    }
+    finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
+    ((EDGE_LIST_T*)graph)->num_edges_ = src.size();
+    ((EDGE_LIST_T*)graph)->num_vertexes_ = 0;
+    ((EDGE_LIST_T*)graph)->gid_ = gid;
+    return true;
+  }
+
   bool WriteEdgeList2EdgeListBin(const EDGE_LIST_T& graph,
                                  const std::string& meta_pt,
                                  const std::string& data_pt,
@@ -279,11 +351,12 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     data_file.write((char*)((EDGE_LIST_T*)&graph)->buf_graph_,
                     sizeof(VID_T) * 2 * ((EDGE_LIST_T*)&graph)->num_edges_);
 
-    vdata_file.write((char*)((EDGE_LIST_T*)&graph)->vdata_,
-                     sizeof(VID_T) * ((EDGE_LIST_T*)&graph)->num_vertexes_);
+    if ((char*)((EDGE_LIST_T*)&graph)->vdata_ != nullptr)
+      vdata_file.write((char*)((EDGE_LIST_T*)&graph)->vdata_,
+                       sizeof(VID_T) * ((EDGE_LIST_T*)&graph)->num_vertexes_);
 
-    //vdata_file.write((char*)((EDGE_LIST_T*)&graph)->globalid_by_localid_,
-    //                 sizeof(VID_T) * ((EDGE_LIST_T*)&graph)->num_vertexes_);
+    // vdata_file.write((char*)((EDGE_LIST_T*)&graph)->globalid_by_localid_,
+    //                  sizeof(VID_T) * ((EDGE_LIST_T*)&graph)->num_vertexes_);
 
     LOG_INFO("EDGE_UNIT: ", sizeof(VID_T) * 2,
              ", num_edges: ", ((EDGE_LIST_T*)&graph)->num_edges_,

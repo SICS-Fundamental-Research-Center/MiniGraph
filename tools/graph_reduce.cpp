@@ -3,15 +3,11 @@
 #include "utility/logging.h"
 #include "utility/thread_pool.h"
 #include <gflags/gflags.h>
-#include <glog/logging.h>
-#include <sys/stat.h>
 #include <cstring>
 #include <iostream>
 #include <math.h>
-#include <random>
 #include <rapidcsv.h>
 #include <string>
-#include <unistd.h>
 
 template <typename VID_T>
 void GraphReduce(const std::string input_pt, const std::string output_pt,
