@@ -47,7 +47,7 @@ void GraphReduce(const std::string input_pt, const std::string output_pt,
       for (size_t j = tid; j < src->size(); j += cores) {
         dst_v[j] = dst->at(j);
         src_v[j] = src->at(j);
-        if (max_vid_atom.load() < dst->at(j)) max_vid_atom.store(src->at(j));
+        if (max_vid_atom.load() < dst->at(j)) max_vid_atom.store(dst->at(j));
         if (max_vid_atom.load() < src->at(j)) max_vid_atom.store(src->at(j));
       }
       if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
