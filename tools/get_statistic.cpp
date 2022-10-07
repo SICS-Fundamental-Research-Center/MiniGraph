@@ -71,8 +71,10 @@ void GetGraphStatistic(const std::string input_pt, const std::string output_pt,
     thread_pool.Commit([i, &cores, &src_v, &dst_v, &src, &dst, &outdegree, &indegree,
                         &num_edges, &pending_packages, &finish_cv]() {
       for (size_t j = i; j < num_edges; j += cores) {
-        __sync_fetch_and_add(indegree + dst_v[j], 1);
-        __sync_fetch_and_add(outdegree + src_v[j], 1);
+        //__sync_fetch_and_add(indegree + dst_v[j], 1);
+        //__sync_fetch_and_add(outdegree + src_v[j], 1);
+        __sync_fetch_and_add(indegree + dst->at(j), 1);
+        __sync_fetch_and_add(outdegree + stc->at(j), 1);
       }
       if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
       return;
