@@ -38,6 +38,7 @@ void GraphReduce(const std::string input_pt, const std::string output_pt,
   memset(dst_v, 0, sizeof(VID_T) * num_edges);
   std::atomic<VID_T> max_vid_atom(0);
 
+  LOG_INFO("Read ", num_edges, " edges");
   LOG_INFO("Run: get maximum vid");
   for (size_t i = 0; i < cores; i++) {
     size_t tid = i;
