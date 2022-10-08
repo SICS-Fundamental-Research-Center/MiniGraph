@@ -23,8 +23,8 @@ $make
 # Running MiniGraph Applications
 
 
-## Partition input.
-To convert graph.
+## Partition & convert graph.
+We store graphs in a binary CSR format. Edge-list in csv format can be converted to our CSR format with graph_convert tool provided in tools. You can use graph_convert_exec as follows:
 ```shell
 $ ./bin/graph_convert_exec -t csr_bin -p -n [the number of fragments] -i [input in csv format] -o [output path] -init_model val -init_val 0 -vertexes [the maximum vid] -cores [degree of parallelism]
 ```
