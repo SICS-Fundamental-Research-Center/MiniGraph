@@ -1,5 +1,5 @@
-# tools/graphgen.cpp
-tools/graphgen.cpp privides a family of graph generators for quickly generating realistic graph that match the power law behaviors. 
+# tools/graph_gen.cpp
+tools/graph_gen.cpp privides a family of graph generators for quickly generating realistic graph that match the power law behaviors. 
 
 
 ### Useage
@@ -10,11 +10,11 @@ b and c are the cross links between a and b.
 It may have duplicate edges, but the generator only keep one of them.
 ```shell
 $cd bin
-$./graphgen_exec -a [probability] -b [probability] -c [probability] -d [probability] -o [output file] -power [power of 2] -edges [the count of edges]
+$./graph_gen_exec -a [probability] -b [probability] -c [probability] -d [probability] -o [output file] -power [power of 2] -edges [the count of edges]
 ```
 or
 ```shell
 $cd bin
-$./graphgen_exec -x [probability] -y [probability] -o [output file] -power [power of 2] -edges [the count of edges]
+$./graph_gen_exec -x [probability] -y [probability] -o [output file] -power [power of 2] -edges [the count of edges]
 ```
 
