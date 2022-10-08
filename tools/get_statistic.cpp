@@ -57,7 +57,7 @@ void GetGraphStatistic(const std::string input_pt, const std::string output_pt,
   finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
 
   LOG_INFO("MAXVID: ", max_vid_atom.load());
-  max_vid_atom.store((int(max_vid_atom.load() / 64) + 1) * 64);
+  max_vid_atom.store((size_t(max_vid_atom.load() / 64) + 1) * 64);
   LOG_INFO("update MAXVID: ", max_vid_atom.load());
 
   size_t* outdegree = (size_t*)malloc(sizeof(size_t) * max_vid_atom.load());
