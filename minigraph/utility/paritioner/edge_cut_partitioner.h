@@ -84,6 +84,7 @@ class EdgeCutPartitioner {
     edge_list_io_adapter.Read((GRAPH_BASE_T*)graph, edge_list_bin, ' ', 0,
                               meta_pt, data_pt, vdata_pt);
 
+    graph->ShowGraph(10);
     size_t num_edges = graph->num_edges_;
 
     auto thread_pool = CPUThreadPool(cores, 1);
