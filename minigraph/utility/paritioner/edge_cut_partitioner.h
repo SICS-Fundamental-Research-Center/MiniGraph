@@ -91,6 +91,7 @@ class EdgeCutPartitioner {
     std::condition_variable finish_cv;
     std::unique_lock<std::mutex> lck(mtx);
 
+    std::atomic max_vid_atom(max_vid);
     LOG_INFO("Run: Convert std::vector to array.");
     std::atomic<size_t> pending_packages(cores);
     for (size_t i = 0; i < cores; i++) {
@@ -114,8 +115,8 @@ class EdgeCutPartitioner {
       max_vid_ = ((max_vid_atom.load() / 64) + 1) * 64;
       vid_map_ = (VID_T*)malloc(sizeof(VID_T) * max_vid_);
     }
-    std::atomic max_vid_atom(max_vid_);
 
+    LOG_INFO("MAX_VID: ", max_vid_);
     size_t* num_in_edges = (size_t*)malloc(sizeof(size_t) * max_vid_);
     size_t* num_out_edges = (size_t*)malloc(sizeof(size_t) * max_vid_);
     memset(num_in_edges, 0, sizeof(size_t) * max_vid_);
