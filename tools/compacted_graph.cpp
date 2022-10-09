@@ -92,7 +92,6 @@ void GraphReduce(const std::string input_pt, const std::string output_pt,
   }
   finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
 
-  LOG_INFO();
   pending_packages.store(cores);
   for (size_t i = 0; i < cores; i++) {
     size_t tid = i;

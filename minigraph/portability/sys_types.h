@@ -52,6 +52,7 @@ DEFINE_string(i, "", "input path");
 DEFINE_string(o, "", "output path");
 DEFINE_string(pattern, "", "query graph (edge list in csv)");
 DEFINE_bool(tobin, false, "convert the graph to binary format");
+DEFINE_bool(frombin, false, "convert the graph of binary format");
 DEFINE_string(
     gtype, "csr_bin",
     "two types of edge list files are supported: csr_bin, edge_list_bin");

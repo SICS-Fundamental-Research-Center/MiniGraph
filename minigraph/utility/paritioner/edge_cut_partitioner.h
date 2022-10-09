@@ -1,9 +1,10 @@
 #ifndef MINIGRAPH_UTILITY_EDGE_CUT_PARTITIONER_H
 #define MINIGRAPH_UTILITY_EDGE_CUT_PARTITIONER_H
 
+#include <stdio.h>
+
 #include <atomic>
 #include <cstring>
-#include <stdio.h>
 #include <unordered_map>
 #include <vector>
 
@@ -64,6 +65,297 @@ class EdgeCutPartitioner {
   }
 
   ~EdgeCutPartitioner() = default;
+
+  bool ParallelPartitionFromBin(const std::string& pt,
+                                const size_t num_partitions = 1,
+                                std::size_t max_vid = 1, const size_t cores = 1,
+                                const std::string init_model = "val",
+                                const VDATA_T init_vdata = 0) {
+    LOG_INFO("ParallelPartitionFromBin()");
+
+    std::string meta_pt = pt + "minigraph_meta" + ".bin";
+    std::string data_pt = pt + "minigraph_data" + ".bin";
+    std::string vdata_pt = pt + "minigraph_vdata" + ".bin";
+
+    minigraph::utility::io::EdgeListIOAdapter<gid_t, vid_t, vdata_t, edata_t>
+        edge_list_io_adapter;
+
+    auto graph = new EDGE_LIST_T;
+    edge_list_io_adapter.Read((GRAPH_BASE_T*)graph, edge_list_bin, ' ', 0,
+                              meta_pt, data_pt, vdata_pt);
+
+    size_t num_edges = graph->num_edges_;
+
+    auto thread_pool = CPUThreadPool(cores, 1);
+    std::mutex mtx;
+    std::condition_variable finish_cv;
+    std::unique_lock<std::mutex> lck(mtx);
+
+    std::atomic max_vid_atom(max_vid);
+    LOG_INFO("Run: Convert std::vector to array.");
+    std::atomic<size_t> pending_packages(cores);
+    for (size_t i = 0; i < cores; i++) {
+      size_t tid = i;
+      thread_pool.Commit([tid, &cores, &graph, &pending_packages, &finish_cv,
+                          &max_vid_atom]() {
+        for (size_t j = tid; j < graph->num_edges_; j += cores) {
+          if (max_vid_atom.load() < graph->buf_graph_[j * 2 + 1])
+            max_vid_atom.store(graph->buf_graph_[j * 2 + 1]);
+          if (max_vid_atom.load() < graph->buf_graph_[j * 2])
+            max_vid_atom.store(graph->buf_graph_[j * 2]);
+        }
+        if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
+        return;
+      });
+    }
+    finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
+
+    if (max_vid_atom.load() != max_vid_) {
+      free(vid_map_);
+      max_vid_ = ((max_vid_atom.load() / 64) + 1) * 64;
+      vid_map_ = (VID_T*)malloc(sizeof(VID_T) * max_vid_);
+    }
+
+    size_t* num_in_edges = (size_t*)malloc(sizeof(size_t) * max_vid_);
+    size_t* num_out_edges = (size_t*)malloc(sizeof(size_t) * max_vid_);
+    memset(num_in_edges, 0, sizeof(size_t) * max_vid_);
+    memset(num_out_edges, 0, sizeof(size_t) * max_vid_);
+
+    GID_T* gid_by_vid = (GID_T*)malloc(sizeof(GID_T) * max_vid_);
+    memset(gid_by_vid, 0, sizeof(GID_T) * max_vid_);
+    Bitmap* vertex_indicator = new Bitmap(max_vid_);
+    vertex_indicator->clear();
+
+    size_t num_vertexes = 0;
+
+    // Go through every edges to count the size of each vertex.
+    LOG_INFO("Run: Go through every edges to count the size of each vertex");
+    pending_packages.store(cores);
+    for (size_t i = 0; i < cores; i++) {
+      size_t tid = i;
+      thread_pool.Commit([tid, &cores, &num_in_edges, &num_out_edges,
+                          &num_edges, &graph, &vertex_indicator,
+                          &pending_packages, &finish_cv, &num_vertexes]() {
+        if (tid > num_edges) return;
+        for (size_t j = tid; j < num_edges; j += cores) {
+          auto src_vid = graph->buf_graph_[j * 2];
+          auto dst_vid = graph->buf_graph_[j * 2 + 1];
+          if (!vertex_indicator->get_bit(src_vid)) {
+            vertex_indicator->set_bit(src_vid);
+            __sync_add_and_fetch(&num_vertexes, 1);
+          }
+          if (!vertex_indicator->get_bit(dst_vid)) {
+            vertex_indicator->set_bit(dst_vid);
+            __sync_add_and_fetch(&num_vertexes, 1);
+          }
+          __sync_add_and_fetch(num_out_edges + src_vid, 1);
+          __sync_add_and_fetch(num_in_edges + dst_vid, 1);
+        }
+        if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
+        return;
+      });
+    }
+    finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
+
+    LOG_INFO("Real MAXIMUM ID: ", max_vid_);
+
+    graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>** vertexes = nullptr;
+    vertexes = (graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>**)malloc(
+        sizeof(graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>*) * max_vid_);
+
+    for (size_t i = 0; i < max_vid_; i++) vertexes[i] = nullptr;
+
+    LOG_INFO("Run: Merge edges");
+    pending_packages.store(cores);
+    for (size_t i = 0; i < cores; i++) {
+      size_t tid = i;
+      thread_pool.Commit([this, tid, &cores, &num_in_edges, &num_out_edges,
+                          &vertex_indicator, &vertexes, &pending_packages,
+                          &finish_cv]() {
+        if (tid > max_vid_) return;
+        for (size_t j = tid; j < max_vid_; j += cores) {
+          if (!vertex_indicator->get_bit(j)) continue;
+          auto u = new graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>();
+          u->vid = j;
+          u->indegree = num_in_edges[u->vid];
+          u->outdegree = num_out_edges[u->vid];
+          u->in_edges = (VID_T*)malloc(sizeof(VID_T) * (u->indegree + 64));
+          memset(u->in_edges, 0, sizeof(VID_T) * (u->indegree + 64));
+          u->out_edges = (VID_T*)malloc(sizeof(VID_T) * (u->outdegree + 64));
+          memset(u->out_edges, 0, sizeof(VID_T) * (u->outdegree + 64));
+          vertexes[u->vid] = u;
+        }
+        if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
+        return;
+      });
+    }
+    finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
+
+    LOG_INFO("Run: Edges fill");
+    size_t* offset_in_edges = (size_t*)malloc(sizeof(size_t) * max_vid_);
+    size_t* offset_out_edges = (size_t*)malloc(sizeof(size_t) * max_vid_);
+    memset(offset_in_edges, 0, sizeof(size_t) * max_vid_);
+    memset(offset_out_edges, 0, sizeof(size_t) * max_vid_);
+    pending_packages.store(cores);
+    for (size_t i = 0; i < cores; i++) {
+      size_t tid = i;
+      thread_pool.Commit([tid, &cores, &num_in_edges, &num_out_edges,
+                          &num_edges, &offset_in_edges, &offset_out_edges,
+                          &graph, &vertex_indicator, &vertexes,
+                          &pending_packages, &finish_cv]() {
+        for (size_t j = tid; j < num_edges; j += cores) {
+          auto src_vid = graph->buf_graph_[j * 2];
+          auto dst_vid = graph->buf_graph_[j * 2 + 1];
+          assert(vertexes[src_vid] != nullptr);
+          assert(vertexes[dst_vid] != nullptr);
+          auto dst_in_offset =
+              __sync_fetch_and_add(offset_in_edges + dst_vid, 1);
+          auto src_out_offset =
+              __sync_fetch_and_add(offset_out_edges + src_vid, 1);
+          assert(dst_in_offset < num_in_edges[dst_vid]);
+          assert(src_out_offset < num_out_edges[src_vid]);
+          if (vertexes[src_vid] != nullptr) {
+            vertexes[src_vid]->out_edges[src_out_offset] = dst_vid;
+          }
+          if (vertexes[dst_vid] != nullptr) {
+            vertexes[dst_vid]->in_edges[dst_in_offset] = src_vid;
+          }
+        }
+        if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
+        return;
+      });
+    }
+    finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
+    size_t* offset_fragments = (size_t*)malloc(sizeof(size_t) * num_partitions);
+    memset(offset_fragments, 0, sizeof(size_t) * num_partitions);
+
+    size_t* sum_in_edges_by_fragments =
+        (size_t*)malloc(sizeof(size_t) * num_partitions);
+    memset(sum_in_edges_by_fragments, 0, sizeof(size_t) * num_partitions);
+    size_t* sum_out_edges_by_fragments =
+        (size_t*)malloc(sizeof(size_t) * num_partitions);
+    memset(sum_out_edges_by_fragments, 0, sizeof(size_t) * num_partitions);
+
+    auto fragments = (graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>***)malloc(
+        sizeof(graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>**) * num_partitions);
+
+    for (size_t i = 0; i < num_partitions; i++) {
+      fragments[i] = (graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>**)malloc(
+          sizeof(graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>*) *
+          (max_vid_atom.load() / num_partitions) * 2);
+    }
+
+    size_t* num_vertexes_per_bucket =
+        (size_t*)malloc(sizeof(size_t) * num_partitions);
+    memset(num_vertexes_per_bucket, 0, sizeof(size_t) * num_partitions);
+    LOG_INFO("Run: Partition vertexes into buckets");
+
+    size_t count = 0;
+    GID_T gid = 0;
+
+    for (size_t i = 0; i < max_vid_atom.load(); i++) {
+      if (!vertex_indicator->get_bit(i)) continue;
+      auto u = vertexes[i];
+      auto offset_fragment = __sync_fetch_and_add(offset_fragments + gid, 1);
+      fragments[gid][offset_fragment] = u;
+      gid_by_vid[u->vid] = gid;
+      __sync_fetch_and_add(sum_in_edges_by_fragments + gid, u->indegree);
+      __sync_fetch_and_add(sum_out_edges_by_fragments + gid, u->outdegree);
+      __sync_fetch_and_add(num_vertexes_per_bucket + gid, 1);
+      if (count > num_vertexes / num_partitions) {
+        gid++;
+        count = 0;
+      } else {
+        count++;
+      }
+    }
+
+    auto set_graphs = (graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>**)malloc(
+        sizeof(graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>*) *
+        num_partitions);
+
+    LOG_INFO("Run: Construct sub-graphs");
+    pending_packages.store(cores);
+    for (size_t i = 0; i < cores; i++) {
+      size_t tid = i;
+      thread_pool.Commit([this, tid, &cores, &set_graphs,
+                          &sum_in_edges_by_fragments,
+                          &sum_out_edges_by_fragments, &fragments,
+                          &num_vertexes_per_bucket, &num_partitions,
+                          &pending_packages, &finish_cv]() {
+        for (size_t i = tid; i < num_partitions; i += cores) {
+          auto graph = new graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>(
+              i, fragments[i], num_vertexes_per_bucket[i],
+              sum_in_edges_by_fragments[i], sum_out_edges_by_fragments[i],
+              max_vid_);
+          set_graphs[i] = (graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>*)graph;
+          for (size_t j = 0; j < graph->get_num_vertexes(); j++) {
+            auto u = graph->GetVertexByIndex(j);
+            vid_map_[graph->localid2globalid(u.vid)] = u.vid;
+          }
+        }
+        if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
+        return;
+      });
+    }
+    finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
+
+    if (fragments_ == nullptr)
+      fragments_ =
+          new std::vector<graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>*>;
+    for (size_t i = 0; i < num_partitions; i++)
+      fragments_->push_back(set_graphs[i]);
+
+    global_border_vid_map_ = new Bitmap(max_vid_);
+    global_border_vid_map_->clear();
+    for (auto& iter_fragments : *fragments_) {
+      auto fragment = (CSR_T*)iter_fragments;
+      if (init_model == "val") {
+        fragment->InitVdata2AllX(init_vdata);
+      } else if (init_model == "max") {
+        fragment->InitVdata2AllMax();
+      } else if (init_model == "vid") {
+        fragment->InitVdataByVid();
+      }
+      fragment->SetGlobalBorderVidMap(global_border_vid_map_);
+    }
+
+    LOG_INFO("Run: Set communication matrix");
+    if (communication_matrix_ == nullptr)
+      communication_matrix_ =
+          (bool*)malloc(sizeof(bool) * num_partitions * num_partitions);
+    memset(communication_matrix_, 0,
+           sizeof(bool) * num_partitions * num_partitions);
+
+    pending_packages.store(cores);
+    for (size_t i = 0; i < cores; i++) {
+      size_t tid = i;
+      thread_pool.Commit([this, tid, &cores, &graph, &gid_by_vid, &num_edges,
+                          &pending_packages, &finish_cv]() {
+        for (size_t j = tid; j < num_edges; j += cores) {
+          auto src_vid = graph->buf_graph_[j * 2];
+          auto dst_vid = graph->buf_graph_[j * 2 + 1];
+          auto src_gid = gid_by_vid[src_vid];
+          auto dst_gid = gid_by_vid[dst_vid];
+          if (src_gid == dst_gid) continue;
+          *(communication_matrix_ + dst_gid * fragments_->size() + src_gid) = 1;
+        }
+        if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
+        return;
+      });
+    }
+    finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
+
+    delete num_vertexes_per_bucket;
+    delete sum_in_edges_by_fragments;
+    delete sum_out_edges_by_fragments;
+    delete offset_out_edges;
+    delete offset_in_edges;
+    delete num_in_edges;
+    delete num_out_edges;
+    LOG_INFO("END");
+    return true;
+  }
 
   bool ParallelPartition(const std::string& pt, char separator_params = ',',
                          const size_t num_partitions = 1,
