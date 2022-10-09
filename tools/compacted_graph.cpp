@@ -161,19 +161,19 @@ void GraphReduceToBin(const std::string input_pt, const std::string dst_pt,
   rapidcsv::Document* doc =
       new rapidcsv::Document(input_pt, rapidcsv::LabelParams(),
                              rapidcsv::SeparatorParams(separator_params));
-  std::vector<VID_T>* src = new std::vector<VID_T>();
-  *src = doc->GetColumn<VID_T>("src");
-  std::vector<VID_T>* dst = new std::vector<VID_T>();
-  *dst = doc->GetColumn<VID_T>("dst");
+  std::vector<size_t>* src = new std::vector<size_t>();
+  *src = doc->GetColumn<size_t>("src");
+  std::vector<size_t>* dst = new std::vector<size_t>();
+  *dst = doc->GetColumn<size_t>("dst");
 
   size_t num_edges = src->size();
-  VID_T* src_v = (VID_T*)malloc(sizeof(VID_T) * num_edges);
-  VID_T* dst_v = (VID_T*)malloc(sizeof(VID_T) * num_edges);
-  memset(src_v, 0, sizeof(VID_T) * num_edges);
-  memset(dst_v, 0, sizeof(VID_T) * num_edges);
+  size_t* src_v = (size_t*)malloc(sizeof(size_t) * num_edges);
+  size_t* dst_v = (size_t*)malloc(sizeof(size_t) * num_edges);
+  memset(src_v, 0, sizeof(size_t) * num_edges);
+  memset(dst_v, 0, sizeof(size_t) * num_edges);
   auto graph = new EDGE_LIST_T(0, num_edges, 0);
 
-  std::atomic<VID_T> max_vid_atom(0);
+  std::atomic<size_t> max_vid_atom(0);
 
   LOG_INFO("Read ", num_edges, " edges");
   LOG_INFO("Run: get maximum vid");
@@ -198,8 +198,8 @@ void GraphReduceToBin(const std::string input_pt, const std::string dst_pt,
   delete doc;
   delete src;
   delete dst;
-  VID_T* vid_map = (VID_T*)malloc(sizeof(VID_T) * max_vid_atom.load());
-  memset(vid_map, 0, sizeof(VID_T) * max_vid_atom.load());
+  size_t* vid_map = (size_t*)malloc(sizeof(size_t) * max_vid_atom.load());
+  memset(vid_map, 0, sizeof(size_t) * max_vid_atom.load());
   Bitmap* visited = new Bitmap(max_vid_atom.load());
   visited->clear();
 
@@ -210,8 +210,8 @@ void GraphReduceToBin(const std::string input_pt, const std::string dst_pt,
   for (size_t i = 0; i < cores; i++) {
     size_t tid = i;
     thread_pool.Commit([tid, &cores, &src_v, &dst_v, &num_edges,
-                        &pending_packages, &finish_cv, &max_vid_atom, &visited,
-                        &vid_map, &local_id]() {
+                        &pending_packages, &finish_cv, &visited, &vid_map,
+                        &local_id]() {
       for (size_t j = tid; j < num_edges; j += cores) {
         if (!visited->get_bit(src_v[j])) {
           auto vid = __sync_fetch_and_add(&local_id, 1);
@@ -253,6 +253,7 @@ void GraphReduceToBin(const std::string input_pt, const std::string dst_pt,
   free(vid_map);
   free(src_v);
   free(dst_v);
+  graph->ShowGraph(10);
   edge_list_io_adapter.Write(*graph, edge_list_bin, false, meta_pt, data_pt,
                              vdata_pt);
   std::cout << "Save at " << dst_pt << std::endl;
