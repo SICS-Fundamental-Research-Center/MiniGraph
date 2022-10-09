@@ -91,7 +91,7 @@ class EdgeCutPartitioner {
     std::condition_variable finish_cv;
     std::unique_lock<std::mutex> lck(mtx);
 
-    std::atomic max_vid_atom(max_vid);
+    std::atomic<VID_T> max_vid_atom(max_vid);
     LOG_INFO("Run: Convert std::vector to array.");
     std::atomic<size_t> pending_packages(cores);
     for (size_t i = 0; i < cores; i++) {
