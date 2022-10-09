@@ -53,8 +53,6 @@ class EdgeList : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       buf_graph_ = (VID_T*)malloc(sizeof(VID_T) * num_edges_ * 2);
       memset((char*)buf_graph_, 0, sizeof(VID_T) * num_edges_ * 2);
     }
-    map_globalid2localid_ = new std::unordered_map<VID_T, VID_T>;
-    map_globalid2localid_->reserve(65536);
   }
 
   ~EdgeList() {
