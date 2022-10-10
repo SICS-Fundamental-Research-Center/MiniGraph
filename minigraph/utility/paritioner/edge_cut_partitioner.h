@@ -110,7 +110,7 @@ class EdgeCutPartitioner {
     if (max_vid_atom.load() != max_vid_) {
       free(vid_map_);
       max_vid_ = ((max_vid_atom.load() / 64) + 1) * 64;
-      max_vid_ = max_vid_atom.load();
+      //max_vid_ = max_vid_atom.load();
       vid_map_ = (VID_T*)malloc(sizeof(VID_T) * max_vid_);
     }
 
