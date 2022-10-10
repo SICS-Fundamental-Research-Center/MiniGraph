@@ -68,7 +68,7 @@ class EdgeCutPartitioner {
 
   bool ParallelPartitionFromBin(const std::string& pt,
                                 const size_t num_partitions = 1,
-                                std::size_t max_vid = 2147483647, const size_t cores = 1,
+                                std::size_t max_vid = 1, const size_t cores = 1,
                                 const std::string init_model = "val",
                                 const VDATA_T init_vdata = 0) {
     LOG_INFO("ParallelPartitionFromBin()");
