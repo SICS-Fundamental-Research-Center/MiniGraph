@@ -1,16 +1,6 @@
 #ifndef MINIGRAPH_UTILITY_EDGE_CUT_PARTITIONER_H
 #define MINIGRAPH_UTILITY_EDGE_CUT_PARTITIONER_H
 
-#include <stdio.h>
-
-#include <atomic>
-#include <cstring>
-#include <unordered_map>
-#include <vector>
-
-#include <folly/AtomicHashMap.h>
-#include <folly/FBVector.h>
-
 #include "graphs/graph.h"
 #include "portability/sys_types.h"
 #include "utility/bitmap.h"
@@ -18,7 +8,13 @@
 #include "utility/io/data_mngr.h"
 #include "utility/io/io_adapter_base.h"
 #include "utility/thread_pool.h"
-
+#include <folly/AtomicHashMap.h>
+#include <folly/FBVector.h>
+#include <atomic>
+#include <cstring>
+#include <stdio.h>
+#include <unordered_map>
+#include <vector>
 
 namespace minigraph {
 namespace utility {
@@ -113,7 +109,7 @@ class EdgeCutPartitioner {
 
     if (max_vid_atom.load() != max_vid_) {
       free(vid_map_);
-      //max_vid_ = ((max_vid_atom.load() / 64) + 1) * 64;
+      // max_vid_ = ((max_vid_atom.load() / 64) + 1) * 64;
       max_vid_ = max_vid_atom.load();
       vid_map_ = (VID_T*)malloc(sizeof(VID_T) * max_vid_);
     }
@@ -182,10 +178,10 @@ class EdgeCutPartitioner {
           u->vid = j;
           u->indegree = num_in_edges[u->vid];
           u->outdegree = num_out_edges[u->vid];
-          u->in_edges = (VID_T*)malloc(sizeof(VID_T) * (u->indegree + 64));
-          memset(u->in_edges, 0, sizeof(VID_T) * (u->indegree + 64));
-          u->out_edges = (VID_T*)malloc(sizeof(VID_T) * (u->outdegree + 64));
-          memset(u->out_edges, 0, sizeof(VID_T) * (u->outdegree + 64));
+          u->in_edges = (VID_T*)malloc(sizeof(VID_T) * (u->indegree));
+          memset(u->in_edges, 0, sizeof(VID_T) * (u->indegree));
+          u->out_edges = (VID_T*)malloc(sizeof(VID_T) * (u->outdegree));
+          memset(u->out_edges, 0, sizeof(VID_T) * (u->outdegree));
           vertexes[u->vid] = u;
         }
         if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
@@ -209,6 +205,12 @@ class EdgeCutPartitioner {
         for (size_t j = tid; j < num_edges; j += cores) {
           auto src_vid = graph->buf_graph_[j * 2];
           auto dst_vid = graph->buf_graph_[j * 2 + 1];
+          if (vertexes[dst_vid] == nullptr) {
+            LOG_INFO(dst_vid);
+          }
+          if (vertexes[src_vid] == nullptr) {
+            LOG_INFO(src_vid);
+          }
           assert(vertexes[src_vid] != nullptr);
           assert(vertexes[dst_vid] != nullptr);
           auto dst_in_offset =
