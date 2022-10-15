@@ -123,6 +123,8 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
                                         task_runner, vid_map, &visited);
       std::swap(in_visited, out_visited);
     }
+    auto global_border_vid_map = this->msg_mngr_->GetGlobalBorderVidMap();
+    LOG_INFO(global_border_vid_map->size_);
     this->auto_map_->ActiveMap(
         graph, task_runner, &visited,
         WCCAutoMap<GRAPH_T, CONTEXT_T>::kernel_push_border_vertexes,

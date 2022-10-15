@@ -286,6 +286,7 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
         } while (h.heap_size_);
       };
     }
+    LOG_INFO("#");
     return !visited.empty();
   }
 

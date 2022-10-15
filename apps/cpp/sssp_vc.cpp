@@ -117,7 +117,6 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
   bool PEval(GRAPH_T& graph,
              minigraph::executors::TaskRunner* task_runner) override {
-    graph.ShowGraph(10);
     LOG_INFO("PEval() - Processing gid: ", graph.gid_);
     if (!graph.IsInGraph(this->context_.root_id)) return false;
     auto vid_map = this->msg_mngr_->GetVidMap();
