@@ -232,15 +232,6 @@ class SimulationPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
       }
     }
 
-    // for (size_t i = 0; i < pattern.get_num_vertexes(); i++) {
-    //   if (match_sets.indicator_->get_bit(i) == 0) continue;
-    //   LOG_INFO(i, "match: ");
-    //   for (size_t j = 0; j < graph.get_num_vertexes(); j++) {
-    //     if (match_sets.sim_sets_[i]->get_bit(j))
-    //       LOG_INFO(graph.localid2globalid(j));
-    //   }
-    // }
-    // LOG_INFO("----------------");
 
     size_t count = 0;
     Bitmap** keep_sim =
@@ -464,9 +455,6 @@ class SimulationPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
         }
       }
 
-      // for (size_t j = 0; j < graph.get_num_vertexes(); j++) {
-
-      //}
 
       remove[i] = new Bitmap(graph.get_num_vertexes());
       remove[i]->copy_bit(pre_V);
@@ -540,6 +528,7 @@ int main(int argc, char* argv[]) {
   size_t num_cores = FLAGS_cores;
   size_t buffer_size = FLAGS_buffer_size;
   std::string pattern_pt = FLAGS_pattern;
+  size_t niters = FLAGS_niters;
 
   auto csr_io_adapter =
       minigraph::utility::io::CSRIOAdapter<CSR_T::gid_t, CSR_T::vid_t,
@@ -561,7 +550,7 @@ int main(int argc, char* argv[]) {
 
   minigraph::MiniGraphSys<CSR_T, SimulationPIE_T> minigraph_sys(
       work_space, num_workers_lc, num_workers_cc, num_workers_dc, num_cores,
-      buffer_size, app_wrapper);
+      buffer_size, app_wrapper, niters);
 
   auto sys_data_mngr = minigraph_sys.GetDataMngr();
   minigraph_sys.RunSys();

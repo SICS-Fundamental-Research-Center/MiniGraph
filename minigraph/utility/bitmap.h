@@ -2,6 +2,7 @@
 #define BITMAP_H
 
 #include <stdio.h>
+
 #include <cassert>
 #include <cstring>
 
@@ -75,8 +76,8 @@ class Bitmap {
   }
 
   unsigned long get_bit(size_t i) {
-    if(i>size_){
-      LOG_INFO("size: ", size_, " i: ", i );
+    if (i > size_) {
+      LOG_INFO("size: ", size_, " i: ", i);
     }
     assert(i <= size_);
     return data_[WORD_OFFSET(i)] & (1ul << BIT_OFFSET(i));
@@ -94,6 +95,9 @@ class Bitmap {
 
   void try_set_bit(size_t i) {
     //__sync_fetch_and_or(data_ + WORD_OFFSET(i), 1ul << BIT_OFFSET(i));
+    if (i > size_) {
+      LOG_INFO("i:", i, " size_: ", size_);
+    }
     assert(i <= size_);
     *(data_ + WORD_OFFSET(i)) =
         *(data_ + WORD_OFFSET(i)) | (1ul << BIT_OFFSET(i));

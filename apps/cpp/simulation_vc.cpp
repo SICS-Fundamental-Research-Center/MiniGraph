@@ -143,9 +143,12 @@ class SimulationAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
       for (size_t i = 0; i < a.outdegree; i++) {
         auto nbr_a = graph.GetVertexByVid(vid_map[a.out_edges[i]]);
         if (nbr_a.vdata[0] == nbr_b.vdata[0]) {
+          if (!graph.IsInGraph(nbr_b.vid)) continue;
           if (match_sets->indicator_->get_bit(nbr_a.vid) == 0) continue;
           if (match_sets->sim_sets_[nbr_a.vid] == nullptr) continue;
-          if (match_sets->sim_sets_[nbr_a.vid]->get_bit(nbr_b.vid)) {
+
+          auto local_id = vid_map[nbr_b.vid];
+          if (match_sets->sim_sets_[nbr_a.vid]->get_bit(local_id)) {
             count++;
             break;
           }
@@ -164,12 +167,6 @@ class SimulationAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
                                 VDATA_T* global_vdata) {
     for (size_t i = tid; i < graph->get_num_vertexes(); i += step) {
       if (in_visited->get_bit(i) == 0) continue;
-      // if (in_visited->get_bit(i) == 0 &&
-      //     active_bit_map->get_bit(graph->localid2globalid(i)) == 0)
-      //   continue;
-      // if (active_bit_map->get_bit(graph->localid2globalid(i)))
-      //   active_bit_map->rm_bit(graph->localid2globalid(i));
-
       if (match_sets->indicator_->get_bit(i) == 0) continue;
       auto u = graph->GetVertexByIndex(i);
       for (size_t j = 0; j < pattern->get_num_vertexes(); j++) {
@@ -180,41 +177,10 @@ class SimulationAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
           if (!check_childs(u, v, *graph, *pattern, vid_map, match_sets)) {
             match_sets->sim_sets_[u.vid]->rm_bit(v.vid);
             for (size_t nbr_u_i = 0; nbr_u_i < u.indegree; nbr_u_i++) {
+              if (!graph->IsInGraph(u.in_edges[nbr_u_i])) continue;
               out_visited->try_set_bit(vid_map[u.in_edges[nbr_u_i]]);
             }
           }
-
-          // size_t match_count = 0;
-          // for (size_t nbr_v_i = 0; nbr_v_i < v.outdegree; nbr_v_i++) {
-          //   auto nbr_v = pattern->GetVertexByVid(v.out_edges[nbr_v_i]);
-          //   for (size_t nbr_u_i = 0; nbr_u_i < u.outdegree; nbr_u_i++) {
-          //     if (graph->IsInGraph(u.out_edges[nbr_u_i])) {
-          //       auto nbr_u =
-          //           graph->GetVertexByVid(vid_map[u.out_edges[nbr_u_i]]);
-          //       if (nbr_u.vdata[0] == nbr_v.vdata[0]) match_count++;
-          //       break;
-          //     } else {
-          //       // LOG_INFO(u.out_edges[nbr_u_i],
-          //       //          " vdata: ", global_vdata[u.out_edges[nbr_u_i]], "
-          //       ",
-          //       //          nbr_v.vid, " vdata: ", nbr_v.vdata[0]);
-          //       if (global_vdata[u.out_edges[nbr_u_i]] == nbr_v.vdata[0]) {
-          //         match_count++;
-          //       }
-          //     }
-          //   }
-          // }
-          // LOG_INFO("v.outdegree:", v.outdegree, " match count: ",
-          // match_count); if (match_count < v.outdegree) {
-          //   match_sets->sim_sets_[i]->rm_bit(v.vid);
-          //   for (size_t nbr_u_i = 0; nbr_u_i < u.indegree; nbr_u_i++) {
-          //     if (graph->IsInGraph(u.in_edges[nbr_u_i])) {
-          //       out_visited->set_bit(vid_map[u.in_edges[nbr_u_i]]);
-          //     } else {
-          //       // active_bit_map->set_bit(u.in_edges[nbr_u_i]);
-          //     }
-          //   }
-          // }
         }
       }
     }
@@ -295,13 +261,13 @@ class SimulationPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     this->context_.p->vdata_[0] = 1;
     this->context_.p->vdata_[1] = 2;
     this->context_.p->vdata_[2] = 3;
-    this->context_.p->vdata_[3] = 4;
-    this->context_.p->vdata_[4] = 5;
-    this->context_.p->vdata_[5] = 6;
-    this->context_.p->vdata_[6] = 7;
-    this->context_.p->vdata_[7] = 8;
-    this->context_.p->vdata_[8] = 9;
-    this->context_.p->vdata_[9] = 10;
+    // this->context_.p->vdata_[3] = 4;
+    // this->context_.p->vdata_[4] = 5;
+    // this->context_.p->vdata_[5] = 6;
+    // this->context_.p->vdata_[6] = 7;
+    // this->context_.p->vdata_[7] = 8;
+    // this->context_.p->vdata_[8] = 9;
+    // this->context_.p->vdata_[9] = 10;
 
     delete visited;
     return true;
@@ -309,10 +275,14 @@ class SimulationPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
   bool PEval(GRAPH_T& graph,
              minigraph::executors::TaskRunner* task_runner) override {
-    LOG_INFO("PEval() - Processing gid: ", graph.gid_);
+    LOG_INFO("PEval() - Processing gid: ", graph.gid_,
+             " max_vid: ", graph.max_vid_, "num_vertexes",
+             graph.get_num_vertexes());
 
+    graph.ShowGraph(10);
     Bitmap* pvisited = new Bitmap(graph.max_vid_);
     pvisited->fill();
+
     this->auto_map_->ActiveMap(
         graph, task_runner, pvisited,
         SimulationAutoMap<GRAPH_T, CONTEXT_T>::kernel_init_global_vdata,
@@ -322,6 +292,8 @@ class SimulationPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
     // TMP
     Bitmap visited(graph.get_num_vertexes());
+    // Bitmap* in_visited = new Bitmap(graph.get_num_vertexes());
+    // Bitmap* out_visited = new Bitmap(graph.get_num_vertexes());
     Bitmap* in_visited = new Bitmap(graph.get_num_vertexes());
     Bitmap* out_visited = new Bitmap(graph.get_num_vertexes());
     visited.clear();
@@ -360,14 +332,6 @@ class SimulationPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
       out_visited->clear();
     }
 
-    // for (size_t i = 0; i < graph.get_num_vertexes(); i++) {
-    //   if (match_sets.indicator_->get_bit(i) == 0) continue;
-    //   LOG_INFO(graph.localid2globalid(i), "match: ");
-    //   for (size_t j = 0; j < this->context_.p->get_num_vertexes(); j++) {
-    //     if (match_sets.sim_sets_[i]->get_bit(j)) LOG_INFO(j);
-    //   }
-    // }
-
     MatchSets match_sets_result(this->context_.p->get_num_vertexes(),
                                 graph.get_num_vertexes(), true);
 
@@ -376,14 +340,7 @@ class SimulationPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
         SimulationAutoMap<GRAPH_T, CONTEXT_T>::kernel_convert_match_sets,
         this->context_.p, &match_sets, &match_sets_result);
 
-    // for (size_t i = 0; i < this->context_.p->get_num_vertexes(); i++) {
-    //   if (match_sets_result.indicator_->get_bit(i) == 0) continue;
-    //   LOG_INFO(i, " match: ");
-    //   for (size_t j = 0; j < graph.get_num_vertexes(); j++) {
-    //     if (match_sets_result.sim_sets_[i]->get_bit(j))
-    //       LOG_INFO(graph.localid2globalid(j));
-    //   }
-    // }
+
 
     for (size_t i = 0; i < graph.get_num_vertexes(); i++)
       if (match_sets.indicator_->get_bit(i)) delete match_sets.sim_sets_[i];
@@ -392,7 +349,8 @@ class SimulationPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
   bool IncEval(GRAPH_T& graph,
                minigraph::executors::TaskRunner* task_runner) override {
-    LOG_INFO("IncEval() - Processing gid: ", graph.gid_);
+    LOG_INFO("IncEval() - Processing gid: ", graph.gid_,
+             " num vertexes: ", graph.get_num_vertexes());
     Bitmap visited(graph.get_num_vertexes());
     Bitmap* in_visited = new Bitmap(graph.get_num_vertexes());
     Bitmap* out_visited = new Bitmap(graph.get_num_vertexes());
@@ -409,14 +367,6 @@ class SimulationPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
         SimulationAutoMap<GRAPH_T, CONTEXT_T>::kernel_match_vertex,
         this->context_.p, &match_sets, in_visited);
 
-    // for (size_t i = 0; i < graph.get_num_vertexes(); i++) {
-    //   if (match_sets.indicator_->get_bit(i) == 0) continue;
-    //   LOG_INFO(graph.localid2globalid(i), "match: ");
-    //   for (size_t j = 0; j < this->context_.p->get_num_vertexes(); j++) {
-    //     if (match_sets.sim_sets_[i]->get_bit(j)) LOG_INFO(j);
-    //   }
-    // }
-
     size_t term = 0;
     while (!in_visited->empty()) {
       term++;
@@ -430,14 +380,6 @@ class SimulationPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
       LOG_INFO("Active vertexes: ", in_visited->get_num_bit());
       out_visited->clear();
     }
-
-    // for (size_t i = 0; i < graph.get_num_vertexes(); i++) {
-    //   if (match_sets.indicator_->get_bit(i) == 0) continue;
-    //   LOG_INFO(graph.localid2globalid(i), "match: ");
-    //   for (size_t j = 0; j < this->context_.p->get_num_vertexes(); j++) {
-    //     if (match_sets.sim_sets_[i]->get_bit(j)) LOG_INFO(j);
-    //   }
-    // }
 
     for (size_t i = 0; i < graph.get_num_vertexes(); i++)
       if (match_sets.indicator_->get_bit(i)) delete match_sets.sim_sets_[i];
@@ -467,6 +409,7 @@ int main(int argc, char* argv[]) {
   size_t num_cores = FLAGS_cores;
   size_t buffer_size = FLAGS_buffer_size;
   std::string pattern_pt = FLAGS_pattern;
+  size_t niters = FLAGS_niters;
 
   auto csr_io_adapter =
       minigraph::utility::io::CSRIOAdapter<CSR_T::gid_t, CSR_T::vid_t,
@@ -488,9 +431,8 @@ int main(int argc, char* argv[]) {
 
   minigraph::MiniGraphSys<CSR_T, SimulationPIE_T> minigraph_sys(
       work_space, num_workers_lc, num_workers_cc, num_workers_dc, num_cores,
-      buffer_size, app_wrapper);
+      buffer_size, app_wrapper, niters);
 
-  auto sys_data_mngr = minigraph_sys.GetDataMngr();
   minigraph_sys.RunSys();
   // minigraph_sys.ShowResult(1);
   gflags::ShutDownCommandLineFlags();
