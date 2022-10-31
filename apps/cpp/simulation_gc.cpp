@@ -130,13 +130,13 @@ class SimulationPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     this->context_.p->vdata_[0] = 1;
     this->context_.p->vdata_[1] = 2;
     this->context_.p->vdata_[2] = 3;
-    this->context_.p->vdata_[3] = 4;
-    this->context_.p->vdata_[4] = 5;
-    this->context_.p->vdata_[5] = 6;
-    this->context_.p->vdata_[6] = 7;
-    this->context_.p->vdata_[7] = 8;
-    this->context_.p->vdata_[8] = 9;
-    this->context_.p->vdata_[9] = 10;
+    //this->context_.p->vdata_[3] = 4;
+    //this->context_.p->vdata_[4] = 5;
+    //this->context_.p->vdata_[5] = 6;
+    //this->context_.p->vdata_[6] = 7;
+    //this->context_.p->vdata_[7] = 8;
+    //this->context_.p->vdata_[8] = 9;
+    //this->context_.p->vdata_[9] = 10;
 
     delete visited;
     return true;
