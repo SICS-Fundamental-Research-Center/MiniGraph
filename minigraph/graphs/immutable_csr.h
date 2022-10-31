@@ -331,7 +331,8 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
 
   bool Serialize() {
     if (vertexes_info_ == nullptr) return false;
-    LOG_INFO("Serialize()");
+    LOG_INFO("Serialize()  num_vertexes: ", num_vertexes_);
+
     size_t size_localid = sizeof(VID_T) * num_vertexes_;
     size_t size_globalid = sizeof(VID_T) * num_vertexes_;
     size_t size_index_by_vid = sizeof(size_t) * num_vertexes_;
@@ -354,18 +355,22 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     size_t start_in_edges = start_out_offset + size_out_offset;
     size_t start_out_edges = start_in_edges + size_in_edges;
 
+    LOG_INFO("X");
     vdata_ = (VDATA_T*)malloc(sizeof(VDATA_T) * num_vertexes_);
     memset(vdata_, 0, sizeof(VDATA_T) * num_vertexes_);
     buf_graph_ = malloc(total_size);
     memset(buf_graph_, 0, total_size);
     size_t i = 0;
+    new int;
+    LOG_INFO("X");
     for (auto& iter_vertex : *vertexes_info_) {
+      LOG_INFO(iter_vertex.second->vid);
       ((VID_T*)((char*)buf_graph_ + start_localid))[i] =
           iter_vertex.second->vid;
       ((VID_T*)((char*)buf_graph_ + start_globalid))[i] =
           this->localid2globalid(iter_vertex.second->vid);
-      ((size_t*)((char*)buf_graph_ +
-                 start_index_by_vid))[iter_vertex.second->vid] = i;
+      //((size_t*)((char*)buf_graph_ +
+      //           start_index_by_vid))[iter_vertex.second->vid] = i;
       ((size_t*)((char*)buf_graph_ + start_indegree))[i] =
           iter_vertex.second->indegree;
       ((size_t*)((char*)buf_graph_ + start_outdegree))[i] =
@@ -406,6 +411,8 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       }
       ++i;
     }
+    new int;
+    LOG_INFO("X");
     vid_by_index_ = ((VID_T*)((char*)buf_graph_ + start_localid));
     index_by_vid_ = ((size_t*)((char*)buf_graph_ + start_index_by_vid));
     globalid_by_index_ = (VID_T*)((char*)buf_graph_ + start_globalid);
@@ -416,8 +423,11 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     in_edges_ = (VID_T*)((char*)buf_graph_ + start_in_edges);
     out_edges_ = (VID_T*)((char*)buf_graph_ + start_out_edges);
 
+    new int;
+    LOG_INFO("X");
     vertexes_state_ = (char*)malloc(sizeof(char) * num_vertexes_);
     memset(vertexes_state_, VERTEXDISMATCH, sizeof(char) * num_vertexes_);
+    LOG_INFO("X");
     is_serialized_ = true;
     return true;
   }
