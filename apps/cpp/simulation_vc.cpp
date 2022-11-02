@@ -278,8 +278,6 @@ class SimulationPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     LOG_INFO("PEval() - Processing gid: ", graph.gid_,
              " max_vid: ", graph.max_vid_, "num_vertexes",
              graph.get_num_vertexes());
-
-    graph.ShowGraph(10);
     Bitmap* pvisited = new Bitmap(graph.max_vid_);
     pvisited->fill();
 
@@ -351,6 +349,7 @@ class SimulationPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
                minigraph::executors::TaskRunner* task_runner) override {
     LOG_INFO("IncEval() - Processing gid: ", graph.gid_,
              " num vertexes: ", graph.get_num_vertexes());
+    if(graph.gid_ == 126) return false;
     Bitmap visited(graph.get_num_vertexes());
     Bitmap* in_visited = new Bitmap(graph.get_num_vertexes());
     Bitmap* out_visited = new Bitmap(graph.get_num_vertexes());
@@ -421,6 +420,7 @@ int main(int argc, char* argv[]) {
   context.p = pattern;
   pattern->Serialize();
   context.p->ShowGraph();
+  new int;
 
   auto simulation_auto_map = new SimulationAutoMap<CSR_T, Context>();
   auto simulation_pie =
@@ -432,7 +432,6 @@ int main(int argc, char* argv[]) {
   minigraph::MiniGraphSys<CSR_T, SimulationPIE_T> minigraph_sys(
       work_space, num_workers_lc, num_workers_cc, num_workers_dc, num_cores,
       buffer_size, app_wrapper, niters);
-
   minigraph_sys.RunSys();
   // minigraph_sys.ShowResult(1);
   gflags::ShutDownCommandLineFlags();
