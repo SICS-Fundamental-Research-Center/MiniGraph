@@ -355,14 +355,12 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     size_t start_in_edges = start_out_offset + size_out_offset;
     size_t start_out_edges = start_in_edges + size_in_edges;
 
-    LOG_INFO("X");
     vdata_ = (VDATA_T*)malloc(sizeof(VDATA_T) * num_vertexes_);
     memset(vdata_, 0, sizeof(VDATA_T) * num_vertexes_);
     buf_graph_ = malloc(total_size);
     memset(buf_graph_, 0, total_size);
     size_t i = 0;
     new int;
-    LOG_INFO("X");
     for (auto& iter_vertex : *vertexes_info_) {
       LOG_INFO(iter_vertex.second->vid);
       ((VID_T*)((char*)buf_graph_ + start_localid))[i] =
@@ -412,7 +410,6 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       ++i;
     }
     new int;
-    LOG_INFO("X");
     vid_by_index_ = ((VID_T*)((char*)buf_graph_ + start_localid));
     index_by_vid_ = ((size_t*)((char*)buf_graph_ + start_index_by_vid));
     globalid_by_index_ = (VID_T*)((char*)buf_graph_ + start_globalid);

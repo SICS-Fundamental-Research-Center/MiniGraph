@@ -304,13 +304,17 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     LOG_INFO("num edges: ", src.size(), " sizeof(VID_T)", sizeof(VID_T));
     std::atomic<size_t> pending_packages(cores);
 
+    std::atomic<VID_T> max_vid_atom(0);
     for (size_t i = 0; i < cores; i++) {
       size_t tid = i;
       thread_pool.Commit([tid, &cores, &src, &dst, &graph, &pending_packages,
-                          &finish_cv]() {
+                          &finish_cv, &max_vid_atom]() {
         for (size_t j = tid; j < src.size(); j += cores) {
           *((VID_T*)((EDGE_LIST_T*)graph)->buf_graph_ + j * 2) = src.at(j);
           *((VID_T*)((EDGE_LIST_T*)graph)->buf_graph_ + j * 2 + 1) = dst.at(j);
+
+          if (max_vid_atom.load() < src.at(j)) max_vid_atom.store(src.at(j));
+
         }
         if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
         return;
@@ -320,6 +324,7 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     ((EDGE_LIST_T*)graph)->num_edges_ = src.size();
     ((EDGE_LIST_T*)graph)->num_vertexes_ = 0;
     ((EDGE_LIST_T*)graph)->gid_ = gid;
+    LOG_INFO("MAX_VID: ", max_vid_atom.load());
     return true;
   }
 
