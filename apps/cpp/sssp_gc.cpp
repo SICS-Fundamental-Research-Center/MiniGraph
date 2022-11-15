@@ -239,7 +239,7 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
         if (global_border_vid_map->get_bit(u->in_edges[nbr_i]) == 0) continue;
         if (global_border_vdata[u->in_edges[nbr_i]] + 1 < u->vdata[0]) {
           u->vdata[0] = global_border_vdata[u->in_edges[nbr_i]] + 1;
-          visited.set_bit(u->vid);
+          //visited.set_bit(u->vid);
           tag == true ? 0 : tag = true;
           if (global_border_vid_map->get_bit(graph.localid2globalid(u->vid)))
             write_min(global_border_vdata + graph.localid2globalid(u->vid),

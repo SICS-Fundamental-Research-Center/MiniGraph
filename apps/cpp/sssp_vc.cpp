@@ -78,7 +78,6 @@ class SSSPAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
         if (global_border_vdata[u.in_edges[nbr_i]] + 1 < u.vdata[0]) {
           u.vdata[0] = global_border_vdata[u.in_edges[nbr_i]] + 1;
           in_visited->set_bit(u.vid);
-          visited->set_bit(u.vid);
         }
       }
     }
@@ -189,6 +188,7 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     delete in_visited;
     delete out_visited;
 
+    LOG_INFO("Visited: ", visited.get_num_bit());
     return !visited.empty();
   }
 
