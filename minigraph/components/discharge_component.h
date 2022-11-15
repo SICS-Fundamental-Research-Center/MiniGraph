@@ -83,8 +83,9 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       while (!que_gid.empty()) {
         gid = que_gid.front();
         que_gid.pop();
-        if (mode_ == "NoShort") CheckRTRule(gid);
+        if (mode_ == "Default") CheckRTRule(gid);
         if (this->TrySync()) {
+          this->state_machine_->ShowAllState();
           if (this->state_machine_->IsTerminated() ||
               this->get_global_superstep() > num_iter_) {
             LOG_INFO(this->get_global_superstep());
