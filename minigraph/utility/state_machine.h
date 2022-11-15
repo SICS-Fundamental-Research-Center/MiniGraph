@@ -2,13 +2,12 @@
 #ifndef MINIGRAPH_UTILITY_STATE_MACHINE_H_
 #define MINIGRAPH_UTILITY_STATE_MACHINE_H_
 
-#include <stdio.h>
-#include <string.h>
 #include <assert.h>
-
 #include <iostream>
 #include <map>
 #include <memory>
+#include <stdio.h>
+#include <string.h>
 #include <unordered_map>
 #include <vector>
 
@@ -242,6 +241,30 @@ class StateMachine {
       return true;
     }
     return false;
+  }
+
+  std::vector<GID_T> GetAllinStateX(const char state) {
+    std::vector<GID_T> out;
+    switch (state) {
+      case RT:
+        for (auto& iter : graph_state_) {
+          if (iter.second->is("RT"_s)) out.push_back(iter.first);
+        }
+        break;
+      case RC:
+        for (auto& iter : graph_state_) {
+          if (iter.second->is("RC"_s)) out.push_back(iter.first);
+        }
+        break;
+      case RTS:
+        for (auto& iter : graph_state_) {
+          if (iter.second->is("RTS"_s)) out.push_back(iter.first);
+        }
+        break;
+      default:
+        break;
+    }
+    return out;
   }
 
   std::vector<GID_T> EvokeAllX(const char state) {

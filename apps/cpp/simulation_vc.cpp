@@ -431,7 +431,7 @@ int main(int argc, char* argv[]) {
 
   minigraph::MiniGraphSys<CSR_T, SimulationPIE_T> minigraph_sys(
       work_space, num_workers_lc, num_workers_cc, num_workers_dc, num_cores,
-      buffer_size, app_wrapper, niters);
+      buffer_size, app_wrapper,FLAGS_mode,  niters);
   minigraph_sys.RunSys();
   // minigraph_sys.ShowResult(1);
   gflags::ShutDownCommandLineFlags();

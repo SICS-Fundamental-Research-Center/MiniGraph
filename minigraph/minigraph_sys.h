@@ -1,9 +1,8 @@
 #ifndef MINIGRAPH_MINIGRAPH_SYS_H
 #define MINIGRAPH_MINIGRAPH_SYS_H
 
-#include <dirent.h>
-
 #include <condition_variable>
+#include <dirent.h>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -48,7 +47,8 @@ class MiniGraphSys {
   MiniGraphSys(const std::string work_space, const size_t num_workers_lc = 1,
                const size_t num_workers_cc = 1, const size_t num_workers_dc = 1,
                const size_t num_cores = 1, const size_t buffer_size = 0,
-               APP_WRAPPER* app_wrapper = nullptr, const size_t num_iter = 64) {
+               APP_WRAPPER* app_wrapper = nullptr, std::string mode = "Default",
+               const size_t num_iter = 64) {
     assert(num_workers_dc > 0 && num_workers_cc > 0 && num_workers_dc > 0 &&
            num_cores / num_workers_cc >= 1);
 
@@ -91,7 +91,7 @@ class MiniGraphSys {
 
     // init task queue
     task_queue_ = std::make_unique<folly::ProducerConsumerQueue<GID_T>>(
-        num_workers_cc + 1);
+        num_workers_cc + 2);
 
     // init partial result queue
     partial_result_queue_ = std::make_unique<std::queue<GID_T>>();
@@ -140,24 +140,24 @@ class MiniGraphSys {
         global_superstep_, state_machine_, read_trigger_.get(),
         task_queue_.get(), partial_result_queue_.get(), pt_by_gid_,
         data_mngr_.get(), msg_mngr_.get(), read_trigger_lck_.get(),
-        task_queue_lck_.get(), partial_result_lck_.get(),
-        read_trigger_cv_.get(), task_queue_cv_.get(), partial_result_cv_.get());
+        read_trigger_cv_.get(), task_queue_cv_.get(), partial_result_cv_.get(),
+        mode);
     computing_component_ =
         std::make_unique<components::ComputingComponent<GRAPH_T, AUTOAPP_T>>(
             num_workers_cc, num_cores, cc_thread_pool_.get(), superstep_by_gid_,
             global_superstep_, state_machine_, task_queue_.get(),
             partial_result_queue_.get(), data_mngr_.get(), app_wrapper_.get(),
-            task_queue_lck_.get(), partial_result_lck_.get(),
-            task_queue_cv_.get(), partial_result_cv_.get());
+            task_queue_lck_.get(), task_queue_cv_.get(),
+            partial_result_cv_.get());
     discharge_component_ =
         std::make_unique<components::DischargeComponent<GRAPH_T>>(
             num_workers_dc, sem_lc_dc, dc_thread_pool_.get(), superstep_by_gid_,
             global_superstep_, state_machine_, partial_result_queue_.get(),
-            read_trigger_.get(), pt_by_gid_, data_mngr_.get(), msg_mngr_.get(),
-            partial_result_lck_.get(), read_trigger_lck_.get(),
-            partial_result_cv_.get(), read_trigger_cv_.get(),
-            system_switch_.get(), system_switch_lck_.get(),
-            system_switch_cv_.get(), num_iter);
+            task_queue_.get(), read_trigger_.get(), pt_by_gid_,
+            data_mngr_.get(), msg_mngr_.get(), partial_result_lck_.get(),
+            partial_result_cv_.get(), task_queue_cv_.get(),
+            read_trigger_cv_.get(), system_switch_.get(),
+            system_switch_lck_.get(), system_switch_cv_.get(), num_iter, mode);
     LOG_INFO("Init MiniGraphSys: Finish.");
   };
 

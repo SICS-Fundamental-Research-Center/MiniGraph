@@ -44,32 +44,24 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       utility::io::DataMngr<GRAPH_T>* data_mngr,
       message::DefaultMessageManager<GRAPH_T>* msg_mngr,
       std::unique_lock<std::mutex>* read_trigger_lck,
-      std::unique_lock<std::mutex>* task_queue_lck,
-      std::unique_lock<std::mutex>* partial_result_lck,
       std::condition_variable* read_trigger_cv,
       std::condition_variable* task_queue_cv,
-      std::condition_variable* partial_result_cv)
+      std::condition_variable* partial_result_cv, std::string mode = "Default")
       : ComponentBase<GID_T>(thread_pool, superstep_by_gid, global_superstep,
                              state_machine) {
     num_workers_ = num_workers;
-    sem_lc_dc_ = sem_lc_dc;
     pt_by_gid_ = pt_by_gid;
     data_mngr_ = data_mngr;
     msg_mngr_ = msg_mngr;
     task_queue_ = task_queue;
     partial_result_queue_ = partial_result_queue;
     read_trigger_ = read_trigger;
-    partial_result_lck_ = partial_result_lck;
     read_trigger_lck_ = read_trigger_lck;
-    task_queue_lck_ = task_queue_lck;
     read_trigger_cv_ = read_trigger_cv;
     task_queue_cv_ = task_queue_cv;
     partial_result_cv_ = partial_result_cv;
+    mode_ = mode;
 
-    executor_mtx_ = std::make_unique<std::mutex>();
-    executor_lck_ =
-        std::make_unique<std::unique_lock<std::mutex>>(*executor_mtx_.get());
-    executor_cv_ = std::make_unique<std::condition_variable>();
     XLOG(INFO, "Init LoadComponent: Finish.");
   }
 
@@ -81,13 +73,13 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       read_trigger_cv_->wait(*read_trigger_lck_,
                              [&] { return !read_trigger_->empty(); });
       if (!switch_) return;
+
       while (!read_trigger_->empty()) {
-        sem_lc_dc_->wait();
         gid = read_trigger_->front();
         read_trigger_->pop();
         sem.try_wait();
         auto task = std::bind(&components::LoadComponent<GRAPH_T>::ProcessGraph,
-                              this, gid, sem);
+                              this, gid, sem, mode_);
         this->thread_pool_->Commit(task);
       }
     }
@@ -97,7 +89,6 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
 
  private:
   size_t num_workers_;
-  folly::NativeSemaphore* sem_lc_dc_ = nullptr;
   std::queue<GID_T>* read_trigger_ = nullptr;
   folly::ProducerConsumerQueue<GID_T>* task_queue_ = nullptr;
   std::queue<GID_T>* partial_result_queue_ = nullptr;
@@ -106,17 +97,14 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   message::DefaultMessageManager<GRAPH_T>* msg_mngr_ = nullptr;
   bool switch_ = true;
   std::unique_lock<std::mutex>* read_trigger_lck_ = nullptr;
-  std::unique_lock<std::mutex>* task_queue_lck_ = nullptr;
-  std::unique_lock<std::mutex>* partial_result_lck_ = nullptr;
   std::condition_variable* read_trigger_cv_ = nullptr;
   std::condition_variable* task_queue_cv_ = nullptr;
-  std::condition_variable* partial_result_cv_;
+  std::condition_variable* partial_result_cv_ = nullptr;
 
-  std::unique_ptr<std::mutex> executor_mtx_;
-  std::unique_ptr<std::unique_lock<std::mutex>> executor_lck_;
-  std::unique_ptr<std::condition_variable> executor_cv_;
+  std::string mode_ = "default";
 
-  void ProcessGraph(GID_T gid, folly::NativeSemaphore& sem) {
+  void ProcessGraph(GID_T gid, folly::NativeSemaphore& sem,
+                    std::string mode = "default") {
     auto read = false;
     if (this->get_global_superstep() == 0) {
       read = true;
@@ -131,6 +119,7 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       }
     }
 
+    if (mode_ == "NoShort") read = true;
     if (read) {
       CSRPt& csr_pt = pt_by_gid_->find(gid)->second;
       auto tag = false;
@@ -146,6 +135,7 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       }
       sem.post();
     } else {
+      LOG_INFO("LC ShortCut", gid);
       this->add_superstep_via_gid(gid);
       partial_result_queue_->push(gid);
       this->state_machine_->ProcessEvent(gid, SHORTCUTREAD);

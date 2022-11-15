@@ -292,7 +292,7 @@ int main(int argc, char* argv[]) {
 
   minigraph::MiniGraphSys<CSR_T, PRPIE_T> minigraph_sys(
       work_space, num_workers_lc, num_workers_cc, num_workers_dc, num_cores,
-      buffer_size, app_wrapper, num_iter);
+      buffer_size, app_wrapper, FLAGS_mode, num_iter);
   minigraph_sys.RunSys();
   // minigraph_sys.ShowResult(30);
   gflags::ShutDownCommandLineFlags();

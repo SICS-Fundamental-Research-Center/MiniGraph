@@ -130,13 +130,13 @@ class SimulationPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     this->context_.p->vdata_[0] = 1;
     this->context_.p->vdata_[1] = 2;
     this->context_.p->vdata_[2] = 3;
-    //this->context_.p->vdata_[3] = 4;
-    //this->context_.p->vdata_[4] = 5;
-    //this->context_.p->vdata_[5] = 6;
-    //this->context_.p->vdata_[6] = 7;
-    //this->context_.p->vdata_[7] = 8;
-    //this->context_.p->vdata_[8] = 9;
-    //this->context_.p->vdata_[9] = 10;
+    // this->context_.p->vdata_[3] = 4;
+    // this->context_.p->vdata_[4] = 5;
+    // this->context_.p->vdata_[5] = 6;
+    // this->context_.p->vdata_[6] = 7;
+    // this->context_.p->vdata_[7] = 8;
+    // this->context_.p->vdata_[8] = 9;
+    // this->context_.p->vdata_[9] = 10;
 
     delete visited;
     return true;
@@ -231,7 +231,6 @@ class SimulationPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
         }
       }
     }
-
 
     size_t count = 0;
     Bitmap** keep_sim =
@@ -455,7 +454,6 @@ class SimulationPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
         }
       }
 
-
       remove[i] = new Bitmap(graph.get_num_vertexes());
       remove[i]->copy_bit(pre_V);
       remove[i]->batch_rm_bit(*presim[i]);
@@ -550,7 +548,7 @@ int main(int argc, char* argv[]) {
 
   minigraph::MiniGraphSys<CSR_T, SimulationPIE_T> minigraph_sys(
       work_space, num_workers_lc, num_workers_cc, num_workers_dc, num_cores,
-      buffer_size, app_wrapper, niters);
+      buffer_size, app_wrapper, FLAGS_mode, niters);
 
   auto sys_data_mngr = minigraph_sys.GetDataMngr();
   minigraph_sys.RunSys();

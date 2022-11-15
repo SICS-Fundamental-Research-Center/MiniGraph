@@ -71,6 +71,7 @@ DEFINE_uint64(buffer_size, 1, "buffer size");
 DEFINE_uint64(niters, 4, "number of iterations for graph-level while loop");
 DEFINE_uint64(inner_niters, 4, "number of iterations for inner while loop");
 DEFINE_string(init_model, "val", "init model for vdata of all vertexes");
+DEFINE_string(mode, "default", "MiniGraph with entire optimization");
 DEFINE_uint64(init_val, 0, "init value for vdata of all vertexes");
 DEFINE_uint64(root, 0, "the id of root vertex");
 DEFINE_double(

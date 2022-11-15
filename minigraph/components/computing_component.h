@@ -26,7 +26,6 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   using VID_T = typename GRAPH_T::vid_t;
   using VDATA_T = typename GRAPH_T::vdata_t;
   using EDATA_T = typename GRAPH_T::edata_t;
-  using GRAPH_BASE_T = graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>;
   using APP_WARP = AppWrapper<AUTOAPP_T, GRAPH_T>;
   using VertexInfo =
       graphs::VertexInfo<typename GRAPH_T::vid_t, typename GRAPH_T::vdata_t,
@@ -44,7 +43,6 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       utility::io::DataMngr<GRAPH_T>* data_mngr,
       AppWrapper<AUTOAPP_T, GRAPH_T>* app_wrapper,
       std::unique_lock<std::mutex>* task_queue_lck,
-      std::unique_lock<std::mutex>* partial_result_lck,
       std::condition_variable* task_queue_cv,
       std::condition_variable* partial_result_cv)
       : ComponentBase<GID_T>(thread_pool, superstep_by_gid, global_superstep,
@@ -56,15 +54,10 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
     partial_result_queue_ = partial_result_queue;
     app_wrapper_ = app_wrapper;
     task_queue_lck_ = task_queue_lck;
-    partial_result_lck_ = partial_result_lck;
     task_queue_cv_ = task_queue_cv;
     partial_result_cv_ = partial_result_cv;
     scheduled_executor_ =
         std::make_unique<executors::ScheduledExecutor>(kTotalParallelism);
-    executor_mtx_ = std::make_unique<std::mutex>();
-    executor_lck_ =
-        std::make_unique<std::unique_lock<std::mutex>>(*executor_mtx_.get());
-    executor_cv_ = std::make_unique<std::condition_variable>();
     XLOG(INFO,
          "Init ComputingComponent: Finish. TotalParallelism: ", num_cores_);
   };
@@ -78,15 +71,13 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
     while (this->switch_.load()) {
       std::vector<GID_T> vec_gid;
       GID_T gid = MINIGRAPH_GID_MAX;
-      task_queue_cv_->wait(*task_queue_lck_, [&] { return true; });
+      task_queue_cv_->wait(*task_queue_lck_,
+                           [&] { return !task_queue_->isEmpty(); });
       if (!this->switch_.load()) return;
-
-      while (!task_queue_->isEmpty()) {
-        while (!task_queue_->read(gid))
-          ;
-        vec_gid.push_back(gid);
-        que_gid.push(gid);
-      }
+      while (!task_queue_->read(gid))
+        ;
+      vec_gid.push_back(gid);
+      que_gid.push(gid);
       while (!que_gid.empty()) {
         gid = que_gid.front();
         que_gid.pop();
@@ -118,16 +109,14 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
 
   // cv && lck.
   std::unique_ptr<executors::ScheduledExecutor> scheduled_executor_ = nullptr;
-  std::unique_lock<std::mutex>* partial_result_lck_ = nullptr;
   std::unique_lock<std::mutex>* task_queue_lck_;
   std::condition_variable* partial_result_cv_ = nullptr;
   std::condition_variable* task_queue_cv_ = nullptr;
 
   std::unique_ptr<std::mutex> executor_mtx_;
-  std::unique_ptr<std::unique_lock<std::mutex>> executor_lck_ = nullptr;
-  std::unique_ptr<std::condition_variable> executor_cv_ = nullptr;
 
   void ProcessGraph(const GID_T& gid, folly::NativeSemaphore& sem) {
+    LOG_INFO("ProcessGraph: ", gid);
     // executor_cv_->wait(*executor_lck_, [&] { return true; });
     GRAPH_T* graph = (GRAPH_T*)data_mngr_->GetGraph(gid);
     executors::TaskRunner* task_runner = scheduled_executor_->RequestTaskRunner(
