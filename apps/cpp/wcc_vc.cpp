@@ -161,6 +161,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
         WCCAutoMap<GRAPH_T, CONTEXT_T>::kernel_pull_border_vertexes, in_visited,
         this->msg_mngr_->GetGlobalBorderVidMap(),
         this->msg_mngr_->GetGlobalVdata());
+    LOG_INFO(visited.get_num_bit());
 
     bool run = true;
     while (run) {
@@ -168,6 +169,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
                                         task_runner, vid_map, &visited);
       std::swap(in_visited, out_visited);
     }
+    LOG_INFO(visited.get_num_bit());
 
     this->auto_map_->ActiveMap(
         graph, task_runner, &visited,
@@ -177,6 +179,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
     delete in_visited;
     delete out_visited;
+    LOG_INFO(visited.get_num_bit());
     return !visited.empty();
   }
 
