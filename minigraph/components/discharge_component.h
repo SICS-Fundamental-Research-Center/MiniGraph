@@ -198,11 +198,9 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       } else if (this->state_machine_->GraphIs(current_gid, RTS)) {
         this->state_machine_->ShowGraphState(current_gid);
         this->state_machine_->EvokeX(current_gid, RTS);
-        this->state_machine_->ProcessEvent(current_gid, LOAD);
+        data_mngr_->EraseGraph(current_gid);
+        read_trigger_->push(current_gid);
         LOG_INFO("DC short: ", current_gid);
-        while (!task_queue_->write(current_gid))
-          ;
-        task_queue_cv_->notify_all();
       } else if (this->state_machine_->GraphIs(current_gid, RT)) {
         this->state_machine_->EvokeX(current_gid, RT);
         data_mngr_->EraseGraph(current_gid);
