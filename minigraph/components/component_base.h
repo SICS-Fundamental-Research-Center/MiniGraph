@@ -118,7 +118,7 @@ class ComponentBase {
   }
 
   void ShowSuperStepByGid() {
-    LOG_INFO("ShowSuperStep");
+    LOG_INFO("ShowSuperStep:", this->superstep_by_gid_->size());
     for (auto& iter : *this->superstep_by_gid_) {
       LOG_INFO("gid: ", iter.first, ", step: ", iter.second->load());
     }

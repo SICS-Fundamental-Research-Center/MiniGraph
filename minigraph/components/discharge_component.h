@@ -8,7 +8,6 @@
 #include "utility/io/csr_io_adapter.h"
 #include "utility/thread_pool.h"
 
-
 namespace minigraph {
 namespace components {
 
@@ -24,8 +23,7 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
 
  public:
   DischargeComponent(
-      const size_t num_workers, folly::NativeSemaphore* sem_lc_dc,
-      utility::EDFThreadPool* thread_pool,
+      const size_t num_workers, utility::EDFThreadPool* thread_pool,
       std::unordered_map<GID_T, std::atomic<size_t>*>* superstep_by_gid,
       std::atomic<size_t>* global_superstep,
       utility::StateMachine<GID_T>* state_machine,
@@ -83,12 +81,10 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       while (!que_gid.empty()) {
         gid = que_gid.front();
         que_gid.pop();
-        if (mode_ == "Default") CheckRTRule(gid);
+        if (mode_ != "NoShort") CheckRTRule(gid);
         if (this->TrySync()) {
-          this->state_machine_->ShowAllState();
           if (this->state_machine_->IsTerminated() ||
               this->get_global_superstep() > num_iter_) {
-            LOG_INFO(this->get_global_superstep());
             auto out_rts = this->state_machine_->EvokeAllX(RTS);
             for (auto& iter : out_rts) {
               CSRPt& csr_pt = pt_by_gid_->find(iter)->second;
@@ -153,6 +149,7 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   void WriteAllGraphsBack(const GID_T current_gid) {
     LOG_INFO("WriteAllGraphsBack triggered by: ", current_gid);
     // Snapshot
+    this->state_machine_->ShowAllState();
     for (GID_T tmp_gid = 0; tmp_gid < pt_by_gid_->size(); tmp_gid++) {
       msg_mngr_->SetStateMatrix(tmp_gid,
                                 this->state_machine_->GetState(tmp_gid));
@@ -189,7 +186,6 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       read_trigger_->push(gid);
     }
 
-    this->state_machine_->ShowAllState();
     if (this->state_machine_->GraphIs(current_gid, RC)) {
       this->state_machine_->EvokeX(current_gid, RC);
     } else if (this->state_machine_->GraphIs(current_gid, RT)) {
@@ -199,11 +195,17 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
     }
 
     if (mode_ != "NoShort") {
-      this->add_superstep_via_gid(current_gid);
-      while (!task_queue_->write(current_gid))
-        ;
-      this->state_machine_->ProcessEvent(current_gid, LOAD);
-      task_queue_cv_->notify_all();
+      if (!this->state_machine_->GraphIs(current_gid, RT)) {
+        this->state_machine_->ProcessEvent(current_gid, LOAD);
+        LOG_INFO("DC short: ", current_gid);
+        while (!task_queue_->write(current_gid))
+          ;
+        task_queue_cv_->notify_all();
+      } else {
+        this->state_machine_->EvokeX(current_gid, RT);
+        data_mngr_->EraseGraph(current_gid);
+        read_trigger_->push(current_gid);
+      }
     }
 
     LOG_INFO("Evoke all.");

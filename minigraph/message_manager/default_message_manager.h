@@ -138,6 +138,9 @@ class DefaultMessageManager : public MessageManagerBase {
   bool GetMsgQueue() { return msg_bucket[offset_bucket]; }
 
   void SetStateMatrix(const size_t gid, char state) {
+    if(gid>= num_graphs_){
+      LOG_INFO(gid, "/ ", num_graphs_);
+    }
     assert(gid < num_graphs_);
     *(historical_state_matrix_ + gid) = state;
     return;

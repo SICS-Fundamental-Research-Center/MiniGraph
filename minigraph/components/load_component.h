@@ -32,7 +32,7 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
 
  public:
   LoadComponent(
-      const size_t num_workers, folly::NativeSemaphore* sem_lc_dc,
+      const size_t num_workers,
       utility::EDFThreadPool* thread_pool,
       std::unordered_map<GID_T, std::atomic<size_t>*>* superstep_by_gid,
       std::atomic<size_t>* global_superstep,

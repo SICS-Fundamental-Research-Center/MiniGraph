@@ -1,6 +1,18 @@
 #ifndef MINIGRAPH_MINIGRAPH_SYS_H
 #define MINIGRAPH_MINIGRAPH_SYS_H
 
+#include "2d_pie/auto_app_base.h"
+#include "2d_pie/edge_map_reduce.h"
+#include "2d_pie/vertex_map_reduce.h"
+#include "components/computing_component.h"
+#include "components/discharge_component.h"
+#include "components/load_component.h"
+#include "message_manager/default_message_manager.h"
+#include "utility/io/data_mngr.h"
+#include "utility/paritioner/edge_cut_partitioner.h"
+#include "utility/state_machine.h"
+#include <folly/AtomicHashMap.h>
+#include <folly/synchronization/NativeSemaphore.h>
 #include <condition_variable>
 #include <dirent.h>
 #include <filesystem>
@@ -12,21 +24,6 @@
 #include <string>
 #include <thread>
 #include <vector>
-
-#include <folly/AtomicHashMap.h>
-#include <folly/synchronization/NativeSemaphore.h>
-
-#include "2d_pie/auto_app_base.h"
-#include "2d_pie/edge_map_reduce.h"
-#include "2d_pie/vertex_map_reduce.h"
-#include "components/computing_component.h"
-#include "components/discharge_component.h"
-#include "components/load_component.h"
-#include "message_manager/default_message_manager.h"
-#include "utility/io/data_mngr.h"
-#include "utility/paritioner/edge_cut_partitioner.h"
-#include "utility/state_machine.h"
-
 
 namespace minigraph {
 
@@ -136,7 +133,7 @@ class MiniGraphSys {
 
     // init components
     load_component_ = std::make_unique<components::LoadComponent<GRAPH_T>>(
-        num_workers_lc, sem_lc_dc, lc_thread_pool_.get(), superstep_by_gid_,
+        num_workers_lc,  lc_thread_pool_.get(), superstep_by_gid_,
         global_superstep_, state_machine_, read_trigger_.get(),
         task_queue_.get(), partial_result_queue_.get(), pt_by_gid_,
         data_mngr_.get(), msg_mngr_.get(), read_trigger_lck_.get(),
@@ -151,7 +148,7 @@ class MiniGraphSys {
             partial_result_cv_.get());
     discharge_component_ =
         std::make_unique<components::DischargeComponent<GRAPH_T>>(
-            num_workers_dc, sem_lc_dc, dc_thread_pool_.get(), superstep_by_gid_,
+            num_workers_dc,  dc_thread_pool_.get(), superstep_by_gid_,
             global_superstep_, state_machine_, partial_result_queue_.get(),
             task_queue_.get(), read_trigger_.get(), pt_by_gid_,
             data_mngr_.get(), msg_mngr_.get(), partial_result_lck_.get(),
