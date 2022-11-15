@@ -68,7 +68,7 @@ class WCCAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
         if (global_border_vdata[u.in_edges[nbr_i]] < u.vdata[0]) {
           u.vdata[0] = global_border_vdata[u.in_edges[nbr_i]];
           in_visited->set_bit(u.vid);
-          visited->set_bit(u.vid);
+          //visited->set_bit(u.vid);
         }
       }
     }
