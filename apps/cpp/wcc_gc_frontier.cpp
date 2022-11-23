@@ -199,9 +199,13 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
         }
       }
     }
-    // LOG_INFO("Gid: ", graph.gid_, " active_vertexes: ",
-    // visited.get_num_bit());
-    return !visited.empty();
+    auto visited_num = visited.get_num_bit();
+    LOG_INFO("Visited: ", visited_num);
+    if (visited_num > graph.get_num_vertexes() / 10000)
+      return true;
+    else
+      return false;
+    // return !visited.empty();
   }
 
   bool Aggregate(void* a, void* b,
