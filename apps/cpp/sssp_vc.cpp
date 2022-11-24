@@ -71,7 +71,7 @@ class SSSPAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
         write_min(u.vdata,
                   global_border_vdata[graph->localid2globalid(u.vid)] + 1);
         in_visited->set_bit(u.vid);
-        visited->set_bit(u.vid);
+        //visited->set_bit(u.vid);
       }
       for (size_t nbr_i = 0; nbr_i < u.indegree; nbr_i++) {
         if (global_border_vid_map->get_bit(u.in_edges[nbr_i]) == 0) continue;
@@ -188,8 +188,14 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     delete in_visited;
     delete out_visited;
 
-    LOG_INFO("Visited: ", visited.get_num_bit());
-    return !visited.empty();
+    auto visited_num = visited.get_num_bit();
+    LOG_INFO("Visited: ", visited_num);
+    if (visited_num > graph.get_num_vertexes() / 10000)
+      return true;
+    else
+      return false;
+    // LOG_INFO("Visited: ", visited.get_num_bit());
+    // return !visited.empty();
   }
 
   bool Aggregate(void* a, void* b,
@@ -225,7 +231,7 @@ int main(int argc, char* argv[]) {
       work_space, num_workers_lc, num_workers_cc, num_workers_dc, num_cores,
       buffer_size, app_wrapper, FLAGS_mode);
   minigraph_sys.RunSys();
-  //minigraph_sys.ShowResult(3);
+  // minigraph_sys.ShowResult(3);
   gflags::ShutDownCommandLineFlags();
   exit(0);
 }
