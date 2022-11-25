@@ -256,7 +256,7 @@ class PRPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
         this->msg_mngr_->GetGlobalVdata());
 
     auto end_time = std::chrono::system_clock::now();
-    std::cout << "Gid " << graph.gid_ << ":  PEval elapse time "
+    std::cout << "Gid " << graph.gid_ << ":  IncEval elapse time "
               << std::chrono::duration_cast<std::chrono::microseconds>(
                   end_time - start_time)
                      .count() /
