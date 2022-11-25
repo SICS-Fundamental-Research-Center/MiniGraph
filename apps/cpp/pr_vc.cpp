@@ -179,8 +179,8 @@ class PRPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
   bool PEval(GRAPH_T& graph,
              minigraph::executors::TaskRunner* task_runner) override {
     //LOG_INFO("PEval() - Processing gid: ", graph.gid_);
-    auto vid_map = this->msg_mngr_->GetVidMap();
     auto start_time = std::chrono::system_clock::now();
+    auto vid_map = this->msg_mngr_->GetVidMap();
     Bitmap* in_visited = new Bitmap(graph.get_num_vertexes());
     Bitmap* out_visited = new Bitmap(graph.get_num_vertexes());
     in_visited->fill();
@@ -214,7 +214,8 @@ class PRPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
   bool IncEval(GRAPH_T& graph,
                minigraph::executors::TaskRunner* task_runner) override {
-    //LOG_INFO("IncEval() - Processing gid: ", graph.gid_);
+    LOG_INFO("IncEval() - Processing gid: ", graph.gid_);
+    auto start_time = std::chrono::system_clock::now();
     Bitmap visited(graph.get_num_vertexes());
     visited.clear();
     Bitmap* in_visited = new Bitmap(graph.get_num_vertexes());
@@ -254,6 +255,13 @@ class PRPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
         this->msg_mngr_->GetGlobalBorderVidMap(),
         this->msg_mngr_->GetGlobalVdata());
 
+    auto end_time = std::chrono::system_clock::now();
+    std::cout << "Gid " << graph.gid_ << ":  PEval elapse time "
+              << std::chrono::duration_cast<std::chrono::microseconds>(
+                  end_time - start_time)
+                     .count() /
+                 (double)CLOCKS_PER_SEC
+              << std::endl;
     delete in_visited;
     delete out_visited;
     return !visited.empty();
