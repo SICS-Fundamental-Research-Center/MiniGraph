@@ -11,12 +11,12 @@
 #include <folly/AtomicHashArray.h>
 #include <folly/AtomicHashMap.h>
 #include <folly/FileUtil.h>
-#include "rapidcsv.h"
 
 #include "graphs/immutable_csr.h"
 #include "io_adapter_base.h"
 #include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
+#include "rapidcsv.h"
 #include "utility/logging.h"
 
 
@@ -96,6 +96,7 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       XLOG(ERR, "segmentation fault: graph is nullptr");
       return false;
     }
+    LOG_INFO("Read edge list from csv.");
     auto immutable_csr = (CSR_T*)graph;
 
     rapidcsv::Document doc(pt, rapidcsv::LabelParams(),
@@ -125,9 +126,11 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
         graph_in_edges.insert(std::make_pair(dst.at(i), in_edges));
       }
     }
-    immutable_csr->sum_in_edges_ = graph_in_edges.size();
-    immutable_csr->sum_out_edges_ = graph_out_edges.size();
-
+    LOG_INFO();
+    // immutable_csr->sum_in_edges_ = graph_in_edges.size();
+    // immutable_csr->sum_out_edges_ = graph_out_edges.size();
+    immutable_csr->sum_in_edges_ = src.size();
+    immutable_csr->sum_out_edges_ = dst.size();
     for (auto& iter : graph_in_edges) {
       graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>* vertex_info =
           new graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>;
@@ -265,8 +268,8 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       vdata_file.close();
     }
 
-    //LOG_INFO("Gid: ", gid, " - Load bytes: ",
-    //         total_size + sizeof(VDATA_T) * graph->num_vertexes_);
+    // LOG_INFO("Gid: ", gid, " - Load bytes: ",
+    //          total_size + sizeof(VDATA_T) * graph->num_vertexes_);
     graph->is_serialized_ = true;
     graph->gid_ = gid;
     free(buf_meta);
