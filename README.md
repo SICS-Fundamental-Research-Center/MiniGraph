@@ -127,8 +127,8 @@ $G$ in which all vertices are connected to each other via a path, regardless
 of the direction of edges.
 
 To implement the PIE model, you just need to fulfill this class
-'''
 
+```c++
 template <typename GRAPH_T, typename CONTEXT_T>
 class WCCAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
   using GID_T = typename GRAPH_T::gid_t;
@@ -204,10 +204,4 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     if (a == nullptr || b == nullptr) return false;
   }
 };
-'''
-
-
-
-
-
-
+```
