@@ -363,7 +363,6 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
   bool IncEval(GRAPH_T& graph,
                minigraph::executors::TaskRunner* task_runner) override {
     LOG_INFO("IncEval() - Processing gid: ", graph.gid_);
-    auto start_time = std::chrono::system_clock::now();
     Bitmap visited(graph.get_num_vertexes());
     visited.clear();
     Bitmap* in_visited = new Bitmap(graph.get_num_vertexes());
@@ -392,18 +391,11 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     delete in_visited;
     delete out_visited;
     auto visited_num = visited.get_num_bit();
-    auto end_time = std::chrono::system_clock::now();
-    LOG_INFO("Visited: ", visited_num);
-    std::cout << "Gid " << graph.gid_ << ":  IncEval elapse time "
-              << std::chrono::duration_cast<std::chrono::microseconds>(
-                  end_time - start_time)
-                     .count() /
-                 (double)CLOCKS_PER_SEC
-              << std::endl;
     return !visited.empty();
   }
 };
 
 ```
 
-A fragment will repeat the IncEval until there is no messages received. When all the fragments are finished with computation, the algorithm is terminated.
+A fragment will repeat the IncEval until there is no messages received. 
+When all the fragments are finished with computation, the algorithm is terminated.
