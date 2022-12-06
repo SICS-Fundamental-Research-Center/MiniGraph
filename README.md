@@ -1,9 +1,15 @@
-# MiniGraph
+# MiniGraph overview
 
 ## What is MiniGraph?
 MiniGraph is an out-of-core system for graph computations with a single machine.
+This repository is the main codebase for the MiniGraph project, 
+containing both the utility used to generate and convert graphs
+as well as the main graph engine, MiniGraph.
+
+## Features
 Compared to the existing out-of-core single-machine
 graph systems, MiniGraph has the following features.
+
 * A pipelined architecture. MiniGraph proposes an architecture
 that pipelines access to disk for read and write, and CPU operations
 for query answering. The idea is to overlap I/O and CPU operations,
@@ -33,9 +39,7 @@ allow it to explore shortcuts in the process to avoid redundant I/O.
 
 
  
-This repository is the main codebase for the MiniGraph project, 
-containing both the utility used to generate and convert graphs
-as well as the main graph engine, MiniGraph.
+
 
 
 ## Getting Started
@@ -81,13 +85,13 @@ $make
 ### Running MiniGraph Applications
 
 
-#### Preparation
-##### Partition & convert graph.
+#### Preparation: Partition & convert graph.
 We store graphs in a binary CSR format. Edge-list in CSV format 
 can be converted to our CSR format with graph_convert tool provided in tools.
 You can use graph_convert_exec as follows:
 ```shell
-$ ./bin/graph_convert_exec -t csr_bin -p -n [the number of fragments] -i [graph in csv format] -sep "," -o [workspace] -cores [degree of parallelism]
+$cd $SRC_DIR
+$./bin/graph_convert_exec -t csr_bin -p -n [the number of fragments] -i [graph in csv format] -sep [seperator, e.g. ","] -o [workspace] -cores [degree of parallelism]
 ```
 
 #### Executing 
@@ -95,13 +99,18 @@ Implementations of five graph applications
 (PageRank, Connected Components, 
 Single-Source Shortest Paths, 
 Breadth-First Search, Simulation) are included in the apps/cpp/ directory.
-Finally, MiniGraph is ready to run, 
-e.g. to execute WCC in VC:
+
+
+For instance to run a WCC workload.
+You may adjust the number of evaluators to control 
+inter graphs parallelism and varying the degree of total parallelism 
+by specifying parameter "-cc" and "-cores" as follows:
 
 ```shell
 $cd $SRC_DIR
-$./bin/wcc_vc_exec  -i [workspace] -lc [The number of LoadComponent] -cc [The number of ComputingComponent] -dc [The number of DischargeComponent] -buffer_size [The size of task queue] -cores [Degree of parallelism]
+$./bin/wcc_vc_exec  -i [workspace] -cc [The number of ComputingComponent] -buffer_size [The size of task queue] -cores [Degree of parallelism]
 ```
+"buffer_size" is used to control the number of fragment that can residented in memory.
 
 Other applications, such as Simulation require the input pattern. 
 User should provide pattern by -pattern [pattern in CSV format] command.
@@ -109,16 +118,24 @@ For example,
 
 ```shell
 $cd $SRC_DIR
-$./bin/sim_vc_exec  -i [workspace] -lc [The number of LoadComponent] -cc [The number of ComputingComponent] -dc [The number of DischargeComponent] -buffer_size [The size of task queue] -cores [Degree of parallelism] -pattern [pattern in csv format]
+$./bin/sim_vc_exec  -i [workspace] -cc [The number of ComputingComponent] -buffer_size [The size of task queue] -cores [Degree of parallelism] -pattern [pattern in csv format]
 ```
 
+#### Demo: WCC on road-Net
+```shell
+$cd $SRC_DIR
+$./bin/graph_convert_exec -t csr_bin -p -n 1 -i inputs/edge_graph_csv/roadNet-CA.csv -sep "," -o inputs/tmp/ -cores 4
+$./bin/wcc_vc_exec -i inputs/tmp/ -cc c -buffer_size 1 -cores 4
+```
+
+#### Writing Your Own Graph Algorithms: WCC
 In addition, users can write their own algorithms in MiniGraph. 
 Currently, MiniGraph supports users to write their own algorithms in PIE model 
 and PIE+ model.
-Next, we will walk you through a concrete example to illustrate how MiniGraph 
-can be used by developers to effectively analyze large graphs.
+Next, we will walk you through a concrete example of WCC 
+to illustrate how MiniGraph can be used by developers to effectively 
+analyze large graphs.
 
-#### Demo: WCC on roadNet-CA
 One method of computing the WCCs of a graph
 is to initialize each vertex to is IDs, 
 and iteratively have every vertex update its IDs entry to be the
@@ -126,7 +143,7 @@ minimum IDs entry of all of its neighbors in $G$.
 
 
 To implement this algorithm in PIE+, you just need to fulfill the following 
-two class, e.g.  AutoMapBase and AutoAppBase.
+two class, i.e.  AutoMapBase and AutoAppBase.
 
 ```c++
 template <typename GRAPH_T, typename CONTEXT_T>
@@ -400,3 +417,11 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
 A fragment will repeat the IncEval until there is no messages received. 
 When all the fragments are finished with computation, the algorithm is terminated.
+
+## Contact Us
+For bugs, please raise an issue on GiHub. 
+Questions and comments are also welcome at the my email: 
+zhuxk@buaa.edu.cn
+
+
+
