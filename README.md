@@ -128,7 +128,7 @@ $./bin/graph_convert_exec -t csr_bin -p -n 1 -i inputs/edge_graph_csv/roadNet-CA
 $./bin/wcc_vc_exec -i inputs/tmp/ -cc c -buffer_size 1 -cores 4
 ```
 
-### Writing Your Own Graph Algorithms: WCC
+## Writing Your Own Graph Algorithms: WCC
 In addition, users can write their algorithms in MiniGraph. 
 Currently, MiniGraph supports users to write their  algorithms in PIE model 
 and PIE+ model.
@@ -207,7 +207,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 };
 ```
 
-#### Fulfill Init Function
+### Fulfill Init Function
 The Init function are mainly responsable for setting the initial value for 
 each node & edges.
 Users could use auto_map_->ActiveMap() to do this in parallel.
@@ -244,7 +244,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 };
 ```
 
-#### Fulfill PEval Function
+### Fulfill PEval Function
 In PEval of WCC, 
 it gets the vertex that has minimum IDs in $G$ by 
 this->context_.root_id.
@@ -329,7 +329,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
 ```
 
-#### Fulfill IncEval Function
+### Fulfill IncEval Function
 The  differences between IncEval and PEval of WCC algorithm are 
 (1) IncEval is invoked on each fragment, rather than only the fragment 
 with root_id. 
