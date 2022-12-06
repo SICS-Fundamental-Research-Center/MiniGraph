@@ -104,7 +104,7 @@ Breadth-First Search, Simulation) are included in the apps/cpp/ directory.
 For instance to run a WCC workload.
 You may adjust the number of evaluators to control 
 inter graphs parallelism and varying the degree of total parallelism 
-by specifying parameter "-cc" and "-cores" as follows:
+by specifying parameters "-cc" and "-cores" as follows:
 
 ```shell
 $cd $SRC_DIR
@@ -128,22 +128,22 @@ $./bin/graph_convert_exec -t csr_bin -p -n 1 -i inputs/edge_graph_csv/roadNet-CA
 $./bin/wcc_vc_exec -i inputs/tmp/ -cc c -buffer_size 1 -cores 4
 ```
 
-#### Writing Your Own Graph Algorithms: WCC
-In addition, users can write their own algorithms in MiniGraph. 
-Currently, MiniGraph supports users to write their own algorithms in PIE model 
+### Writing Your Own Graph Algorithms: WCC
+In addition, users can write their algorithms in MiniGraph. 
+Currently, MiniGraph supports users to write their  algorithms in PIE model 
 and PIE+ model.
 Next, we will walk you through a concrete example of WCC 
 to illustrate how MiniGraph can be used by developers to effectively 
 analyze large graphs.
 
 One method of computing the WCCs of a graph
-is to initialize each vertex to is IDs, 
+is to initialize each vertex to its IDs, 
 and iteratively have every vertex update its IDs entry to be the
 minimum IDs entry of all of its neighbors in $G$. 
 
 
-To implement this algorithm in PIE+, you just need to fulfill the following 
-two class, i.e.  AutoMapBase and AutoAppBase.
+To implement this algorithm in PIE+, users just need to fulfill the following 
+two classes, i.e.  AutoMapBase and AutoAppBase.
 
 ```c++
 template <typename GRAPH_T, typename CONTEXT_T>
@@ -207,7 +207,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 };
 ```
 
-##### Fulfill Init Function
+#### Fulfill Init Function
 The Init function are mainly responsable for setting the initial value for 
 each node & edges.
 Users could use auto_map_->ActiveMap() to do this in parallel.
@@ -244,9 +244,9 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 };
 ```
 
-##### Fulfill PEval Function
+#### Fulfill PEval Function
 In PEval of WCC, 
-it gets the vertex that have minimum IDs in $G$ by 
+it gets the vertex that has minimum IDs in $G$ by 
 this->context_.root_id.
 PEval checks each fragment whether it contains the root_id by
 !graph.IsInGraph(this->context_.root_id). 
@@ -254,8 +254,8 @@ PEval checks each fragment whether it contains the root_id by
 If a fragment contains the root_id, 
 it will traverse the outgoing edges of the root_id by auto_map_->ActiveEMap.
 Then F is applied to each vertex stem from root_id.
-It updates the value of v if the it large than the value of u by write_min.
-Finally, kernel_pull_border_vertexes update all label of border vertices 
+It updates the value of v if it is large than the value of u by write_min.
+Finally, kernel_pull_border_vertexes update all labels of border vertices 
 in parallel.
 
 ```c++
@@ -329,8 +329,8 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
 ```
 
-##### Fulfill IncEval Function
-The  differences between IncEval and PEval of SSSP algorithm are 
+#### Fulfill IncEval Function
+The  differences between IncEval and PEval of WCC algorithm are 
 (1) IncEval is invoked on each fragment, rather than only the fragment 
 with root_id. 
 (2) A pull operation, kernel_pull_border_vertexes,  
@@ -415,12 +415,12 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
 ```
 
-A fragment will repeat the IncEval until there is no messages received. 
+A fragment will repeat the IncEval until there are no messages received. 
 When all the fragments are finished with computation, the algorithm is terminated.
 
 ## Contact Us
 For bugs, please raise an issue on GiHub. 
-Questions and comments are also welcome at the my email: 
+Questions and comments are also welcome at my email: 
 zhuxk@buaa.edu.cn
 
 
