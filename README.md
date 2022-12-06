@@ -49,6 +49,7 @@ At the minimum, MiniGraph depends on the following software:
 * GoogleTest (>= 1.11.0)
 * RapidCSV (>= 8.65)
 * Boost::ext SML (>= 1.1.6)
+* jemalloc (>=5.30)
 
 
 
