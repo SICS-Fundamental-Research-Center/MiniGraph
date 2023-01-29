@@ -1,6 +1,0 @@
-I0921 13:32:39.275687 239703 get_statistic.cpp:125] Statistic: /data/zhuxiaoke/twitter/csv/twitter_rv.net.entire
-I0921 13:39:36.150305 239703 get_statistic.cpp:45] Run: get maximum vid
-I0921 13:39:58.287444 239703 get_statistic.cpp:104] #maximum vid: 61578432
-I0921 13:39:58.287546 239703 get_statistic.cpp:105] #maximum indegree: 770155
-I0921 13:39:58.287576 239703 get_statistic.cpp:106] #maximum outdegree: 2997469
-I0921 13:39:58.287603 239703 get_statistic.cpp:107] #num_edges: 1468365184

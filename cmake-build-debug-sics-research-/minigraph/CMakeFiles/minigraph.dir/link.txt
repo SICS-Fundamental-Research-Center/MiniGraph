@@ -1,2 +1,0 @@
-/usr/bin/ar qc ../../bin/libminigraph.a  CMakeFiles/minigraph.dir/executors/cpu_scheduler.cpp.o CMakeFiles/minigraph.dir/executors/scheduled_executor.cpp.o CMakeFiles/minigraph.dir/executors/throttle.cpp.o CMakeFiles/minigraph.dir/utility/logging.cpp.o CMakeFiles/minigraph.dir/utility/thread_pool.cpp.o
-/usr/bin/ranlib ../../bin/libminigraph.a

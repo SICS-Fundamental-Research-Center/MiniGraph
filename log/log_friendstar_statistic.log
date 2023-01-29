@@ -1,6 +1,0 @@
-I0921 13:18:12.639828 217468 get_statistic.cpp:125] Statistic: /data/zhuxiaoke/friendster/friendster.csv
-I0921 13:26:55.248613 217468 get_statistic.cpp:45] Run: get maximum vid
-I0921 13:27:21.951974 217468 get_statistic.cpp:104] #maximum vid: 124836224
-I0921 13:27:21.952092 217468 get_statistic.cpp:105] #maximum indegree: 4223
-I0921 13:27:21.952149 217468 get_statistic.cpp:106] #maximum outdegree: 3615
-I0921 13:27:21.952191 217468 get_statistic.cpp:107] #num_edges: 1806067134
