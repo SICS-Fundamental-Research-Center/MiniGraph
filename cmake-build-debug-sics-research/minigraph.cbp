@@ -1,0 +1,1189 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6"/>
+	<Project>
+		<Option title="minigraph"/>
+		<Option makefile_is_custom="1"/>
+		<Option compiler="gcc"/>
+		<Option virtualFolders="CMake Files\;CMake Files\..\;CMake Files\..\..\;CMake Files\..\..\..\;CMake Files\..\..\..\..\;CMake Files\..\..\..\..\..\;CMake Files\..\..\..\..\..\usr\;CMake Files\..\..\..\..\..\usr\local\;CMake Files\..\..\..\..\..\usr\local\lib\;CMake Files\..\..\..\..\..\usr\local\lib\cmake\;CMake Files\..\..\..\..\..\usr\local\lib\cmake\folly\;CMake Files\..\..\..\..\..\usr\local\lib\cmake\Boost-1.78.0\;CMake Files\..\..\..\..\..\usr\local\lib\cmake\boost_headers-1.78.0\;CMake Files\..\..\..\..\..\usr\local\lib\cmake\boost_context-1.78.0\;CMake Files\..\..\..\..\..\usr\local\lib\cmake\boost_filesystem-1.78.0\;CMake Files\..\..\..\..\..\usr\local\lib\cmake\boost_atomic-1.78.0\;CMake Files\..\..\..\..\..\usr\local\lib\cmake\boost_program_options-1.78.0\;CMake Files\..\..\..\..\..\usr\local\lib\cmake\boost_regex-1.78.0\;CMake Files\..\..\..\..\..\usr\local\lib\cmake\boost_system-1.78.0\;CMake Files\..\..\..\..\..\usr\local\lib\cmake\boost_thread-1.78.0\;CMake Files\..\..\..\..\..\usr\local\lib\cmake\gflags\;CMake Files\..\..\..\..\..\usr\local\lib64\;CMake Files\..\..\..\..\..\usr\local\lib64\cmake\;CMake Files\..\..\..\..\..\usr\local\lib64\cmake\fmt\;CMake Files\cmake\;CMake Files\minigraph\;"/>
+		<Build>
+			<Target title="all">
+				<Option working_dir="/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research"/>
+				<Option type="4"/>
+				<MakeCommands>
+					<Build command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 all"/>
+					<CompileFile command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="sssp_gc_exec">
+				<Option output="/home/zhuxiaoke/project/graph_computing/MiniGraph/bin/sssp_gc_exec" prefix_auto="0" extension_auto="0"/>
+				<Option working_dir="/home/zhuxiaoke/project/graph_computing/MiniGraph/bin"/>
+				<Option object_output="./"/>
+				<Option type="1"/>
+				<Option compiler="gcc"/>
+				<Compiler>
+					<Add option="-DUSE_JEMALLOC"/>
+					<Add option="-DBOOST_CONTEXT_NO_LIB"/>
+					<Add option="-DBOOST_CONTEXT_DYN_LINK"/>
+					<Add option="-DBOOST_FILESYSTEM_NO_LIB"/>
+					<Add option="-DBOOST_FILESYSTEM_DYN_LINK"/>
+					<Add option="-DBOOST_ATOMIC_NO_LIB"/>
+					<Add option="-DBOOST_ATOMIC_DYN_LINK"/>
+					<Add option="-DBOOST_PROGRAM_OPTIONS_NO_LIB"/>
+					<Add option="-DBOOST_PROGRAM_OPTIONS_DYN_LINK"/>
+					<Add option="-DBOOST_REGEX_NO_LIB"/>
+					<Add option="-DBOOST_REGEX_DYN_LINK"/>
+					<Add option="-DBOOST_SYSTEM_NO_LIB"/>
+					<Add option="-DBOOST_SYSTEM_DYN_LINK"/>
+					<Add option="-DBOOST_THREAD_NO_LIB"/>
+					<Add option="-DBOOST_THREAD_DYN_LINK"/>
+					<Add option="-DGFLAGS_IS_A_DLL=0"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/third_party/sml/include"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/third_party/rapidcsv/src"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/minigraph"/>
+					<Add directory="/usr/local/include"/>
+					<Add directory="."/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0/x86_64-pc-linux-gnu"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0/backward"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/include"/>
+					<Add directory="/usr/local/gcc-9.4.0/include"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/include-fixed"/>
+					<Add directory="/usr/include"/>
+				</Compiler>
+				<MakeCommands>
+					<Build command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 sssp_gc_exec"/>
+					<CompileFile command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="sssp_gc_exec/fast">
+				<Option output="/home/zhuxiaoke/project/graph_computing/MiniGraph/bin/sssp_gc_exec" prefix_auto="0" extension_auto="0"/>
+				<Option working_dir="/home/zhuxiaoke/project/graph_computing/MiniGraph/bin"/>
+				<Option object_output="./"/>
+				<Option type="1"/>
+				<Option compiler="gcc"/>
+				<Compiler>
+					<Add option="-DUSE_JEMALLOC"/>
+					<Add option="-DBOOST_CONTEXT_NO_LIB"/>
+					<Add option="-DBOOST_CONTEXT_DYN_LINK"/>
+					<Add option="-DBOOST_FILESYSTEM_NO_LIB"/>
+					<Add option="-DBOOST_FILESYSTEM_DYN_LINK"/>
+					<Add option="-DBOOST_ATOMIC_NO_LIB"/>
+					<Add option="-DBOOST_ATOMIC_DYN_LINK"/>
+					<Add option="-DBOOST_PROGRAM_OPTIONS_NO_LIB"/>
+					<Add option="-DBOOST_PROGRAM_OPTIONS_DYN_LINK"/>
+					<Add option="-DBOOST_REGEX_NO_LIB"/>
+					<Add option="-DBOOST_REGEX_DYN_LINK"/>
+					<Add option="-DBOOST_SYSTEM_NO_LIB"/>
+					<Add option="-DBOOST_SYSTEM_DYN_LINK"/>
+					<Add option="-DBOOST_THREAD_NO_LIB"/>
+					<Add option="-DBOOST_THREAD_DYN_LINK"/>
+					<Add option="-DGFLAGS_IS_A_DLL=0"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/third_party/sml/include"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/third_party/rapidcsv/src"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/minigraph"/>
+					<Add directory="/usr/local/include"/>
+					<Add directory="."/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0/x86_64-pc-linux-gnu"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0/backward"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/include"/>
+					<Add directory="/usr/local/gcc-9.4.0/include"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/include-fixed"/>
+					<Add directory="/usr/include"/>
+				</Compiler>
+				<MakeCommands>
+					<Build command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 sssp_gc_exec/fast"/>
+					<CompileFile command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="simulation_gc_exec">
+				<Option output="/home/zhuxiaoke/project/graph_computing/MiniGraph/bin/simulation_gc_exec" prefix_auto="0" extension_auto="0"/>
+				<Option working_dir="/home/zhuxiaoke/project/graph_computing/MiniGraph/bin"/>
+				<Option object_output="./"/>
+				<Option type="1"/>
+				<Option compiler="gcc"/>
+				<Compiler>
+					<Add option="-DUSE_JEMALLOC"/>
+					<Add option="-DBOOST_CONTEXT_NO_LIB"/>
+					<Add option="-DBOOST_CONTEXT_DYN_LINK"/>
+					<Add option="-DBOOST_FILESYSTEM_NO_LIB"/>
+					<Add option="-DBOOST_FILESYSTEM_DYN_LINK"/>
+					<Add option="-DBOOST_ATOMIC_NO_LIB"/>
+					<Add option="-DBOOST_ATOMIC_DYN_LINK"/>
+					<Add option="-DBOOST_PROGRAM_OPTIONS_NO_LIB"/>
+					<Add option="-DBOOST_PROGRAM_OPTIONS_DYN_LINK"/>
+					<Add option="-DBOOST_REGEX_NO_LIB"/>
+					<Add option="-DBOOST_REGEX_DYN_LINK"/>
+					<Add option="-DBOOST_SYSTEM_NO_LIB"/>
+					<Add option="-DBOOST_SYSTEM_DYN_LINK"/>
+					<Add option="-DBOOST_THREAD_NO_LIB"/>
+					<Add option="-DBOOST_THREAD_DYN_LINK"/>
+					<Add option="-DGFLAGS_IS_A_DLL=0"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/third_party/sml/include"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/third_party/rapidcsv/src"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/minigraph"/>
+					<Add directory="/usr/local/include"/>
+					<Add directory="."/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0/x86_64-pc-linux-gnu"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0/backward"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/include"/>
+					<Add directory="/usr/local/gcc-9.4.0/include"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/include-fixed"/>
+					<Add directory="/usr/include"/>
+				</Compiler>
+				<MakeCommands>
+					<Build command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 simulation_gc_exec"/>
+					<CompileFile command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="simulation_gc_exec/fast">
+				<Option output="/home/zhuxiaoke/project/graph_computing/MiniGraph/bin/simulation_gc_exec" prefix_auto="0" extension_auto="0"/>
+				<Option working_dir="/home/zhuxiaoke/project/graph_computing/MiniGraph/bin"/>
+				<Option object_output="./"/>
+				<Option type="1"/>
+				<Option compiler="gcc"/>
+				<Compiler>
+					<Add option="-DUSE_JEMALLOC"/>
+					<Add option="-DBOOST_CONTEXT_NO_LIB"/>
+					<Add option="-DBOOST_CONTEXT_DYN_LINK"/>
+					<Add option="-DBOOST_FILESYSTEM_NO_LIB"/>
+					<Add option="-DBOOST_FILESYSTEM_DYN_LINK"/>
+					<Add option="-DBOOST_ATOMIC_NO_LIB"/>
+					<Add option="-DBOOST_ATOMIC_DYN_LINK"/>
+					<Add option="-DBOOST_PROGRAM_OPTIONS_NO_LIB"/>
+					<Add option="-DBOOST_PROGRAM_OPTIONS_DYN_LINK"/>
+					<Add option="-DBOOST_REGEX_NO_LIB"/>
+					<Add option="-DBOOST_REGEX_DYN_LINK"/>
+					<Add option="-DBOOST_SYSTEM_NO_LIB"/>
+					<Add option="-DBOOST_SYSTEM_DYN_LINK"/>
+					<Add option="-DBOOST_THREAD_NO_LIB"/>
+					<Add option="-DBOOST_THREAD_DYN_LINK"/>
+					<Add option="-DGFLAGS_IS_A_DLL=0"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/third_party/sml/include"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/third_party/rapidcsv/src"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/minigraph"/>
+					<Add directory="/usr/local/include"/>
+					<Add directory="."/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0/x86_64-pc-linux-gnu"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0/backward"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/include"/>
+					<Add directory="/usr/local/gcc-9.4.0/include"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/include-fixed"/>
+					<Add directory="/usr/include"/>
+				</Compiler>
+				<MakeCommands>
+					<Build command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 simulation_gc_exec/fast"/>
+					<CompileFile command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="graphgen_exec">
+				<Option output="/home/zhuxiaoke/project/graph_computing/MiniGraph/bin/graphgen_exec" prefix_auto="0" extension_auto="0"/>
+				<Option working_dir="/home/zhuxiaoke/project/graph_computing/MiniGraph/bin"/>
+				<Option object_output="./"/>
+				<Option type="1"/>
+				<Option compiler="gcc"/>
+				<Compiler>
+					<Add option="-DUSE_JEMALLOC"/>
+					<Add option="-DBOOST_CONTEXT_NO_LIB"/>
+					<Add option="-DBOOST_CONTEXT_DYN_LINK"/>
+					<Add option="-DBOOST_FILESYSTEM_NO_LIB"/>
+					<Add option="-DBOOST_FILESYSTEM_DYN_LINK"/>
+					<Add option="-DBOOST_ATOMIC_NO_LIB"/>
+					<Add option="-DBOOST_ATOMIC_DYN_LINK"/>
+					<Add option="-DBOOST_PROGRAM_OPTIONS_NO_LIB"/>
+					<Add option="-DBOOST_PROGRAM_OPTIONS_DYN_LINK"/>
+					<Add option="-DBOOST_REGEX_NO_LIB"/>
+					<Add option="-DBOOST_REGEX_DYN_LINK"/>
+					<Add option="-DBOOST_SYSTEM_NO_LIB"/>
+					<Add option="-DBOOST_SYSTEM_DYN_LINK"/>
+					<Add option="-DBOOST_THREAD_NO_LIB"/>
+					<Add option="-DBOOST_THREAD_DYN_LINK"/>
+					<Add option="-DGFLAGS_IS_A_DLL=0"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/third_party/sml/include"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/third_party/rapidcsv/src"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/minigraph"/>
+					<Add directory="/usr/local/include"/>
+					<Add directory="."/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0/x86_64-pc-linux-gnu"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0/backward"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/include"/>
+					<Add directory="/usr/local/gcc-9.4.0/include"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/include-fixed"/>
+					<Add directory="/usr/include"/>
+				</Compiler>
+				<MakeCommands>
+					<Build command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 graphgen_exec"/>
+					<CompileFile command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="graphgen_exec/fast">
+				<Option output="/home/zhuxiaoke/project/graph_computing/MiniGraph/bin/graphgen_exec" prefix_auto="0" extension_auto="0"/>
+				<Option working_dir="/home/zhuxiaoke/project/graph_computing/MiniGraph/bin"/>
+				<Option object_output="./"/>
+				<Option type="1"/>
+				<Option compiler="gcc"/>
+				<Compiler>
+					<Add option="-DUSE_JEMALLOC"/>
+					<Add option="-DBOOST_CONTEXT_NO_LIB"/>
+					<Add option="-DBOOST_CONTEXT_DYN_LINK"/>
+					<Add option="-DBOOST_FILESYSTEM_NO_LIB"/>
+					<Add option="-DBOOST_FILESYSTEM_DYN_LINK"/>
+					<Add option="-DBOOST_ATOMIC_NO_LIB"/>
+					<Add option="-DBOOST_ATOMIC_DYN_LINK"/>
+					<Add option="-DBOOST_PROGRAM_OPTIONS_NO_LIB"/>
+					<Add option="-DBOOST_PROGRAM_OPTIONS_DYN_LINK"/>
+					<Add option="-DBOOST_REGEX_NO_LIB"/>
+					<Add option="-DBOOST_REGEX_DYN_LINK"/>
+					<Add option="-DBOOST_SYSTEM_NO_LIB"/>
+					<Add option="-DBOOST_SYSTEM_DYN_LINK"/>
+					<Add option="-DBOOST_THREAD_NO_LIB"/>
+					<Add option="-DBOOST_THREAD_DYN_LINK"/>
+					<Add option="-DGFLAGS_IS_A_DLL=0"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/third_party/sml/include"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/third_party/rapidcsv/src"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/minigraph"/>
+					<Add directory="/usr/local/include"/>
+					<Add directory="."/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0/x86_64-pc-linux-gnu"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0/backward"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/include"/>
+					<Add directory="/usr/local/gcc-9.4.0/include"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/include-fixed"/>
+					<Add directory="/usr/include"/>
+				</Compiler>
+				<MakeCommands>
+					<Build command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 graphgen_exec/fast"/>
+					<CompileFile command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="wcc_gc_exec">
+				<Option output="/home/zhuxiaoke/project/graph_computing/MiniGraph/bin/wcc_gc_exec" prefix_auto="0" extension_auto="0"/>
+				<Option working_dir="/home/zhuxiaoke/project/graph_computing/MiniGraph/bin"/>
+				<Option object_output="./"/>
+				<Option type="1"/>
+				<Option compiler="gcc"/>
+				<Compiler>
+					<Add option="-DUSE_JEMALLOC"/>
+					<Add option="-DBOOST_CONTEXT_NO_LIB"/>
+					<Add option="-DBOOST_CONTEXT_DYN_LINK"/>
+					<Add option="-DBOOST_FILESYSTEM_NO_LIB"/>
+					<Add option="-DBOOST_FILESYSTEM_DYN_LINK"/>
+					<Add option="-DBOOST_ATOMIC_NO_LIB"/>
+					<Add option="-DBOOST_ATOMIC_DYN_LINK"/>
+					<Add option="-DBOOST_PROGRAM_OPTIONS_NO_LIB"/>
+					<Add option="-DBOOST_PROGRAM_OPTIONS_DYN_LINK"/>
+					<Add option="-DBOOST_REGEX_NO_LIB"/>
+					<Add option="-DBOOST_REGEX_DYN_LINK"/>
+					<Add option="-DBOOST_SYSTEM_NO_LIB"/>
+					<Add option="-DBOOST_SYSTEM_DYN_LINK"/>
+					<Add option="-DBOOST_THREAD_NO_LIB"/>
+					<Add option="-DBOOST_THREAD_DYN_LINK"/>
+					<Add option="-DGFLAGS_IS_A_DLL=0"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/third_party/sml/include"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/third_party/rapidcsv/src"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/minigraph"/>
+					<Add directory="/usr/local/include"/>
+					<Add directory="."/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0/x86_64-pc-linux-gnu"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0/backward"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/include"/>
+					<Add directory="/usr/local/gcc-9.4.0/include"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/include-fixed"/>
+					<Add directory="/usr/include"/>
+				</Compiler>
+				<MakeCommands>
+					<Build command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 wcc_gc_exec"/>
+					<CompileFile command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="wcc_gc_exec/fast">
+				<Option output="/home/zhuxiaoke/project/graph_computing/MiniGraph/bin/wcc_gc_exec" prefix_auto="0" extension_auto="0"/>
+				<Option working_dir="/home/zhuxiaoke/project/graph_computing/MiniGraph/bin"/>
+				<Option object_output="./"/>
+				<Option type="1"/>
+				<Option compiler="gcc"/>
+				<Compiler>
+					<Add option="-DUSE_JEMALLOC"/>
+					<Add option="-DBOOST_CONTEXT_NO_LIB"/>
+					<Add option="-DBOOST_CONTEXT_DYN_LINK"/>
+					<Add option="-DBOOST_FILESYSTEM_NO_LIB"/>
+					<Add option="-DBOOST_FILESYSTEM_DYN_LINK"/>
+					<Add option="-DBOOST_ATOMIC_NO_LIB"/>
+					<Add option="-DBOOST_ATOMIC_DYN_LINK"/>
+					<Add option="-DBOOST_PROGRAM_OPTIONS_NO_LIB"/>
+					<Add option="-DBOOST_PROGRAM_OPTIONS_DYN_LINK"/>
+					<Add option="-DBOOST_REGEX_NO_LIB"/>
+					<Add option="-DBOOST_REGEX_DYN_LINK"/>
+					<Add option="-DBOOST_SYSTEM_NO_LIB"/>
+					<Add option="-DBOOST_SYSTEM_DYN_LINK"/>
+					<Add option="-DBOOST_THREAD_NO_LIB"/>
+					<Add option="-DBOOST_THREAD_DYN_LINK"/>
+					<Add option="-DGFLAGS_IS_A_DLL=0"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/third_party/sml/include"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/third_party/rapidcsv/src"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/minigraph"/>
+					<Add directory="/usr/local/include"/>
+					<Add directory="."/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0/x86_64-pc-linux-gnu"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0/backward"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/include"/>
+					<Add directory="/usr/local/gcc-9.4.0/include"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/include-fixed"/>
+					<Add directory="/usr/include"/>
+				</Compiler>
+				<MakeCommands>
+					<Build command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 wcc_gc_exec/fast"/>
+					<CompileFile command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="rebuild_cache">
+				<Option working_dir="/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research"/>
+				<Option type="4"/>
+				<MakeCommands>
+					<Build command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 rebuild_cache"/>
+					<CompileFile command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="sssp_gc_frontier_exec">
+				<Option output="/home/zhuxiaoke/project/graph_computing/MiniGraph/bin/sssp_gc_frontier_exec" prefix_auto="0" extension_auto="0"/>
+				<Option working_dir="/home/zhuxiaoke/project/graph_computing/MiniGraph/bin"/>
+				<Option object_output="./"/>
+				<Option type="1"/>
+				<Option compiler="gcc"/>
+				<Compiler>
+					<Add option="-DUSE_JEMALLOC"/>
+					<Add option="-DBOOST_CONTEXT_NO_LIB"/>
+					<Add option="-DBOOST_CONTEXT_DYN_LINK"/>
+					<Add option="-DBOOST_FILESYSTEM_NO_LIB"/>
+					<Add option="-DBOOST_FILESYSTEM_DYN_LINK"/>
+					<Add option="-DBOOST_ATOMIC_NO_LIB"/>
+					<Add option="-DBOOST_ATOMIC_DYN_LINK"/>
+					<Add option="-DBOOST_PROGRAM_OPTIONS_NO_LIB"/>
+					<Add option="-DBOOST_PROGRAM_OPTIONS_DYN_LINK"/>
+					<Add option="-DBOOST_REGEX_NO_LIB"/>
+					<Add option="-DBOOST_REGEX_DYN_LINK"/>
+					<Add option="-DBOOST_SYSTEM_NO_LIB"/>
+					<Add option="-DBOOST_SYSTEM_DYN_LINK"/>
+					<Add option="-DBOOST_THREAD_NO_LIB"/>
+					<Add option="-DBOOST_THREAD_DYN_LINK"/>
+					<Add option="-DGFLAGS_IS_A_DLL=0"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/third_party/sml/include"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/third_party/rapidcsv/src"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/minigraph"/>
+					<Add directory="/usr/local/include"/>
+					<Add directory="."/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0/x86_64-pc-linux-gnu"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0/backward"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/include"/>
+					<Add directory="/usr/local/gcc-9.4.0/include"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/include-fixed"/>
+					<Add directory="/usr/include"/>
+				</Compiler>
+				<MakeCommands>
+					<Build command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 sssp_gc_frontier_exec"/>
+					<CompileFile command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="sssp_gc_frontier_exec/fast">
+				<Option output="/home/zhuxiaoke/project/graph_computing/MiniGraph/bin/sssp_gc_frontier_exec" prefix_auto="0" extension_auto="0"/>
+				<Option working_dir="/home/zhuxiaoke/project/graph_computing/MiniGraph/bin"/>
+				<Option object_output="./"/>
+				<Option type="1"/>
+				<Option compiler="gcc"/>
+				<Compiler>
+					<Add option="-DUSE_JEMALLOC"/>
+					<Add option="-DBOOST_CONTEXT_NO_LIB"/>
+					<Add option="-DBOOST_CONTEXT_DYN_LINK"/>
+					<Add option="-DBOOST_FILESYSTEM_NO_LIB"/>
+					<Add option="-DBOOST_FILESYSTEM_DYN_LINK"/>
+					<Add option="-DBOOST_ATOMIC_NO_LIB"/>
+					<Add option="-DBOOST_ATOMIC_DYN_LINK"/>
+					<Add option="-DBOOST_PROGRAM_OPTIONS_NO_LIB"/>
+					<Add option="-DBOOST_PROGRAM_OPTIONS_DYN_LINK"/>
+					<Add option="-DBOOST_REGEX_NO_LIB"/>
+					<Add option="-DBOOST_REGEX_DYN_LINK"/>
+					<Add option="-DBOOST_SYSTEM_NO_LIB"/>
+					<Add option="-DBOOST_SYSTEM_DYN_LINK"/>
+					<Add option="-DBOOST_THREAD_NO_LIB"/>
+					<Add option="-DBOOST_THREAD_DYN_LINK"/>
+					<Add option="-DGFLAGS_IS_A_DLL=0"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/third_party/sml/include"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/third_party/rapidcsv/src"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/minigraph"/>
+					<Add directory="/usr/local/include"/>
+					<Add directory="."/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0/x86_64-pc-linux-gnu"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0/backward"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/include"/>
+					<Add directory="/usr/local/gcc-9.4.0/include"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/include-fixed"/>
+					<Add directory="/usr/include"/>
+				</Compiler>
+				<MakeCommands>
+					<Build command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 sssp_gc_frontier_exec/fast"/>
+					<CompileFile command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="preprocess_exec">
+				<Option output="/home/zhuxiaoke/project/graph_computing/MiniGraph/bin/preprocess_exec" prefix_auto="0" extension_auto="0"/>
+				<Option working_dir="/home/zhuxiaoke/project/graph_computing/MiniGraph/bin"/>
+				<Option object_output="./"/>
+				<Option type="1"/>
+				<Option compiler="gcc"/>
+				<Compiler>
+					<Add option="-DUSE_JEMALLOC"/>
+					<Add option="-DBOOST_CONTEXT_NO_LIB"/>
+					<Add option="-DBOOST_CONTEXT_DYN_LINK"/>
+					<Add option="-DBOOST_FILESYSTEM_NO_LIB"/>
+					<Add option="-DBOOST_FILESYSTEM_DYN_LINK"/>
+					<Add option="-DBOOST_ATOMIC_NO_LIB"/>
+					<Add option="-DBOOST_ATOMIC_DYN_LINK"/>
+					<Add option="-DBOOST_PROGRAM_OPTIONS_NO_LIB"/>
+					<Add option="-DBOOST_PROGRAM_OPTIONS_DYN_LINK"/>
+					<Add option="-DBOOST_REGEX_NO_LIB"/>
+					<Add option="-DBOOST_REGEX_DYN_LINK"/>
+					<Add option="-DBOOST_SYSTEM_NO_LIB"/>
+					<Add option="-DBOOST_SYSTEM_DYN_LINK"/>
+					<Add option="-DBOOST_THREAD_NO_LIB"/>
+					<Add option="-DBOOST_THREAD_DYN_LINK"/>
+					<Add option="-DGFLAGS_IS_A_DLL=0"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/third_party/sml/include"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/third_party/rapidcsv/src"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/minigraph"/>
+					<Add directory="/usr/local/include"/>
+					<Add directory="."/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0/x86_64-pc-linux-gnu"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0/backward"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/include"/>
+					<Add directory="/usr/local/gcc-9.4.0/include"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/include-fixed"/>
+					<Add directory="/usr/include"/>
+				</Compiler>
+				<MakeCommands>
+					<Build command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 preprocess_exec"/>
+					<CompileFile command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="preprocess_exec/fast">
+				<Option output="/home/zhuxiaoke/project/graph_computing/MiniGraph/bin/preprocess_exec" prefix_auto="0" extension_auto="0"/>
+				<Option working_dir="/home/zhuxiaoke/project/graph_computing/MiniGraph/bin"/>
+				<Option object_output="./"/>
+				<Option type="1"/>
+				<Option compiler="gcc"/>
+				<Compiler>
+					<Add option="-DUSE_JEMALLOC"/>
+					<Add option="-DBOOST_CONTEXT_NO_LIB"/>
+					<Add option="-DBOOST_CONTEXT_DYN_LINK"/>
+					<Add option="-DBOOST_FILESYSTEM_NO_LIB"/>
+					<Add option="-DBOOST_FILESYSTEM_DYN_LINK"/>
+					<Add option="-DBOOST_ATOMIC_NO_LIB"/>
+					<Add option="-DBOOST_ATOMIC_DYN_LINK"/>
+					<Add option="-DBOOST_PROGRAM_OPTIONS_NO_LIB"/>
+					<Add option="-DBOOST_PROGRAM_OPTIONS_DYN_LINK"/>
+					<Add option="-DBOOST_REGEX_NO_LIB"/>
+					<Add option="-DBOOST_REGEX_DYN_LINK"/>
+					<Add option="-DBOOST_SYSTEM_NO_LIB"/>
+					<Add option="-DBOOST_SYSTEM_DYN_LINK"/>
+					<Add option="-DBOOST_THREAD_NO_LIB"/>
+					<Add option="-DBOOST_THREAD_DYN_LINK"/>
+					<Add option="-DGFLAGS_IS_A_DLL=0"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/third_party/sml/include"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/third_party/rapidcsv/src"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/minigraph"/>
+					<Add directory="/usr/local/include"/>
+					<Add directory="."/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0/x86_64-pc-linux-gnu"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0/backward"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/include"/>
+					<Add directory="/usr/local/gcc-9.4.0/include"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/include-fixed"/>
+					<Add directory="/usr/include"/>
+				</Compiler>
+				<MakeCommands>
+					<Build command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 preprocess_exec/fast"/>
+					<CompileFile command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="sssp_vc_exec">
+				<Option output="/home/zhuxiaoke/project/graph_computing/MiniGraph/bin/sssp_vc_exec" prefix_auto="0" extension_auto="0"/>
+				<Option working_dir="/home/zhuxiaoke/project/graph_computing/MiniGraph/bin"/>
+				<Option object_output="./"/>
+				<Option type="1"/>
+				<Option compiler="gcc"/>
+				<Compiler>
+					<Add option="-DUSE_JEMALLOC"/>
+					<Add option="-DBOOST_CONTEXT_NO_LIB"/>
+					<Add option="-DBOOST_CONTEXT_DYN_LINK"/>
+					<Add option="-DBOOST_FILESYSTEM_NO_LIB"/>
+					<Add option="-DBOOST_FILESYSTEM_DYN_LINK"/>
+					<Add option="-DBOOST_ATOMIC_NO_LIB"/>
+					<Add option="-DBOOST_ATOMIC_DYN_LINK"/>
+					<Add option="-DBOOST_PROGRAM_OPTIONS_NO_LIB"/>
+					<Add option="-DBOOST_PROGRAM_OPTIONS_DYN_LINK"/>
+					<Add option="-DBOOST_REGEX_NO_LIB"/>
+					<Add option="-DBOOST_REGEX_DYN_LINK"/>
+					<Add option="-DBOOST_SYSTEM_NO_LIB"/>
+					<Add option="-DBOOST_SYSTEM_DYN_LINK"/>
+					<Add option="-DBOOST_THREAD_NO_LIB"/>
+					<Add option="-DBOOST_THREAD_DYN_LINK"/>
+					<Add option="-DGFLAGS_IS_A_DLL=0"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/third_party/sml/include"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/third_party/rapidcsv/src"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/minigraph"/>
+					<Add directory="/usr/local/include"/>
+					<Add directory="."/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0/x86_64-pc-linux-gnu"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0/backward"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/include"/>
+					<Add directory="/usr/local/gcc-9.4.0/include"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/include-fixed"/>
+					<Add directory="/usr/include"/>
+				</Compiler>
+				<MakeCommands>
+					<Build command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 sssp_vc_exec"/>
+					<CompileFile command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="sssp_vc_exec/fast">
+				<Option output="/home/zhuxiaoke/project/graph_computing/MiniGraph/bin/sssp_vc_exec" prefix_auto="0" extension_auto="0"/>
+				<Option working_dir="/home/zhuxiaoke/project/graph_computing/MiniGraph/bin"/>
+				<Option object_output="./"/>
+				<Option type="1"/>
+				<Option compiler="gcc"/>
+				<Compiler>
+					<Add option="-DUSE_JEMALLOC"/>
+					<Add option="-DBOOST_CONTEXT_NO_LIB"/>
+					<Add option="-DBOOST_CONTEXT_DYN_LINK"/>
+					<Add option="-DBOOST_FILESYSTEM_NO_LIB"/>
+					<Add option="-DBOOST_FILESYSTEM_DYN_LINK"/>
+					<Add option="-DBOOST_ATOMIC_NO_LIB"/>
+					<Add option="-DBOOST_ATOMIC_DYN_LINK"/>
+					<Add option="-DBOOST_PROGRAM_OPTIONS_NO_LIB"/>
+					<Add option="-DBOOST_PROGRAM_OPTIONS_DYN_LINK"/>
+					<Add option="-DBOOST_REGEX_NO_LIB"/>
+					<Add option="-DBOOST_REGEX_DYN_LINK"/>
+					<Add option="-DBOOST_SYSTEM_NO_LIB"/>
+					<Add option="-DBOOST_SYSTEM_DYN_LINK"/>
+					<Add option="-DBOOST_THREAD_NO_LIB"/>
+					<Add option="-DBOOST_THREAD_DYN_LINK"/>
+					<Add option="-DGFLAGS_IS_A_DLL=0"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/third_party/sml/include"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/third_party/rapidcsv/src"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/minigraph"/>
+					<Add directory="/usr/local/include"/>
+					<Add directory="."/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0/x86_64-pc-linux-gnu"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0/backward"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/include"/>
+					<Add directory="/usr/local/gcc-9.4.0/include"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/include-fixed"/>
+					<Add directory="/usr/include"/>
+				</Compiler>
+				<MakeCommands>
+					<Build command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 sssp_vc_exec/fast"/>
+					<CompileFile command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="wcc_csr_exec">
+				<Option output="/home/zhuxiaoke/project/graph_computing/MiniGraph/bin/wcc_csr_exec" prefix_auto="0" extension_auto="0"/>
+				<Option working_dir="/home/zhuxiaoke/project/graph_computing/MiniGraph/bin"/>
+				<Option object_output="./"/>
+				<Option type="1"/>
+				<Option compiler="gcc"/>
+				<Compiler>
+					<Add option="-DUSE_JEMALLOC"/>
+					<Add option="-DBOOST_CONTEXT_NO_LIB"/>
+					<Add option="-DBOOST_CONTEXT_DYN_LINK"/>
+					<Add option="-DBOOST_FILESYSTEM_NO_LIB"/>
+					<Add option="-DBOOST_FILESYSTEM_DYN_LINK"/>
+					<Add option="-DBOOST_ATOMIC_NO_LIB"/>
+					<Add option="-DBOOST_ATOMIC_DYN_LINK"/>
+					<Add option="-DBOOST_PROGRAM_OPTIONS_NO_LIB"/>
+					<Add option="-DBOOST_PROGRAM_OPTIONS_DYN_LINK"/>
+					<Add option="-DBOOST_REGEX_NO_LIB"/>
+					<Add option="-DBOOST_REGEX_DYN_LINK"/>
+					<Add option="-DBOOST_SYSTEM_NO_LIB"/>
+					<Add option="-DBOOST_SYSTEM_DYN_LINK"/>
+					<Add option="-DBOOST_THREAD_NO_LIB"/>
+					<Add option="-DBOOST_THREAD_DYN_LINK"/>
+					<Add option="-DGFLAGS_IS_A_DLL=0"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/third_party/sml/include"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/third_party/rapidcsv/src"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/minigraph"/>
+					<Add directory="/usr/local/include"/>
+					<Add directory="."/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0/x86_64-pc-linux-gnu"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0/backward"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/include"/>
+					<Add directory="/usr/local/gcc-9.4.0/include"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/include-fixed"/>
+					<Add directory="/usr/include"/>
+				</Compiler>
+				<MakeCommands>
+					<Build command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 wcc_csr_exec"/>
+					<CompileFile command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="wcc_csr_exec/fast">
+				<Option output="/home/zhuxiaoke/project/graph_computing/MiniGraph/bin/wcc_csr_exec" prefix_auto="0" extension_auto="0"/>
+				<Option working_dir="/home/zhuxiaoke/project/graph_computing/MiniGraph/bin"/>
+				<Option object_output="./"/>
+				<Option type="1"/>
+				<Option compiler="gcc"/>
+				<Compiler>
+					<Add option="-DUSE_JEMALLOC"/>
+					<Add option="-DBOOST_CONTEXT_NO_LIB"/>
+					<Add option="-DBOOST_CONTEXT_DYN_LINK"/>
+					<Add option="-DBOOST_FILESYSTEM_NO_LIB"/>
+					<Add option="-DBOOST_FILESYSTEM_DYN_LINK"/>
+					<Add option="-DBOOST_ATOMIC_NO_LIB"/>
+					<Add option="-DBOOST_ATOMIC_DYN_LINK"/>
+					<Add option="-DBOOST_PROGRAM_OPTIONS_NO_LIB"/>
+					<Add option="-DBOOST_PROGRAM_OPTIONS_DYN_LINK"/>
+					<Add option="-DBOOST_REGEX_NO_LIB"/>
+					<Add option="-DBOOST_REGEX_DYN_LINK"/>
+					<Add option="-DBOOST_SYSTEM_NO_LIB"/>
+					<Add option="-DBOOST_SYSTEM_DYN_LINK"/>
+					<Add option="-DBOOST_THREAD_NO_LIB"/>
+					<Add option="-DBOOST_THREAD_DYN_LINK"/>
+					<Add option="-DGFLAGS_IS_A_DLL=0"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/third_party/sml/include"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/third_party/rapidcsv/src"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/minigraph"/>
+					<Add directory="/usr/local/include"/>
+					<Add directory="."/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0/x86_64-pc-linux-gnu"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0/backward"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/include"/>
+					<Add directory="/usr/local/gcc-9.4.0/include"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/include-fixed"/>
+					<Add directory="/usr/include"/>
+				</Compiler>
+				<MakeCommands>
+					<Build command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 wcc_csr_exec/fast"/>
+					<CompileFile command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="simulation_vc_exec">
+				<Option output="/home/zhuxiaoke/project/graph_computing/MiniGraph/bin/simulation_vc_exec" prefix_auto="0" extension_auto="0"/>
+				<Option working_dir="/home/zhuxiaoke/project/graph_computing/MiniGraph/bin"/>
+				<Option object_output="./"/>
+				<Option type="1"/>
+				<Option compiler="gcc"/>
+				<Compiler>
+					<Add option="-DUSE_JEMALLOC"/>
+					<Add option="-DBOOST_CONTEXT_NO_LIB"/>
+					<Add option="-DBOOST_CONTEXT_DYN_LINK"/>
+					<Add option="-DBOOST_FILESYSTEM_NO_LIB"/>
+					<Add option="-DBOOST_FILESYSTEM_DYN_LINK"/>
+					<Add option="-DBOOST_ATOMIC_NO_LIB"/>
+					<Add option="-DBOOST_ATOMIC_DYN_LINK"/>
+					<Add option="-DBOOST_PROGRAM_OPTIONS_NO_LIB"/>
+					<Add option="-DBOOST_PROGRAM_OPTIONS_DYN_LINK"/>
+					<Add option="-DBOOST_REGEX_NO_LIB"/>
+					<Add option="-DBOOST_REGEX_DYN_LINK"/>
+					<Add option="-DBOOST_SYSTEM_NO_LIB"/>
+					<Add option="-DBOOST_SYSTEM_DYN_LINK"/>
+					<Add option="-DBOOST_THREAD_NO_LIB"/>
+					<Add option="-DBOOST_THREAD_DYN_LINK"/>
+					<Add option="-DGFLAGS_IS_A_DLL=0"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/third_party/sml/include"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/third_party/rapidcsv/src"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/minigraph"/>
+					<Add directory="/usr/local/include"/>
+					<Add directory="."/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0/x86_64-pc-linux-gnu"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0/backward"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/include"/>
+					<Add directory="/usr/local/gcc-9.4.0/include"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/include-fixed"/>
+					<Add directory="/usr/include"/>
+				</Compiler>
+				<MakeCommands>
+					<Build command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 simulation_vc_exec"/>
+					<CompileFile command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="simulation_vc_exec/fast">
+				<Option output="/home/zhuxiaoke/project/graph_computing/MiniGraph/bin/simulation_vc_exec" prefix_auto="0" extension_auto="0"/>
+				<Option working_dir="/home/zhuxiaoke/project/graph_computing/MiniGraph/bin"/>
+				<Option object_output="./"/>
+				<Option type="1"/>
+				<Option compiler="gcc"/>
+				<Compiler>
+					<Add option="-DUSE_JEMALLOC"/>
+					<Add option="-DBOOST_CONTEXT_NO_LIB"/>
+					<Add option="-DBOOST_CONTEXT_DYN_LINK"/>
+					<Add option="-DBOOST_FILESYSTEM_NO_LIB"/>
+					<Add option="-DBOOST_FILESYSTEM_DYN_LINK"/>
+					<Add option="-DBOOST_ATOMIC_NO_LIB"/>
+					<Add option="-DBOOST_ATOMIC_DYN_LINK"/>
+					<Add option="-DBOOST_PROGRAM_OPTIONS_NO_LIB"/>
+					<Add option="-DBOOST_PROGRAM_OPTIONS_DYN_LINK"/>
+					<Add option="-DBOOST_REGEX_NO_LIB"/>
+					<Add option="-DBOOST_REGEX_DYN_LINK"/>
+					<Add option="-DBOOST_SYSTEM_NO_LIB"/>
+					<Add option="-DBOOST_SYSTEM_DYN_LINK"/>
+					<Add option="-DBOOST_THREAD_NO_LIB"/>
+					<Add option="-DBOOST_THREAD_DYN_LINK"/>
+					<Add option="-DGFLAGS_IS_A_DLL=0"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/third_party/sml/include"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/third_party/rapidcsv/src"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/minigraph"/>
+					<Add directory="/usr/local/include"/>
+					<Add directory="."/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0/x86_64-pc-linux-gnu"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0/backward"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/include"/>
+					<Add directory="/usr/local/gcc-9.4.0/include"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/include-fixed"/>
+					<Add directory="/usr/include"/>
+				</Compiler>
+				<MakeCommands>
+					<Build command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 simulation_vc_exec/fast"/>
+					<CompileFile command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="wcc_gc_frontier_exec">
+				<Option output="/home/zhuxiaoke/project/graph_computing/MiniGraph/bin/wcc_gc_frontier_exec" prefix_auto="0" extension_auto="0"/>
+				<Option working_dir="/home/zhuxiaoke/project/graph_computing/MiniGraph/bin"/>
+				<Option object_output="./"/>
+				<Option type="1"/>
+				<Option compiler="gcc"/>
+				<Compiler>
+					<Add option="-DUSE_JEMALLOC"/>
+					<Add option="-DBOOST_CONTEXT_NO_LIB"/>
+					<Add option="-DBOOST_CONTEXT_DYN_LINK"/>
+					<Add option="-DBOOST_FILESYSTEM_NO_LIB"/>
+					<Add option="-DBOOST_FILESYSTEM_DYN_LINK"/>
+					<Add option="-DBOOST_ATOMIC_NO_LIB"/>
+					<Add option="-DBOOST_ATOMIC_DYN_LINK"/>
+					<Add option="-DBOOST_PROGRAM_OPTIONS_NO_LIB"/>
+					<Add option="-DBOOST_PROGRAM_OPTIONS_DYN_LINK"/>
+					<Add option="-DBOOST_REGEX_NO_LIB"/>
+					<Add option="-DBOOST_REGEX_DYN_LINK"/>
+					<Add option="-DBOOST_SYSTEM_NO_LIB"/>
+					<Add option="-DBOOST_SYSTEM_DYN_LINK"/>
+					<Add option="-DBOOST_THREAD_NO_LIB"/>
+					<Add option="-DBOOST_THREAD_DYN_LINK"/>
+					<Add option="-DGFLAGS_IS_A_DLL=0"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/third_party/sml/include"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/third_party/rapidcsv/src"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/minigraph"/>
+					<Add directory="/usr/local/include"/>
+					<Add directory="."/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0/x86_64-pc-linux-gnu"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0/backward"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/include"/>
+					<Add directory="/usr/local/gcc-9.4.0/include"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/include-fixed"/>
+					<Add directory="/usr/include"/>
+				</Compiler>
+				<MakeCommands>
+					<Build command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 wcc_gc_frontier_exec"/>
+					<CompileFile command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="wcc_gc_frontier_exec/fast">
+				<Option output="/home/zhuxiaoke/project/graph_computing/MiniGraph/bin/wcc_gc_frontier_exec" prefix_auto="0" extension_auto="0"/>
+				<Option working_dir="/home/zhuxiaoke/project/graph_computing/MiniGraph/bin"/>
+				<Option object_output="./"/>
+				<Option type="1"/>
+				<Option compiler="gcc"/>
+				<Compiler>
+					<Add option="-DUSE_JEMALLOC"/>
+					<Add option="-DBOOST_CONTEXT_NO_LIB"/>
+					<Add option="-DBOOST_CONTEXT_DYN_LINK"/>
+					<Add option="-DBOOST_FILESYSTEM_NO_LIB"/>
+					<Add option="-DBOOST_FILESYSTEM_DYN_LINK"/>
+					<Add option="-DBOOST_ATOMIC_NO_LIB"/>
+					<Add option="-DBOOST_ATOMIC_DYN_LINK"/>
+					<Add option="-DBOOST_PROGRAM_OPTIONS_NO_LIB"/>
+					<Add option="-DBOOST_PROGRAM_OPTIONS_DYN_LINK"/>
+					<Add option="-DBOOST_REGEX_NO_LIB"/>
+					<Add option="-DBOOST_REGEX_DYN_LINK"/>
+					<Add option="-DBOOST_SYSTEM_NO_LIB"/>
+					<Add option="-DBOOST_SYSTEM_DYN_LINK"/>
+					<Add option="-DBOOST_THREAD_NO_LIB"/>
+					<Add option="-DBOOST_THREAD_DYN_LINK"/>
+					<Add option="-DGFLAGS_IS_A_DLL=0"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/third_party/sml/include"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/third_party/rapidcsv/src"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/minigraph"/>
+					<Add directory="/usr/local/include"/>
+					<Add directory="."/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0/x86_64-pc-linux-gnu"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0/backward"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/include"/>
+					<Add directory="/usr/local/gcc-9.4.0/include"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/include-fixed"/>
+					<Add directory="/usr/include"/>
+				</Compiler>
+				<MakeCommands>
+					<Build command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 wcc_gc_frontier_exec/fast"/>
+					<CompileFile command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="edit_cache">
+				<Option working_dir="/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research"/>
+				<Option type="4"/>
+				<MakeCommands>
+					<Build command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 edit_cache"/>
+					<CompileFile command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="minigraph">
+				<Option output="/home/zhuxiaoke/project/graph_computing/MiniGraph/bin/libminigraph.a" prefix_auto="0" extension_auto="0"/>
+				<Option working_dir="/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/minigraph"/>
+				<Option object_output="./"/>
+				<Option type="2"/>
+				<Option compiler="gcc"/>
+				<Compiler>
+					<Add option="-DUSE_JEMALLOC"/>
+					<Add option="-DBOOST_CONTEXT_NO_LIB"/>
+					<Add option="-DBOOST_CONTEXT_DYN_LINK"/>
+					<Add option="-DBOOST_FILESYSTEM_NO_LIB"/>
+					<Add option="-DBOOST_FILESYSTEM_DYN_LINK"/>
+					<Add option="-DBOOST_ATOMIC_NO_LIB"/>
+					<Add option="-DBOOST_ATOMIC_DYN_LINK"/>
+					<Add option="-DBOOST_PROGRAM_OPTIONS_NO_LIB"/>
+					<Add option="-DBOOST_PROGRAM_OPTIONS_DYN_LINK"/>
+					<Add option="-DBOOST_REGEX_NO_LIB"/>
+					<Add option="-DBOOST_REGEX_DYN_LINK"/>
+					<Add option="-DBOOST_SYSTEM_NO_LIB"/>
+					<Add option="-DBOOST_SYSTEM_DYN_LINK"/>
+					<Add option="-DBOOST_THREAD_NO_LIB"/>
+					<Add option="-DBOOST_THREAD_DYN_LINK"/>
+					<Add option="-DGFLAGS_IS_A_DLL=0"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/third_party/sml/include"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/third_party/rapidcsv/src"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/minigraph"/>
+					<Add directory="/usr/local/include"/>
+					<Add directory="."/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0/x86_64-pc-linux-gnu"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0/backward"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/include"/>
+					<Add directory="/usr/local/gcc-9.4.0/include"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/include-fixed"/>
+					<Add directory="/usr/include"/>
+				</Compiler>
+				<MakeCommands>
+					<Build command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/minigraph/Makefile&quot;  VERBOSE=1 minigraph"/>
+					<CompileFile command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/minigraph/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/minigraph/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/minigraph/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+			<Target title="minigraph/fast">
+				<Option output="/home/zhuxiaoke/project/graph_computing/MiniGraph/bin/libminigraph.a" prefix_auto="0" extension_auto="0"/>
+				<Option working_dir="/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/minigraph"/>
+				<Option object_output="./"/>
+				<Option type="2"/>
+				<Option compiler="gcc"/>
+				<Compiler>
+					<Add option="-DUSE_JEMALLOC"/>
+					<Add option="-DBOOST_CONTEXT_NO_LIB"/>
+					<Add option="-DBOOST_CONTEXT_DYN_LINK"/>
+					<Add option="-DBOOST_FILESYSTEM_NO_LIB"/>
+					<Add option="-DBOOST_FILESYSTEM_DYN_LINK"/>
+					<Add option="-DBOOST_ATOMIC_NO_LIB"/>
+					<Add option="-DBOOST_ATOMIC_DYN_LINK"/>
+					<Add option="-DBOOST_PROGRAM_OPTIONS_NO_LIB"/>
+					<Add option="-DBOOST_PROGRAM_OPTIONS_DYN_LINK"/>
+					<Add option="-DBOOST_REGEX_NO_LIB"/>
+					<Add option="-DBOOST_REGEX_DYN_LINK"/>
+					<Add option="-DBOOST_SYSTEM_NO_LIB"/>
+					<Add option="-DBOOST_SYSTEM_DYN_LINK"/>
+					<Add option="-DBOOST_THREAD_NO_LIB"/>
+					<Add option="-DBOOST_THREAD_DYN_LINK"/>
+					<Add option="-DGFLAGS_IS_A_DLL=0"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/third_party/sml/include"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/third_party/rapidcsv/src"/>
+					<Add directory="/home/zhuxiaoke/project/graph_computing/MiniGraph/minigraph"/>
+					<Add directory="/usr/local/include"/>
+					<Add directory="."/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0/x86_64-pc-linux-gnu"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/../../../../include/c++/9.4.0/backward"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/include"/>
+					<Add directory="/usr/local/gcc-9.4.0/include"/>
+					<Add directory="/usr/local/gcc-9.4.0/lib/gcc/x86_64-pc-linux-gnu/9.4.0/include-fixed"/>
+					<Add directory="/usr/include"/>
+				</Compiler>
+				<MakeCommands>
+					<Build command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/minigraph/Makefile&quot;  VERBOSE=1 minigraph/fast"/>
+					<CompileFile command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/minigraph/Makefile&quot;  VERBOSE=1 &quot;$file&quot;"/>
+					<Clean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/minigraph/Makefile&quot;  VERBOSE=1 clean"/>
+					<DistClean command="/usr/bin/gmake -j72 -f &quot;/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake-build-debug-sics-research/minigraph/Makefile&quot;  VERBOSE=1 clean"/>
+				</MakeCommands>
+			</Target>
+		</Build>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/apps/cpp/simulation_gc.cpp">
+			<Option target="simulation_gc_exec"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/apps/cpp/simulation_vc.cpp">
+			<Option target="simulation_vc_exec"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/apps/cpp/sssp_gc.cpp">
+			<Option target="sssp_gc_exec"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/apps/cpp/sssp_gc_frontier.cpp">
+			<Option target="sssp_gc_frontier_exec"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/apps/cpp/sssp_vc.cpp">
+			<Option target="sssp_vc_exec"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/apps/cpp/wcc_csr.cpp">
+			<Option target="wcc_csr_exec"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/apps/cpp/wcc_gc.cpp">
+			<Option target="wcc_gc_exec"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/apps/cpp/wcc_gc_frontier.cpp">
+			<Option target="wcc_gc_frontier_exec"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/minigraph/executors/cpu_scheduler.cpp">
+			<Option target="minigraph"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/minigraph/executors/cpu_scheduler.h">
+			<Option target="minigraph"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/minigraph/executors/scheduled_executor.cpp">
+			<Option target="minigraph"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/minigraph/executors/scheduled_executor.h">
+			<Option target="minigraph"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/minigraph/executors/throttle.cpp">
+			<Option target="minigraph"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/minigraph/executors/throttle.h">
+			<Option target="minigraph"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/minigraph/utility/logging.cpp">
+			<Option target="minigraph"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/minigraph/utility/logging.h">
+			<Option target="minigraph"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/minigraph/utility/thread_pool.cpp">
+			<Option target="minigraph"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/minigraph/utility/thread_pool.h">
+			<Option target="minigraph"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/tools/graphgen.cpp">
+			<Option target="graphgen_exec"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/tools/preprocess.cpp">
+			<Option target="preprocess_exec"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/CMakeLists.txt">
+			<Option virtualFolder="CMake Files\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/../../../../../usr/local/lib/cmake/BoostDetectToolset-1.78.0.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\usr\local\lib\cmake\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/../../../../../usr/local/lib/cmake/folly/folly-config.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\usr\local\lib\cmake\folly\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/../../../../../usr/local/lib/cmake/folly/folly-targets-noconfig.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\usr\local\lib\cmake\folly\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/../../../../../usr/local/lib/cmake/folly/folly-targets.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\usr\local\lib\cmake\folly\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/../../../../../usr/local/lib/cmake/Boost-1.78.0/BoostConfig.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\usr\local\lib\cmake\Boost-1.78.0\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/../../../../../usr/local/lib/cmake/Boost-1.78.0/BoostConfigVersion.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\usr\local\lib\cmake\Boost-1.78.0\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/../../../../../usr/local/lib/cmake/boost_headers-1.78.0/boost_headers-config-version.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\usr\local\lib\cmake\boost_headers-1.78.0\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/../../../../../usr/local/lib/cmake/boost_headers-1.78.0/boost_headers-config.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\usr\local\lib\cmake\boost_headers-1.78.0\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/../../../../../usr/local/lib/cmake/boost_context-1.78.0/boost_context-config-version.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\usr\local\lib\cmake\boost_context-1.78.0\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/../../../../../usr/local/lib/cmake/boost_context-1.78.0/boost_context-config.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\usr\local\lib\cmake\boost_context-1.78.0\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/../../../../../usr/local/lib/cmake/boost_context-1.78.0/libboost_context-variant-shared.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\usr\local\lib\cmake\boost_context-1.78.0\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/../../../../../usr/local/lib/cmake/boost_context-1.78.0/libboost_context-variant-static.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\usr\local\lib\cmake\boost_context-1.78.0\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/../../../../../usr/local/lib/cmake/boost_filesystem-1.78.0/boost_filesystem-config-version.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\usr\local\lib\cmake\boost_filesystem-1.78.0\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/../../../../../usr/local/lib/cmake/boost_filesystem-1.78.0/boost_filesystem-config.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\usr\local\lib\cmake\boost_filesystem-1.78.0\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/../../../../../usr/local/lib/cmake/boost_filesystem-1.78.0/libboost_filesystem-variant-shared.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\usr\local\lib\cmake\boost_filesystem-1.78.0\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/../../../../../usr/local/lib/cmake/boost_filesystem-1.78.0/libboost_filesystem-variant-static.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\usr\local\lib\cmake\boost_filesystem-1.78.0\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/../../../../../usr/local/lib/cmake/boost_atomic-1.78.0/boost_atomic-config-version.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\usr\local\lib\cmake\boost_atomic-1.78.0\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/../../../../../usr/local/lib/cmake/boost_atomic-1.78.0/boost_atomic-config.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\usr\local\lib\cmake\boost_atomic-1.78.0\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/../../../../../usr/local/lib/cmake/boost_atomic-1.78.0/libboost_atomic-variant-shared.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\usr\local\lib\cmake\boost_atomic-1.78.0\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/../../../../../usr/local/lib/cmake/boost_atomic-1.78.0/libboost_atomic-variant-static.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\usr\local\lib\cmake\boost_atomic-1.78.0\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/../../../../../usr/local/lib/cmake/boost_program_options-1.78.0/boost_program_options-config-version.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\usr\local\lib\cmake\boost_program_options-1.78.0\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/../../../../../usr/local/lib/cmake/boost_program_options-1.78.0/boost_program_options-config.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\usr\local\lib\cmake\boost_program_options-1.78.0\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/../../../../../usr/local/lib/cmake/boost_program_options-1.78.0/libboost_program_options-variant-shared.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\usr\local\lib\cmake\boost_program_options-1.78.0\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/../../../../../usr/local/lib/cmake/boost_program_options-1.78.0/libboost_program_options-variant-static.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\usr\local\lib\cmake\boost_program_options-1.78.0\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/../../../../../usr/local/lib/cmake/boost_regex-1.78.0/boost_regex-config-version.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\usr\local\lib\cmake\boost_regex-1.78.0\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/../../../../../usr/local/lib/cmake/boost_regex-1.78.0/boost_regex-config.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\usr\local\lib\cmake\boost_regex-1.78.0\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/../../../../../usr/local/lib/cmake/boost_regex-1.78.0/libboost_regex-variant-shared.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\usr\local\lib\cmake\boost_regex-1.78.0\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/../../../../../usr/local/lib/cmake/boost_regex-1.78.0/libboost_regex-variant-static.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\usr\local\lib\cmake\boost_regex-1.78.0\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/../../../../../usr/local/lib/cmake/boost_system-1.78.0/boost_system-config-version.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\usr\local\lib\cmake\boost_system-1.78.0\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/../../../../../usr/local/lib/cmake/boost_system-1.78.0/boost_system-config.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\usr\local\lib\cmake\boost_system-1.78.0\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/../../../../../usr/local/lib/cmake/boost_system-1.78.0/libboost_system-variant-shared.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\usr\local\lib\cmake\boost_system-1.78.0\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/../../../../../usr/local/lib/cmake/boost_system-1.78.0/libboost_system-variant-static.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\usr\local\lib\cmake\boost_system-1.78.0\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/../../../../../usr/local/lib/cmake/boost_thread-1.78.0/boost_thread-config-version.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\usr\local\lib\cmake\boost_thread-1.78.0\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/../../../../../usr/local/lib/cmake/boost_thread-1.78.0/boost_thread-config.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\usr\local\lib\cmake\boost_thread-1.78.0\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/../../../../../usr/local/lib/cmake/boost_thread-1.78.0/libboost_thread-variant-shared.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\usr\local\lib\cmake\boost_thread-1.78.0\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/../../../../../usr/local/lib/cmake/boost_thread-1.78.0/libboost_thread-variant-static.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\usr\local\lib\cmake\boost_thread-1.78.0\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/../../../../../usr/local/lib/cmake/gflags/gflags-config-version.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\usr\local\lib\cmake\gflags\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/../../../../../usr/local/lib/cmake/gflags/gflags-config.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\usr\local\lib\cmake\gflags\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/../../../../../usr/local/lib/cmake/gflags/gflags-nonamespace-targets-release.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\usr\local\lib\cmake\gflags\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/../../../../../usr/local/lib/cmake/gflags/gflags-nonamespace-targets.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\usr\local\lib\cmake\gflags\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/../../../../../usr/local/lib64/cmake/fmt/fmt-config-version.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\usr\local\lib64\cmake\fmt\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/../../../../../usr/local/lib64/cmake/fmt/fmt-config.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\usr\local\lib64\cmake\fmt\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/../../../../../usr/local/lib64/cmake/fmt/fmt-targets-release.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\usr\local\lib64\cmake\fmt\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/../../../../../usr/local/lib64/cmake/fmt/fmt-targets.cmake">
+			<Option virtualFolder="CMake Files\..\..\..\..\..\usr\local\lib64\cmake\fmt\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/cmake/FindJemalloc.cmake">
+			<Option virtualFolder="CMake Files\cmake\"/>
+		</Unit>
+		<Unit filename="/home/zhuxiaoke/project/graph_computing/MiniGraph/minigraph/CMakeLists.txt">
+			<Option virtualFolder="CMake Files\minigraph\"/>
+		</Unit>
+	</Project>
+</CodeBlocks_project_file>

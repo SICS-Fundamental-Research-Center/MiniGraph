@@ -1,21 +1,18 @@
 #ifndef MINIGRAPH_UTILITY_IO_EDGE_LIST_IO_ADAPTER_H
 #define MINIGRAPH_UTILITY_IO_EDGE_LIST_IO_ADAPTER_H
 
-#include <sys/stat.h>
-
-#include <fstream>
-#include <iostream>
-#include <string>
-#include <unordered_map>
-
-#include "rapidcsv.h"
-
 #include "graphs/edge_list.h"
 #include "io_adapter_base.h"
 #include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
+#include "rapidcsv.h"
 #include "utility/thread_pool.h"
-
+#include <sys/stat.h>
+#include <filesystem>
+#include <fstream>
+#include <iostream>
+#include <string>
+#include <unordered_map>
 
 namespace minigraph {
 namespace utility {
@@ -66,6 +63,23 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       case edge_list_csv:
         tag = ParallelReadEdgeListFromCSV(graph, pt[0], gid, true,
                                           separator_params, cores);
+        break;
+      default:
+        break;
+    }
+    return tag;
+  }
+
+  template <class... Args>
+  bool BatchParallelRead(GRAPH_BASE_T* graph, const GraphFormat& graph_format,
+                         char separator_params, const GID_T& gid,
+                         const size_t cores, Args&&... args) {
+    std::string pt[] = {(args)...};
+    bool tag = false;
+    switch (graph_format) {
+      case edge_list_csv:
+        tag = BatchParallelReadEdgeListFromCSV(graph, pt[0], gid, true,
+                                               separator_params, cores);
         break;
       default:
         break;
@@ -314,7 +328,6 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
           *((VID_T*)((EDGE_LIST_T*)graph)->buf_graph_ + j * 2 + 1) = dst.at(j);
 
           if (max_vid_atom.load() < src.at(j)) max_vid_atom.store(src.at(j));
-
         }
         if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
         return;
@@ -371,6 +384,95 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     data_file.close();
     meta_file.close();
     vdata_file.close();
+    return true;
+  }
+
+  bool BatchParallelReadEdgeListFromCSV(
+      graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>* graph,
+      const std::string& pt, const GID_T gid = 0, const bool assemble = false,
+      char separator_params = ',', const size_t cores = 1) {
+    if (!this->IsExist(pt)) {
+      XLOG(ERR, "Read file fault: ", pt);
+      return false;
+    }
+    if (graph == nullptr) {
+      XLOG(ERR, "segmentation fault: graph is nullptr");
+      return false;
+    }
+
+    auto thread_pool = CPUThreadPool(cores, 1);
+    std::mutex mtx;
+    std::condition_variable finish_cv;
+    std::unique_lock<std::mutex> lck(mtx);
+
+    std::vector<std::string> files;
+    for (const auto& entry : std::filesystem::directory_iterator(pt)) {
+      std::string path = entry.path();
+      files.push_back(path);
+      LOG_INFO(path);
+    }
+
+    VID_T** buf_graph_bucket_ = (VID_T**)malloc(sizeof(VID_T*) * files.size());
+    auto num_edges_bucket = (size_t*)malloc(sizeof(size_t) * files.size());
+
+    for (auto pi = 0; pi < files.size(); pi++) {
+      rapidcsv::Document doc(files.at(pi), rapidcsv::LabelParams(),
+                             rapidcsv::SeparatorParams(separator_params));
+      LOG_INFO("xXX");
+      std::vector<VID_T> src = doc.GetColumn<VID_T>(0);
+      LOG_INFO("xXX", src.at(0), " ", src.at(1));
+      std::vector<VID_T> dst = doc.GetColumn<VID_T>(1);
+      LOG_INFO("xXX", dst.at(0), " ", dst.at(1));
+      VID_T* buff = (vid_t*)malloc(sizeof(vid_t) * (src.size() + dst.size()));
+      memset((char*)buff, 0, sizeof(VID_T) * (src.size() + dst.size()));
+      buf_graph_bucket_[pi] = buf_graph_bucket_[pi];
+      LOG_INFO("num edges: ", src.size(), " sizeof(VID_T)", sizeof(VID_T));
+      std::atomic<size_t> pending_packages(cores);
+      std::atomic<VID_T> max_vid_atom(0);
+
+      for (size_t i = 0; i < cores; i++) {
+        size_t tid = i;
+        thread_pool.Commit([tid, &cores, &src, &dst, &graph, &pending_packages,
+                            &finish_cv, &max_vid_atom, &buff]() {
+          for (size_t j = tid; j < src.size(); j += cores) {
+            //*((VID_T*)((EDGE_LIST_T*)graph)->buf_graph_ + j * 2) = src.at(j);
+            //            *((VID_T*)((EDGE_LIST_T*)graph)->buf_graph_ + j * 2 +
+            //            1) = dst.at(j);
+            *(buff + j * 2) = src.at(j);
+            *(buff + j * 2 + 1) = dst.at(j);
+            LOG_INFO(src.at(j), " ", dst.at(j));
+            if (max_vid_atom.load() < src.at(j)) max_vid_atom.store(src.at(j));
+          }
+          if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
+          return;
+        });
+      }
+
+      LOG_INFO("XXXXX");
+
+      finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
+      LOG_INFO("XXXXXX");
+      //((EDGE_LIST_T*)graph)->num_edges_ += src.size();
+      num_edges_bucket[pi] = src.size();
+      LOG_INFO("MAX_VID: ", max_vid_atom.load());
+    }
+
+    LOG_INFO("XXXXX");
+    ((EDGE_LIST_T*)graph)->num_vertexes_ = 0;
+    ((EDGE_LIST_T*)graph)->gid_ = gid;
+    /*
+    rapidcsv::Document doc(pt, rapidcsv::LabelParams(),
+                           rapidcsv::SeparatorParams(separator_params));
+    std::vector<VID_T> src = doc.GetColumn<VID_T>("src");
+    std::vector<VID_T> dst = doc.GetColumn<VID_T>("dst");
+
+    ((EDGE_LIST_T*)graph)->buf_graph_ =
+        (vid_t*)malloc(sizeof(vid_t) * (src.size() + dst.size()));
+
+    VID_T* buff = (VID_T*)((EDGE_LIST_T*)graph)->buf_graph_;
+    memset((char*)buff, 0, sizeof(VID_T) * (src.size() + dst.size()));
+    LOG_INFO("num edges: ", src.size(), " sizeof(VID_T)", sizeof(VID_T));
+    */
     return true;
   }
 };

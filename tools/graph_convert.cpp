@@ -1,3 +1,4 @@
+
 #include "graphs/edge_list.h"
 #include "graphs/immutable_csr.h"
 #include "portability/sys_data_structure.h"
@@ -63,6 +64,13 @@ void EdgeList2CSR(std::string src_pt, std::string dst_pt, std::size_t cores,
     data_mngr.MakeDirectory(dst_pt + "minigraph_message/");
   }
 
+  if (!data_mngr.IsExist(dst_pt + "minigraph_message/")) {
+    data_mngr.MakeDirectory(dst_pt + "minigraph_message/");
+  } else {
+    remove((dst_pt + "minigraph_message/").c_str());
+    data_mngr.MakeDirectory(dst_pt + "minigraph_message/");
+  }
+
   auto fragments = edge_cut_partitioner.GetFragments();
   size_t count = 0;
   for (auto& iter_fragments : *fragments) {
@@ -81,17 +89,22 @@ void EdgeList2CSR(std::string src_pt, std::string dst_pt, std::size_t cores,
   LOG_INFO("WriteCommunicationMatrix.");
   auto pair_communication_matrix =
       edge_cut_partitioner.GetCommunicationMatrix();
-  data_mngr.WriteCommunicationMatrix(
-      dst_pt + "minigraph_border_vertexes/communication_matrix.bin",
-      pair_communication_matrix.second, pair_communication_matrix.first);
 
   LOG_INFO("WriteVidMap.");
   auto vid_map = edge_cut_partitioner.GetVidMap();
-  data_mngr.WriteVidMap(edge_cut_partitioner.GetMaxVid(), vid_map,
-                        dst_pt + "minigraph_message/vid_map.bin");
 
   auto global_border_vid_map = edge_cut_partitioner.GetGlobalBorderVidMap();
   LOG_INFO("WriteGlobalBorderVidMap. size: ", global_border_vid_map->size_);
+
+  remove(
+      (dst_pt + "minigraph_border_vertexes/communication_matrix.bin").c_str());
+  remove((dst_pt + "minigraph_message/vid_map.bin").c_str());
+  remove((dst_pt + "minigraph_message/global_border_vid_map.bin").c_str());
+  data_mngr.WriteCommunicationMatrix(
+      dst_pt + "minigraph_border_vertexes/communication_matrix.bin",
+      pair_communication_matrix.second, pair_communication_matrix.first);
+  data_mngr.WriteVidMap(edge_cut_partitioner.GetMaxVid(), vid_map,
+                        dst_pt + "minigraph_message/vid_map.bin");
   data_mngr.WriteBitmap(global_border_vid_map,
                         dst_pt + "minigraph_message/global_border_vid_map.bin");
   LOG_INFO("End graph partition#");

@@ -1,6 +1,6 @@
 #include "2d_pie/auto_app_base.h"
-#include "2d_pie/edge_map_reduce.h"
-#include "2d_pie/vertex_map_reduce.h"
+//#include "2d_pie/edge_map_reduce.h"
+//#include "2d_pie/vertex_map_reduce.h"
 #include "executors/task_runner.h"
 #include "graphs/graph.h"
 #include "minigraph_sys.h"
@@ -92,10 +92,10 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
                                                    typename GRAPH_T::edata_t>;
 
  public:
-  SSSPPIE(minigraph::VMapBase<GRAPH_T, CONTEXT_T>* vmap,
-          minigraph::EMapBase<GRAPH_T, CONTEXT_T>* emap,
-          const CONTEXT_T& context)
-      : minigraph::AutoAppBase<GRAPH_T, CONTEXT_T>(vmap, emap, context) {}
+  //SSSPPIE(minigraph::VMapBase<GRAPH_T, CONTEXT_T>* vmap,
+  //        minigraph::EMapBase<GRAPH_T, CONTEXT_T>* emap,
+  //        const CONTEXT_T& context)
+  //    : minigraph::AutoAppBase<GRAPH_T, CONTEXT_T>(vmap, emap, context) {}
 
   SSSPPIE(minigraph::AutoMapBase<GRAPH_T, CONTEXT_T>* auto_map,
           const CONTEXT_T& context)

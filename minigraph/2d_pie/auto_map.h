@@ -1,16 +1,6 @@
 #ifndef MINIGRAPH_2D_PIE_AUTO_MAP_REDUCE_H
 #define MINIGRAPH_2D_PIE_AUTO_MAP_REDUCE_H
 
-#include <condition_variable>
-#include <functional>
-#include <future>
-#include <vector>
-
-#include <folly/MPMCQueue.h>
-#include <folly/ProducerConsumerQueue.h>
-#include <folly/concurrency/DynamicBoundedQueue.h>
-#include <folly/executors/ThreadPoolExecutor.h>
-
 #include "executors/task_runner.h"
 #include "graphs/graph.h"
 #include "graphs/immutable_csr.h"
@@ -19,7 +9,14 @@
 #include "utility/atomic.h"
 #include "utility/bitmap.h"
 #include "utility/thread_pool.h"
-
+#include <folly/MPMCQueue.h>
+#include <folly/ProducerConsumerQueue.h>
+#include <folly/concurrency/DynamicBoundedQueue.h>
+#include <folly/executors/ThreadPoolExecutor.h>
+#include <condition_variable>
+#include <functional>
+#include <future>
+#include <vector>
 
 namespace minigraph {
 
@@ -107,6 +104,25 @@ class AutoMapBase {
     return;
   };
 
+  template <class F, class... Args>
+  auto VMap(GRAPH_T& graph, executors::TaskRunner* task_runner, Bitmap* visited,
+            Bitmap* in_visited, Bitmap* out_visited, F&& f, Args&&... args)
+      ->void {
+    assert(task_runner != nullptr);
+    std::vector<std::function<void()>> tasks;
+    size_t active_vertices = 0;
+    for (size_t tid = 0; tid < task_runner->GetParallelism(); ++tid) {
+      auto task = std::bind(&AutoMapBase<GRAPH_T, CONTEXT_T>::VReduce, this, f,
+                            &graph, tid, task_runner->GetParallelism(),
+                            in_visited, out_visited, visited);
+      tasks.push_back(task);
+    }
+    LOG_INFO("AutoMap ActiveMap Run");
+    task_runner->Run(tasks, false);
+    LOG_INFO("# ", active_vertices);
+    return;
+  };
+
  private:
   void ActiveEReduce(GRAPH_T* graph, Bitmap* in_visited, Bitmap* out_visited,
                      const size_t tid, const size_t step, bool* global_visited,
@@ -114,10 +130,8 @@ class AutoMapBase {
                      Bitmap* visited = nullptr) {
     size_t local_active_vertices = 0;
     for (size_t index = tid; index < graph->get_num_vertexes(); index += step) {
-      //LOG_INFO(index);
       if (in_visited->get_bit(index) == 0) continue;
       VertexInfo&& u = graph->GetVertexByIndex(index);
-      //u.ShowVertexInfo();
       for (size_t i = 0; i < u.outdegree; ++i) {
         if (!graph->IsInGraph(u.out_edges[i])) continue;
         auto local_id = vid_map[u.out_edges[i]];
@@ -151,6 +165,23 @@ class AutoMapBase {
         visited->set_bit(u.vid);
         *global_visited == true ? 0 : *global_visited = true;
         ++local_active_vertices;
+      }
+    }
+    write_add(active_vertices, local_active_vertices);
+  }
+
+  template <class F, class... Args>
+  void VReduce(F&& f, GRAPH_T* graph, const size_t tid, const size_t step,
+               Bitmap* in_visited, Bitmap* out_visited, Bitmap* visited,
+               size_t* active_vertices, Args&&... args) {
+    size_t local_active_vertices = 0;
+    for (size_t index = tid; index < graph->get_num_vertexes(); index += step) {
+      if (!in_visited->get_bit(index)) continue;
+      if (!graph->IsInGraph(index)) continue;
+      VertexInfo&& u = graph->GetVertexByIndex(index);
+      if (f(u, args...)) {
+        visited->set_bit(index);
+        out_visited->set_bit(index);
       }
     }
     write_add(active_vertices, local_active_vertices);

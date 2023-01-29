@@ -8,8 +8,6 @@
 #include <folly/concurrency/DynamicBoundedQueue.h>
 
 #include "2d_pie/auto_map.h"
-#include "2d_pie/edge_map_reduce.h"
-#include "2d_pie/vertex_map_reduce.h"
 #include "executors/scheduled_executor.h"
 #include "executors/scheduler.h"
 #include "executors/task_runner.h"
@@ -64,14 +62,9 @@ class AutoAppBase {
   virtual bool Aggregate(void* partial_result_a, void* partial_result_b,
                          executors::TaskRunner* task_runner) = 0;
 
-  void Bind(message::DefaultMessageManager<GRAPH_T>* msg_mngr) {
-    msg_mngr_ = msg_mngr;
-  }
 
   AutoMap_T* auto_map_ = nullptr;
-
   CONTEXT_T context_;
-
   message::DefaultMessageManager<GRAPH_T>* msg_mngr_ = nullptr;
 };
 
@@ -94,9 +87,8 @@ class AppWrapper {
 
   void InitMsgMngr(message::DefaultMessageManager<GRAPH_T>* msg_mngr) {
     msg_mngr_ = msg_mngr;
-    auto_app_->Bind(msg_mngr_);
+    auto_app_->msg_mngr_ = msg_mngr_;
   }
-
 };
 
 }  // namespace minigraph

@@ -2,8 +2,6 @@
 #define MINIGRAPH_MINIGRAPH_SYS_H
 
 #include "2d_pie/auto_app_base.h"
-#include "2d_pie/edge_map_reduce.h"
-#include "2d_pie/vertex_map_reduce.h"
 #include "components/computing_component.h"
 #include "components/discharge_component.h"
 #include "components/load_component.h"

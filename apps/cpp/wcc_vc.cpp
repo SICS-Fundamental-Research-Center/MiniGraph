@@ -1,6 +1,4 @@
 #include "2d_pie/auto_app_base.h"
-#include "2d_pie/edge_map_reduce.h"
-#include "2d_pie/vertex_map_reduce.h"
 #include "executors/task_runner.h"
 #include "graphs/graph.h"
 #include "minigraph_sys.h"
@@ -82,11 +80,6 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
                                                    typename GRAPH_T::edata_t>;
 
  public:
-  WCCPIE(minigraph::VMapBase<GRAPH_T, CONTEXT_T>* vmap,
-         minigraph::EMapBase<GRAPH_T, CONTEXT_T>* emap,
-         const CONTEXT_T& context)
-      : minigraph::AutoAppBase<GRAPH_T, CONTEXT_T>(vmap, emap, context) {}
-
   WCCPIE(minigraph::AutoMapBase<GRAPH_T, CONTEXT_T>* auto_map,
          const CONTEXT_T& context)
       : minigraph::AutoAppBase<GRAPH_T, CONTEXT_T>(auto_map, context) {}
@@ -122,8 +115,6 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
                                         task_runner, vid_map, &visited);
       std::swap(in_visited, out_visited);
     }
-    auto global_border_vid_map = this->msg_mngr_->GetGlobalBorderVidMap();
-    LOG_INFO(global_border_vid_map->size_);
     this->auto_map_->ActiveMap(
         graph, task_runner, &visited,
         WCCAutoMap<GRAPH_T, CONTEXT_T>::kernel_push_border_vertexes,
@@ -182,11 +173,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
                      .count() /
                  (double)CLOCKS_PER_SEC
               << std::endl;
-    if (visited_num > graph.get_num_vertexes() / 10000)
-      return true;
-    else
-      return false;
-    // return !visited.empty();
+    return !visited.empty();
   }
 
   bool Aggregate(void* a, void* b,
@@ -219,7 +206,6 @@ int main(int argc, char* argv[]) {
       work_space, num_workers_lc, num_workers_cc, num_workers_dc, num_cores,
       buffer_size, app_wrapper, FLAGS_mode);
   minigraph_sys.RunSys();
-  // minigraph_sys.ShowResult(20);
   gflags::ShutDownCommandLineFlags();
   exit(0);
 }

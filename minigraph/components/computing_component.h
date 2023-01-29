@@ -59,7 +59,7 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
     for (size_t i = 0; i < superstep_by_gid->size(); i++)
       p_[i] = (size_t) num_cores / num_workers;
 
-    
+
     XLOG(INFO,
          "Init ComputingComponent: Finish. TotalParallelism: ", num_cores_);
   };
