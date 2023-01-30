@@ -414,18 +414,21 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
 
     VID_T** buf_graph_bucket_ = (VID_T**)malloc(sizeof(VID_T*) * files.size());
     auto num_edges_bucket = (size_t*)malloc(sizeof(size_t) * files.size());
+    auto offset_edges_bucket =
+        (size_t*)malloc(sizeof(size_t) * (files.size() + 1));
+
+    memset((char*)num_edges_bucket, 0, sizeof(size_t) * (files.size()));
+    memset((char*)offset_edges_bucket, 0, sizeof(size_t) * (1 + files.size()));
 
     for (auto pi = 0; pi < files.size(); pi++) {
       rapidcsv::Document doc(files.at(pi), rapidcsv::LabelParams(),
                              rapidcsv::SeparatorParams(separator_params));
-      LOG_INFO("xXX");
+      LOG_INFO(files.at(pi));
       std::vector<VID_T> src = doc.GetColumn<VID_T>(0);
-      LOG_INFO("xXX", src.at(0), " ", src.at(1));
       std::vector<VID_T> dst = doc.GetColumn<VID_T>(1);
-      LOG_INFO("xXX", dst.at(0), " ", dst.at(1));
       VID_T* buff = (vid_t*)malloc(sizeof(vid_t) * (src.size() + dst.size()));
       memset((char*)buff, 0, sizeof(VID_T) * (src.size() + dst.size()));
-      buf_graph_bucket_[pi] = buf_graph_bucket_[pi];
+      buf_graph_bucket_[pi] = buff;
       LOG_INFO("num edges: ", src.size(), " sizeof(VID_T)", sizeof(VID_T));
       std::atomic<size_t> pending_packages(cores);
       std::atomic<VID_T> max_vid_atom(0);
@@ -435,9 +438,6 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
         thread_pool.Commit([tid, &cores, &src, &dst, &graph, &pending_packages,
                             &finish_cv, &max_vid_atom, &buff]() {
           for (size_t j = tid; j < src.size(); j += cores) {
-            //*((VID_T*)((EDGE_LIST_T*)graph)->buf_graph_ + j * 2) = src.at(j);
-            //            *((VID_T*)((EDGE_LIST_T*)graph)->buf_graph_ + j * 2 +
-            //            1) = dst.at(j);
             *(buff + j * 2) = src.at(j);
             *(buff + j * 2 + 1) = dst.at(j);
             LOG_INFO(src.at(j), " ", dst.at(j));
@@ -448,31 +448,28 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
         });
       }
 
-      LOG_INFO("XXXXX");
-
       finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
-      LOG_INFO("XXXXXX");
-      //((EDGE_LIST_T*)graph)->num_edges_ += src.size();
+      ((EDGE_LIST_T*)graph)->num_edges_ += src.size();
+      LOG_INFO(src.size(), " / ", ((EDGE_LIST_T*)graph)->num_edges_);
       num_edges_bucket[pi] = src.size();
-      LOG_INFO("MAX_VID: ", max_vid_atom.load());
+      offset_edges_bucket[pi + 1] = src.size();
+      //LOG_INFO("MAX_VID: ", max_vid_atom.load());
     }
 
-    LOG_INFO("XXXXX");
+    ((EDGE_LIST_T*)graph)->buf_graph_ =
+        (VID_T*)malloc(sizeof(VID_T) * ((EDGE_LIST_T*)graph)->num_edges_);
+    memset((char*)((EDGE_LIST_T*)graph)->buf_graph_, 0,
+           sizeof(VID_T) * ((EDGE_LIST_T*)graph)->num_edges_);
+
+    for (size_t pi = 0; pi < files.size(); pi++) {
+      memcpy(((EDGE_LIST_T*)graph)->buf_graph_ + offset_edges_bucket[pi] * 2,
+              buf_graph_bucket_[pi], num_edges_bucket[pi] * 2 *
+              sizeof(VID_T));
+    }
+
     ((EDGE_LIST_T*)graph)->num_vertexes_ = 0;
     ((EDGE_LIST_T*)graph)->gid_ = gid;
-    /*
-    rapidcsv::Document doc(pt, rapidcsv::LabelParams(),
-                           rapidcsv::SeparatorParams(separator_params));
-    std::vector<VID_T> src = doc.GetColumn<VID_T>("src");
-    std::vector<VID_T> dst = doc.GetColumn<VID_T>("dst");
-
-    ((EDGE_LIST_T*)graph)->buf_graph_ =
-        (vid_t*)malloc(sizeof(vid_t) * (src.size() + dst.size()));
-
-    VID_T* buff = (VID_T*)((EDGE_LIST_T*)graph)->buf_graph_;
-    memset((char*)buff, 0, sizeof(VID_T) * (src.size() + dst.size()));
-    LOG_INFO("num edges: ", src.size(), " sizeof(VID_T)", sizeof(VID_T));
-    */
+    ((EDGE_LIST_T*)graph)->ShowGraph();
     return true;
   }
 };
