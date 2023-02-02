@@ -175,6 +175,8 @@ int main(int argc, char* argv[]) {
     if (graph_type == "edgelist_bin") {
       BatchEdgeList2EdgeList(src_pt, dst_pt, *FLAGS_sep.c_str());
     }
+  } else {
+
   }
   gflags::ShutDownCommandLineFlags();
 }
