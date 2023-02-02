@@ -1,22 +1,18 @@
 #ifndef MINIGRAPH_UTILITY_IO_EDGE_LIST_IO_ADAPTER_H
 #define MINIGRAPH_UTILITY_IO_EDGE_LIST_IO_ADAPTER_H
 
+#include "graphs/edge_list.h"
+#include "io_adapter_base.h"
+#include "portability/sys_data_structure.h"
+#include "portability/sys_types.h"
+#include "rapidcsv.h"
+#include "utility/thread_pool.h"
 #include <sys/stat.h>
-
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <string>
 #include <unordered_map>
-
-#include "rapidcsv.h"
-
-#include "graphs/edge_list.h"
-#include "io_adapter_base.h"
-#include "portability/sys_data_structure.h"
-#include "portability/sys_types.h"
-#include "utility/thread_pool.h"
-
 
 namespace minigraph {
 namespace utility {
@@ -277,6 +273,7 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     edge_list_graph->map_globalid2localid_ =
         new std::unordered_map<VID_T, VID_T>;
     edge_list_graph->map_globalid2localid_->reserve(meta_buff[0]);
+    LOG_INFO("Num Vertexes: ", meta_buff[0], " Num Edges: ", meta_buff[1]);
     for (size_t i = 0; i < meta_buff[0]; i++) {
       edge_list_graph->map_globalid2localid_->insert(
           std::make_pair(edge_list_graph->globalid_by_localid_[i], i));
@@ -366,8 +363,6 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     std::ofstream data_file(data_pt, std::ios::binary | std::ios::app);
     std::ofstream vdata_file(vdata_pt, std::ios::binary | std::ios::app);
 
-    LOG_INFO("num_vertexes: ", ((EDGE_LIST_T*)&graph)->num_vertexes_,
-             " \nnum_edges: ", ((EDGE_LIST_T*)&graph)->num_edges_);
     size_t* meta_buff = (size_t*)malloc(sizeof(size_t) * 2);
     meta_buff[0] = ((EDGE_LIST_T*)&graph)->num_vertexes_;
     meta_buff[1] = ((EDGE_LIST_T*)&graph)->num_edges_;
@@ -471,6 +466,10 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
 
     ((EDGE_LIST_T*)graph)->num_vertexes_ = max_vid_atom.load();
     ((EDGE_LIST_T*)graph)->gid_ = gid;
+
+    LOG_INFO("Gid: ", ((EDGE_LIST_T*)graph)->gid_,
+             " num_vertexes: ", ((EDGE_LIST_T*)graph)->num_vertexes_,
+             " num_edges: ", ((EDGE_LIST_T*)graph)->num_edges_);
     return true;
   }
 };
