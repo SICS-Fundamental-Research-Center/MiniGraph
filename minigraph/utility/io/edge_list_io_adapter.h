@@ -1,18 +1,21 @@
 #ifndef MINIGRAPH_UTILITY_IO_EDGE_LIST_IO_ADAPTER_H
 #define MINIGRAPH_UTILITY_IO_EDGE_LIST_IO_ADAPTER_H
 
+#include <sys/stat.h>
+
+#include <filesystem>
+#include <fstream>
+#include <iostream>
+#include <string>
+#include <unordered_map>
+
 #include "graphs/edge_list.h"
 #include "io_adapter_base.h"
 #include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
 #include "rapidcsv.h"
 #include "utility/thread_pool.h"
-#include <sys/stat.h>
-#include <filesystem>
-#include <fstream>
-#include <iostream>
-#include <string>
-#include <unordered_map>
+
 
 namespace minigraph {
 namespace utility {
@@ -440,7 +443,7 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
           for (size_t j = tid; j < src.size(); j += cores) {
             *(buff + j * 2) = src.at(j);
             *(buff + j * 2 + 1) = dst.at(j);
-            LOG_INFO(src.at(j), " ", dst.at(j));
+            // LOG_INFO(src.at(j), " ", dst.at(j));
             if (max_vid_atom.load() < src.at(j)) max_vid_atom.store(src.at(j));
           }
           if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
@@ -450,10 +453,10 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
 
       finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
       ((EDGE_LIST_T*)graph)->num_edges_ += src.size();
-      LOG_INFO(src.size(), " / ", ((EDGE_LIST_T*)graph)->num_edges_);
+      // LOG_INFO(src.size(), " / ", ((EDGE_LIST_T*)graph)->num_edges_);
       num_edges_bucket[pi] = src.size();
       offset_edges_bucket[pi + 1] = src.size();
-      //LOG_INFO("MAX_VID: ", max_vid_atom.load());
+      // LOG_INFO("MAX_VID: ", max_vid_atom.load());
     }
 
     ((EDGE_LIST_T*)graph)->buf_graph_ =
@@ -463,8 +466,7 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
 
     for (size_t pi = 0; pi < files.size(); pi++) {
       memcpy(((EDGE_LIST_T*)graph)->buf_graph_ + offset_edges_bucket[pi] * 2,
-              buf_graph_bucket_[pi], num_edges_bucket[pi] * 2 *
-              sizeof(VID_T));
+             buf_graph_bucket_[pi], num_edges_bucket[pi] * 2 * sizeof(VID_T));
     }
 
     ((EDGE_LIST_T*)graph)->num_vertexes_ = 0;
