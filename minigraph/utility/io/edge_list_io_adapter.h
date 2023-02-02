@@ -9,11 +9,12 @@
 #include <string>
 #include <unordered_map>
 
+#include "rapidcsv.h"
+
 #include "graphs/edge_list.h"
 #include "io_adapter_base.h"
 #include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
-#include "rapidcsv.h"
 #include "utility/thread_pool.h"
 
 
@@ -331,6 +332,7 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
           *((VID_T*)((EDGE_LIST_T*)graph)->buf_graph_ + j * 2 + 1) = dst.at(j);
 
           if (max_vid_atom.load() < src.at(j)) max_vid_atom.store(src.at(j));
+          if (max_vid_atom.load() < dst.at(j)) max_vid_atom.store(dst.at(j));
         }
         if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
         return;
@@ -338,7 +340,7 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     }
     finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
     ((EDGE_LIST_T*)graph)->num_edges_ = src.size();
-    ((EDGE_LIST_T*)graph)->num_vertexes_ = 0;
+    ((EDGE_LIST_T*)graph)->num_vertexes_ = max_vid_atom.load();
     ((EDGE_LIST_T*)graph)->gid_ = gid;
     LOG_INFO("MAX_VID: ", max_vid_atom.load());
     return true;
@@ -364,6 +366,8 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     std::ofstream data_file(data_pt, std::ios::binary | std::ios::app);
     std::ofstream vdata_file(vdata_pt, std::ios::binary | std::ios::app);
 
+    LOG_INFO("num_vertexes: ", ((EDGE_LIST_T*)&graph)->num_vertexes_,
+             " \nnum_edges: ", ((EDGE_LIST_T*)&graph)->num_edges_);
     size_t* meta_buff = (size_t*)malloc(sizeof(size_t) * 2);
     meta_buff[0] = ((EDGE_LIST_T*)&graph)->num_vertexes_;
     meta_buff[1] = ((EDGE_LIST_T*)&graph)->num_edges_;
@@ -412,7 +416,6 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     for (const auto& entry : std::filesystem::directory_iterator(pt)) {
       std::string path = entry.path();
       files.push_back(path);
-      LOG_INFO(path);
     }
 
     VID_T** buf_graph_bucket_ = (VID_T**)malloc(sizeof(VID_T*) * files.size());
@@ -423,6 +426,7 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     memset((char*)num_edges_bucket, 0, sizeof(size_t) * (files.size()));
     memset((char*)offset_edges_bucket, 0, sizeof(size_t) * (1 + files.size()));
 
+    std::atomic<VID_T> max_vid_atom(0);
     for (auto pi = 0; pi < files.size(); pi++) {
       rapidcsv::Document doc(files.at(pi), rapidcsv::LabelParams(),
                              rapidcsv::SeparatorParams(separator_params));
@@ -432,9 +436,7 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       VID_T* buff = (vid_t*)malloc(sizeof(vid_t) * (src.size() + dst.size()));
       memset((char*)buff, 0, sizeof(VID_T) * (src.size() + dst.size()));
       buf_graph_bucket_[pi] = buff;
-      LOG_INFO("num edges: ", src.size(), " sizeof(VID_T)", sizeof(VID_T));
       std::atomic<size_t> pending_packages(cores);
-      std::atomic<VID_T> max_vid_atom(0);
 
       for (size_t i = 0; i < cores; i++) {
         size_t tid = i;
@@ -443,8 +445,8 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
           for (size_t j = tid; j < src.size(); j += cores) {
             *(buff + j * 2) = src.at(j);
             *(buff + j * 2 + 1) = dst.at(j);
-            // LOG_INFO(src.at(j), " ", dst.at(j));
             if (max_vid_atom.load() < src.at(j)) max_vid_atom.store(src.at(j));
+            if (max_vid_atom.load() < dst.at(j)) max_vid_atom.store(dst.at(j));
           }
           if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
           return;
@@ -453,25 +455,22 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
 
       finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
       ((EDGE_LIST_T*)graph)->num_edges_ += src.size();
-      // LOG_INFO(src.size(), " / ", ((EDGE_LIST_T*)graph)->num_edges_);
       num_edges_bucket[pi] = src.size();
       offset_edges_bucket[pi + 1] = src.size();
-      // LOG_INFO("MAX_VID: ", max_vid_atom.load());
     }
 
     ((EDGE_LIST_T*)graph)->buf_graph_ =
-        (VID_T*)malloc(sizeof(VID_T) * ((EDGE_LIST_T*)graph)->num_edges_);
+        (VID_T*)malloc(sizeof(VID_T) * ((EDGE_LIST_T*)graph)->num_edges_ * 2);
     memset((char*)((EDGE_LIST_T*)graph)->buf_graph_, 0,
-           sizeof(VID_T) * ((EDGE_LIST_T*)graph)->num_edges_);
+           sizeof(VID_T) * ((EDGE_LIST_T*)graph)->num_edges_ * 2);
 
     for (size_t pi = 0; pi < files.size(); pi++) {
       memcpy(((EDGE_LIST_T*)graph)->buf_graph_ + offset_edges_bucket[pi] * 2,
              buf_graph_bucket_[pi], num_edges_bucket[pi] * 2 * sizeof(VID_T));
     }
 
-    ((EDGE_LIST_T*)graph)->num_vertexes_ = 0;
+    ((EDGE_LIST_T*)graph)->num_vertexes_ = max_vid_atom.load();
     ((EDGE_LIST_T*)graph)->gid_ = gid;
-    ((EDGE_LIST_T*)graph)->ShowGraph();
     return true;
   }
 };
