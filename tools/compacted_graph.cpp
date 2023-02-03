@@ -288,12 +288,12 @@ void GraphReduceBinToBin(const std::string input_pt, const std::string dst_pt,
   auto thread_pool = minigraph::utility::CPUThreadPool(cores, 1);
 
   size_t num_edges = graph->num_edges_;
-  size_t* src_v = (size_t*)malloc(sizeof(size_t) * num_edges);
-  size_t* dst_v = (size_t*)malloc(sizeof(size_t) * num_edges);
-  memset(src_v, 0, sizeof(size_t) * num_edges);
-  memset(dst_v, 0, sizeof(size_t) * num_edges);
+  VID_T* src_v = (VID_T*)malloc(sizeof(VID_T) * num_edges);
+  VID_T* dst_v = (VID_T*)malloc(sizeof(VID_T) * num_edges);
+  memset(src_v, 0, sizeof(VID_T) * num_edges);
+  memset(dst_v, 0, sizeof(VID_T) * num_edges);
 
-  std::atomic<size_t> max_vid_atom(0);
+  std::atomic<VID_T> max_vid_atom(0);
 
   LOG_INFO("Read ", num_edges, " edges");
   LOG_INFO("Run: get maximum vid");
@@ -304,21 +304,21 @@ void GraphReduceBinToBin(const std::string input_pt, const std::string dst_pt,
       for (size_t j = tid; j < graph->num_edges_; j += cores) {
         src_v[j] = graph->buf_graph_[j * 2];
         dst_v[j] = graph->buf_graph_[j * 2 + 1];
-        if (max_vid_atom.load() < dst_v[j * 2 + 1])
-          max_vid_atom.store(dst_v[j * 2 + 1]);
-        if (max_vid_atom.load() < src_v[j * 2])
-          max_vid_atom.store(src_v[j * 2]);
+        if (max_vid_atom.load() < graph->buf_graph_[j * 2 + 1])
+          max_vid_atom.store(graph->buf_graph_[j * 2 + 1]);
+        if (max_vid_atom.load() < graph->buf_graph_[j * 2])
+          max_vid_atom.store(graph->buf_graph_[j * 2]);
       }
       if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
       return;
     });
   }
   finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
-  max_vid_atom.store((size_t(max_vid_atom.load() / 64) + 1) * 64);
+  max_vid_atom.store((VID_T(max_vid_atom.load() / 64) + 1) * 64);
   LOG_INFO("#maximum vid: ", max_vid_atom.load());
   graph->max_vid_ = max_vid_atom.load();
-  size_t* vid_map = (size_t*)malloc(sizeof(size_t) * max_vid_atom.load());
-  memset(vid_map, 0, sizeof(size_t) * max_vid_atom.load());
+  VID_T* vid_map = (VID_T*)malloc(sizeof(VID_T) * max_vid_atom.load());
+  memset(vid_map, 0, sizeof(VID_T) * max_vid_atom.load());
   Bitmap* visited = new Bitmap(max_vid_atom.load());
   visited->clear();
 
@@ -372,7 +372,6 @@ void GraphReduceBinToBin(const std::string input_pt, const std::string dst_pt,
   free(vid_map);
   free(src_v);
   free(dst_v);
-  graph->ShowGraph(10);
   edge_list_io_adapter.Write(*graph, edge_list_bin, false, dst_meta_pt,
                              dst_data_pt, dst_vdata_pt);
   std::cout << "Save at " << dst_pt << std::endl;
