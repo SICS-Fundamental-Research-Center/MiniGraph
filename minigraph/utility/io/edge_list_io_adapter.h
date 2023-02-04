@@ -313,8 +313,10 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     // auto edge_list = (EDGE_LIST_T*)graph;
     rapidcsv::Document doc(pt, rapidcsv::LabelParams(),
                            rapidcsv::SeparatorParams(separator_params));
-    std::vector<VID_T> src = doc.GetColumn<VID_T>("src");
-    std::vector<VID_T> dst = doc.GetColumn<VID_T>("dst");
+    //std::vector<VID_T> src = doc.GetColumn<VID_T>("src");
+    //std::vector<VID_T> dst = doc.GetColumn<VID_T>("dst");
+    std::vector<VID_T> src = doc.GetColumn<VID_T>(0);
+    std::vector<VID_T> dst = doc.GetColumn<VID_T>(1);
     ((EDGE_LIST_T*)graph)->buf_graph_ =
         (vid_t*)malloc(sizeof(vid_t) * (src.size() + dst.size()));
 
@@ -375,6 +377,7 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     data_file.write((char*)((EDGE_LIST_T*)&graph)->buf_graph_,
                     sizeof(VID_T) * 2 * ((EDGE_LIST_T*)&graph)->num_edges_);
 
+    LOG_INFO("VID_T size: ", sizeof(VID_T));
     if ((char*)((EDGE_LIST_T*)&graph)->vdata_ != nullptr)
       vdata_file.write((char*)((EDGE_LIST_T*)&graph)->vdata_,
                        sizeof(VID_T) * ((EDGE_LIST_T*)&graph)->num_vertexes_);
