@@ -280,6 +280,7 @@ void GraphReduceBinToBin(const std::string input_pt, const std::string dst_pt,
   auto graph = new EDGE_LIST_T;
   edge_list_io_adapter.Read((GRAPH_BASE_T*)graph, edge_list_bin, ' ', 0,
                             input_meta_pt, input_data_pt, input_vdata_pt);
+  graph->ShowGraph();
   std::mutex mtx;
   std::condition_variable finish_cv;
   std::unique_lock<std::mutex> lck(mtx);
@@ -372,8 +373,10 @@ void GraphReduceBinToBin(const std::string input_pt, const std::string dst_pt,
   free(vid_map);
   free(src_v);
   free(dst_v);
+  graph->num_vertexes_ = local_id;
   edge_list_io_adapter.Write(*graph, edge_list_bin, false, dst_meta_pt,
                              dst_data_pt, dst_vdata_pt);
+  graph->ShowGraph(10);
   std::cout << "Save at " << dst_pt << std::endl;
   return;
 }
