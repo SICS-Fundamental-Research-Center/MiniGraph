@@ -30,9 +30,15 @@ class VertexInfo {
   ~VertexInfo() = default;
 
   void ShowVertexAbs(const VID_T& globalid = -1) const {
-    std::cout << " localid: " << vid << ", globalid: " << globalid
-              << ", label: " << vdata[0] << ", outdegree: " << outdegree
-              << ", indegree: " << indegree << std::endl;
+    if (vdata == nullptr) {
+      std::cout << " localid: " << vid << ", globalid: " << globalid
+                << ", outdegree: " << outdegree << ", indegree: " << indegree
+                << std::endl;
+    } else {
+      std::cout << " localid: " << vid << ", globalid: " << globalid
+                << ", label: " << vdata[0] << ", outdegree: " << outdegree
+                << ", indegree: " << indegree << std::endl;
+    }
   }
   void ShowVertexInfo(const VID_T& globalid = -1) const {
     if (vdata == nullptr) {

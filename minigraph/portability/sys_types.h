@@ -1,8 +1,7 @@
 #pragma once
 
-#include <sys/types.h>
-
 #include <gflags/gflags.h>
+#include <sys/types.h>
 
 using gid_t = unsigned;
 using vid_t = unsigned;
@@ -72,6 +71,8 @@ DEFINE_uint64(niters, 4, "number of iterations for graph-level while loop");
 DEFINE_uint64(inner_niters, 4, "number of iterations for inner while loop");
 DEFINE_string(init_model, "val", "init model for vdata of all vertexes");
 DEFINE_string(mode, "default", "MiniGraph with entire optimization");
+DEFINE_string(partitioner, "vertexcut",
+              "graph partition solutions include vertexcut, edgecut");
 DEFINE_uint64(init_val, 0, "init value for vdata of all vertexes");
 DEFINE_uint64(root, 0, "the id of root vertex");
 DEFINE_double(

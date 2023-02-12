@@ -2,7 +2,6 @@
 #define MINIGRAPH_UTILITY_IO_CSR_IO_ADAPTER_H
 
 #include <sys/stat.h>
-
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -11,12 +10,13 @@
 #include <folly/AtomicHashArray.h>
 #include <folly/AtomicHashMap.h>
 #include <folly/FileUtil.h>
+#include "rapidcsv.h"
 
 #include "graphs/immutable_csr.h"
 #include "io_adapter_base.h"
 #include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
-#include "rapidcsv.h"
+#include "utility/bitmap.h"
 #include "utility/logging.h"
 
 
@@ -28,6 +28,7 @@ template <typename GID_T, typename VID_T, typename VDATA_T, typename EDATA_T>
 class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
   using GRAPH_BASE_T = graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>;
   using CSR_T = graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>;
+  using EDGE_LIST_T = graphs::EdgeList<GID_T, VID_T, VDATA_T, EDATA_T>;
 
  public:
   CSRIOAdapter(const std::string& pt)
@@ -84,6 +85,159 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     return tag;
   }
 
+  CSR_T* EdgeList2CSR(const GID_T gid = 0,
+                      EDGE_LIST_T* edgelist_graph = nullptr,
+                      const size_t cores = 1, VID_T* vid_map = nullptr) {
+    assert(edgelist_graph != nullptr);
+    LOG_INFO("EdgeList2CSR()");
+
+    auto thread_pool = CPUThreadPool(cores, 1);
+    std::mutex mtx;
+    std::condition_variable finish_cv;
+    std::unique_lock<std::mutex> lck(mtx);
+
+    VID_T max_vid = ceil((float)edgelist_graph->max_vid_ / 64) * 64;
+
+    LOG_INFO("Run: Convert std::vector to array.");
+    std::atomic<size_t> pending_packages(cores);
+    LOG_INFO("MAXIMUM ID: ", max_vid);
+
+    size_t* num_in_edges = (size_t*)malloc(sizeof(size_t) * max_vid);
+    size_t* num_out_edges = (size_t*)malloc(sizeof(size_t) * max_vid);
+    memset(num_in_edges, 0, sizeof(size_t) * max_vid);
+    memset(num_out_edges, 0, sizeof(size_t) * max_vid);
+
+    GID_T* gid_by_vid = (GID_T*)malloc(sizeof(GID_T) * max_vid);
+    ;
+    memset(gid_by_vid, 0, sizeof(GID_T) * max_vid);
+    Bitmap* vertex_indicator = new Bitmap(max_vid);
+    vertex_indicator->clear();
+
+    size_t num_vertexes = edgelist_graph->num_vertexes_;
+    size_t num_edges = edgelist_graph->num_edges_;
+
+    // Go through every edges to count the size of each vertex.
+    LOG_INFO("Run: Go through every edges to count the size of each vertex");
+    pending_packages.store(cores);
+    for (size_t i = 0; i < cores; i++) {
+      size_t tid = i;
+      thread_pool.Commit([tid, &cores, &num_in_edges, &num_out_edges,
+                          &num_edges, &edgelist_graph, &vertex_indicator,
+                          &pending_packages, &finish_cv, &num_vertexes]() {
+        if (tid > num_edges) return;
+        for (size_t j = tid; j < num_edges; j += cores) {
+          auto src_vid = edgelist_graph->buf_graph_[j * 2];
+          auto dst_vid = edgelist_graph->buf_graph_[j * 2 + 1];
+          if (!vertex_indicator->get_bit(src_vid)) {
+            vertex_indicator->set_bit(src_vid);
+          }
+          if (!vertex_indicator->get_bit(dst_vid)) {
+            vertex_indicator->set_bit(dst_vid);
+          }
+          __sync_add_and_fetch(num_out_edges + src_vid, 1);
+          __sync_add_and_fetch(num_in_edges + dst_vid, 1);
+        }
+        if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
+        return;
+      });
+    }
+    finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
+
+    graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>** vertexes = nullptr;
+    vertexes = (graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>**)malloc(
+        sizeof(graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>*) * max_vid);
+
+    for (size_t i = 0; i < max_vid; i++) vertexes[i] = nullptr;
+
+    VID_T local_id = 0;
+
+    LOG_INFO("Run: Merge edges");
+    pending_packages.store(cores);
+    for (size_t i = 0; i < cores; i++) {
+      size_t tid = i;
+      thread_pool.Commit([this, tid, &local_id, &cores, &num_in_edges, &vid_map,
+                          &num_out_edges, &max_vid, &vertex_indicator,
+                          &vertexes, &pending_packages, &finish_cv]() {
+        if (tid > max_vid) return;
+        for (VID_T global_id = tid; global_id < max_vid; global_id += cores) {
+          if (!vertex_indicator->get_bit(global_id)) continue;
+          auto u = new graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>();
+          u->vid = __sync_fetch_and_add(&local_id, 1);
+          if (vid_map != nullptr) vid_map[global_id] = u->vid;
+          u->indegree = num_in_edges[global_id];
+          u->outdegree = num_out_edges[global_id];
+          u->in_edges = (VID_T*)malloc(sizeof(VID_T) * (u->indegree));
+          memset(u->in_edges, 0, sizeof(VID_T) * (u->indegree));
+          u->out_edges = (VID_T*)malloc(sizeof(VID_T) * (u->outdegree));
+          memset(u->out_edges, 0, sizeof(VID_T) * (u->outdegree));
+          vertexes[global_id] = u;
+        }
+        if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
+        return;
+      });
+    }
+    finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
+
+    LOG_INFO("Run: Edges fill");
+    size_t sum_in_edges = 0, sum_out_edges = 0;
+    size_t* offset_in_edges = (size_t*)malloc(sizeof(size_t) * max_vid);
+    size_t* offset_out_edges = (size_t*)malloc(sizeof(size_t) * max_vid);
+    memset(offset_in_edges, 0, sizeof(size_t) * max_vid);
+    memset(offset_out_edges, 0, sizeof(size_t) * max_vid);
+    pending_packages.store(cores);
+    for (size_t i = 0; i < cores; i++) {
+      size_t tid = i;
+      thread_pool.Commit([tid, &cores, &num_in_edges, &num_out_edges,
+                          &num_edges, &offset_in_edges, &offset_out_edges,
+                          sum_in_edges, sum_out_edges, &edgelist_graph,
+                          &vertex_indicator, &vertexes, &pending_packages,
+                          &finish_cv]() {
+        for (VID_T global_eid = tid; global_eid < num_edges;
+             global_eid += cores) {
+          auto src_vid = edgelist_graph->buf_graph_[global_eid * 2];
+          auto dst_vid = edgelist_graph->buf_graph_[global_eid * 2 + 1];
+          assert(vertexes[src_vid] != nullptr);
+          assert(vertexes[dst_vid] != nullptr);
+          auto dst_in_offset =
+              __sync_fetch_and_add(offset_in_edges + dst_vid, 1);
+          auto src_out_offset =
+              __sync_fetch_and_add(offset_out_edges + src_vid, 1);
+          assert(dst_in_offset < num_in_edges[dst_vid]);
+          assert(src_out_offset < num_out_edges[src_vid]);
+          if (vertexes[src_vid] != nullptr) {
+            vertexes[src_vid]->out_edges[src_out_offset] = dst_vid;
+          }
+          if (vertexes[dst_vid] != nullptr) {
+            vertexes[dst_vid]->in_edges[dst_in_offset] = src_vid;
+          }
+        }
+        if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
+        return;
+      });
+    }
+    finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
+
+    LOG_INFO("Run: Compute sum_in_edges & sum_out_edges");
+    for (VID_T global_id = 0; global_id < max_vid; global_id++) {
+      if (!vertex_indicator->get_bit(global_id)) continue;
+      auto u = vertexes[global_id];
+      __sync_fetch_and_add(&sum_in_edges, u->indegree);
+      __sync_fetch_and_add(&sum_out_edges, u->outdegree);
+    }
+
+    LOG_INFO("Run: Construct graph");
+
+    auto csr_graph = new graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>(
+        gid, vertexes, edgelist_graph->num_vertexes_, sum_in_edges,
+        sum_out_edges, max_vid);
+
+    delete offset_out_edges;
+    delete offset_in_edges;
+    delete num_in_edges;
+    delete num_out_edges;
+    return csr_graph;
+  }
+
  private:
   bool ReadCSRFromEdgeListCSV(
       graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>* graph,
@@ -126,7 +280,6 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
         graph_in_edges.insert(std::make_pair(dst.at(i), in_edges));
       }
     }
-    LOG_INFO();
     // immutable_csr->sum_in_edges_ = graph_in_edges.size();
     // immutable_csr->sum_out_edges_ = graph_out_edges.size();
     immutable_csr->sum_in_edges_ = src.size();
@@ -200,7 +353,8 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
 
       // read bitmap
       meta_file.read((char*)&graph->max_vid_, sizeof(VID_T));
-      graph->max_vid_ = int(ceil(graph->max_vid_ / 64) + 1) * 64;
+      graph->max_vid_ = int(ceil((float)graph->max_vid_ / 64)) * 64;
+      LOG_INFO(graph->max_vid_);
       graph->bitmap_ = new Bitmap(graph->max_vid_);
       graph->bitmap_->clear();
       meta_file.close();
@@ -210,21 +364,19 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       // read data
       size_t size_localid = sizeof(VID_T) * buf_meta[0];
       size_t size_globalid = sizeof(VID_T) * buf_meta[0];
-      size_t size_index_by_vid = sizeof(size_t) * buf_meta[0];
       size_t size_indegree = sizeof(size_t) * buf_meta[0];
       size_t size_outdegree = sizeof(size_t) * buf_meta[0];
       size_t size_in_offset = sizeof(size_t) * buf_meta[0];
       size_t size_out_offset = sizeof(size_t) * buf_meta[0];
       size_t size_in_edges = sizeof(VID_T) * buf_meta[1];
       size_t size_out_edges = sizeof(VID_T) * buf_meta[2];
-      total_size = size_localid + size_globalid + size_index_by_vid +
-                   size_indegree + size_outdegree + size_in_offset +
-                   size_out_offset + size_in_edges + size_out_edges;
+      total_size = size_localid + size_globalid + size_indegree +
+                   size_outdegree + size_in_offset + size_out_offset +
+                   size_in_edges + size_out_edges;
 
       size_t start_localid = 0;
       size_t start_globalid = start_localid + size_localid;
-      size_t start_index_by_vid = start_globalid + size_globalid;
-      size_t start_indegree = start_index_by_vid + size_index_by_vid;
+      size_t start_indegree = start_globalid + size_globalid;
       size_t start_outdegree = start_indegree + size_indegree;
       size_t start_in_offset = start_outdegree + size_outdegree;
       size_t start_out_offset = start_in_offset + size_in_offset;
@@ -238,8 +390,6 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
           ((VID_T*)((char*)graph->buf_graph_ + start_localid));
       graph->globalid_by_index_ =
           (VID_T*)((char*)graph->buf_graph_ + start_globalid);
-      graph->index_by_vid_ =
-          ((size_t*)((char*)graph->buf_graph_ + start_index_by_vid));
       graph->out_offset_ =
           (size_t*)((char*)graph->buf_graph_ + start_out_offset);
       graph->in_offset_ = (size_t*)((char*)graph->buf_graph_ + start_in_offset);
@@ -268,8 +418,6 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       vdata_file.close();
     }
 
-    // LOG_INFO("Gid: ", gid, " - Load bytes: ",
-    //          total_size + sizeof(VDATA_T) * graph->num_vertexes_);
     graph->is_serialized_ = true;
     graph->gid_ = gid;
     free(buf_meta);
@@ -308,14 +456,14 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       std::ofstream data_file(data_pt, std::ios::binary | std::ios::app);
       size_t size_localid = sizeof(VID_T) * graph.num_vertexes_;
       size_t size_globalid = sizeof(VID_T) * graph.num_vertexes_;
-      size_t size_index_by_vid = sizeof(size_t) * graph.num_vertexes_;
+      // size_t size_index_by_vid = sizeof(size_t) * graph.num_vertexes_;
       size_t size_indegree = sizeof(size_t) * graph.num_vertexes_;
       size_t size_outdegree = sizeof(size_t) * graph.num_vertexes_;
       size_t size_in_offset = sizeof(size_t) * graph.num_vertexes_;
       size_t size_out_offset = sizeof(size_t) * graph.num_vertexes_;
       size_t size_in_edges = sizeof(VID_T) * graph.sum_in_edges_;
       size_t size_out_edges = sizeof(VID_T) * graph.sum_out_edges_;
-      size_t total_size = size_localid + size_globalid + size_index_by_vid +
+      size_t total_size = size_localid + size_globalid +  // size_index_by_vid +
                           size_in_offset + size_indegree + size_outdegree +
                           size_out_offset + size_in_edges + size_out_edges;
       data_file.write((char*)graph.buf_graph_, total_size);

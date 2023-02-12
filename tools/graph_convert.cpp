@@ -6,6 +6,8 @@
 #include "utility/io/data_mngr.h"
 #include "utility/io/edge_list_io_adapter.h"
 #include "utility/paritioner/edge_cut_partitioner.h"
+#include "utility/paritioner/partitioner_base.h"
+#include "utility/paritioner/vertex_cut_partitioner.h"
 #include <gflags/gflags.h>
 #include <sys/stat.h>
 #include <iostream>
@@ -16,22 +18,17 @@ using GRAPH_BASE_T = minigraph::graphs::Graph<gid_t, vid_t, vdata_t, edata_t>;
 using EDGE_LIST_T = minigraph::graphs::EdgeList<gid_t, vid_t, vdata_t, edata_t>;
 
 void EdgeList2CSR(std::string src_pt, std::string dst_pt, std::size_t cores,
-                  std::size_t num_partitions, size_t max_vid,
-                  std::string init_model, unsigned init_val,
-                  char separator_params = ',', const bool frombin = false) {
-  max_vid = (ceil(max_vid / 64) + 1) * 64;
+                  std::size_t num_partitions, char separator_params = ',',
+                  const bool frombin = false) {
+  // max_vid = (ceil(max_vid / 64) + 1) * 64;
   minigraph::utility::io::DataMngr<CSR_T> data_mngr;
-  minigraph::utility::partitioner::EdgeCutPartitioner<CSR_T>
-      edge_cut_partitioner(max_vid);
 
-  if (frombin) {
-    edge_cut_partitioner.ParallelPartitionFromBin(
-        src_pt, num_partitions, max_vid, cores, init_model, init_val);
-  } else {
-    edge_cut_partitioner.ParallelPartition(src_pt, separator_params,
-                                           num_partitions, max_vid, cores,
-                                           init_model, init_val);
-  }
+  minigraph::utility::partitioner::PartitionerBase<CSR_T>* partitioner =
+      nullptr;
+  partitioner =
+      new minigraph::utility::partitioner::EdgeCutPartitioner<CSR_T>();
+
+  partitioner->ParallelPartitionFromBin(src_pt, num_partitions, cores);
 
   if (!data_mngr.IsExist(dst_pt + "minigraph_meta/")) {
     data_mngr.MakeDirectory(dst_pt + "minigraph_meta/");
@@ -71,7 +68,7 @@ void EdgeList2CSR(std::string src_pt, std::string dst_pt, std::size_t cores,
     data_mngr.MakeDirectory(dst_pt + "minigraph_message/");
   }
 
-  auto fragments = edge_cut_partitioner.GetFragments();
+  auto fragments = partitioner->GetFragments();
   size_t count = 0;
   for (auto& iter_fragments : *fragments) {
     auto fragment = (CSR_T*)iter_fragments;
@@ -87,13 +84,12 @@ void EdgeList2CSR(std::string src_pt, std::string dst_pt, std::size_t cores,
   }
 
   LOG_INFO("WriteCommunicationMatrix.");
-  auto pair_communication_matrix =
-      edge_cut_partitioner.GetCommunicationMatrix();
+  auto pair_communication_matrix = partitioner->GetCommunicationMatrix();
 
   LOG_INFO("WriteVidMap.");
-  auto vid_map = edge_cut_partitioner.GetVidMap();
+  auto vid_map = partitioner->GetVidMap();
 
-  auto global_border_vid_map = edge_cut_partitioner.GetGlobalBorderVidMap();
+  auto global_border_vid_map = partitioner->GetGlobalBorderVidMap();
   LOG_INFO("WriteGlobalBorderVidMap. size: ", global_border_vid_map->size_);
 
   remove(
@@ -103,7 +99,7 @@ void EdgeList2CSR(std::string src_pt, std::string dst_pt, std::size_t cores,
   data_mngr.WriteCommunicationMatrix(
       dst_pt + "minigraph_border_vertexes/communication_matrix.bin",
       pair_communication_matrix.second, pair_communication_matrix.first);
-  data_mngr.WriteVidMap(edge_cut_partitioner.GetMaxVid(), vid_map,
+  data_mngr.WriteVidMap(partitioner->GetMaxVid(), vid_map,
                         dst_pt + "minigraph_message/vid_map.bin");
   data_mngr.WriteBitmap(global_border_vid_map,
                         dst_pt + "minigraph_message/global_border_vid_map.bin");
@@ -154,26 +150,14 @@ int main(int argc, char* argv[]) {
   assert(FLAGS_i != "" && FLAGS_o != "");
   std::string src_pt = FLAGS_i;
   std::string dst_pt = FLAGS_o;
-  std::string init_model = FLAGS_init_model;
   std::size_t cores = FLAGS_cores;
-  std::size_t max_vid = FLAGS_vertexes;
   std::string graph_type = FLAGS_t;
 
-  if (FLAGS_p) {
-    std::size_t num_partitions = FLAGS_n;
-    std::cout << " #Partitioning: "
-              << " input: " << FLAGS_i << " output: " << FLAGS_o
-              << " init_model: " << FLAGS_init_model
-              << " cores: " << FLAGS_cores << std::endl;
-
-    if (graph_type == "csr_bin") {
-      EdgeList2CSR(src_pt, dst_pt, cores, num_partitions, max_vid, init_model,
-                   FLAGS_init_val, *FLAGS_sep.c_str(), FLAGS_frombin);
-    }
-  }
   if (FLAGS_tobin) {
     if (graph_type == "edgelist_bin") {
       EdgeList2EdgeList(src_pt, dst_pt, *FLAGS_sep.c_str());
+    } else if (graph_type == "csr_bin") {
+      EdgeList2CSR(src_pt, dst_pt, cores, 1, *FLAGS_sep.c_str(), FLAGS_frombin);
     }
   }
   gflags::ShutDownCommandLineFlags();

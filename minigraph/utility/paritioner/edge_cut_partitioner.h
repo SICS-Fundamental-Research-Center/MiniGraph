@@ -1,23 +1,22 @@
 #ifndef MINIGRAPH_UTILITY_EDGE_CUT_PARTITIONER_H
 #define MINIGRAPH_UTILITY_EDGE_CUT_PARTITIONER_H
 
-#include <stdio.h>
-
 #include <atomic>
 #include <cstring>
+#include <stdio.h>
 #include <unordered_map>
 #include <vector>
 
-#include "graphs/graph.h"
+#include <folly/AtomicHashMap.h>
+#include <folly/FBVector.h>
+
 #include "portability/sys_types.h"
 #include "utility/bitmap.h"
 #include "utility/io/csr_io_adapter.h"
 #include "utility/io/data_mngr.h"
 #include "utility/io/io_adapter_base.h"
+#include "utility/paritioner/partitioner_base.h"
 #include "utility/thread_pool.h"
-
-#include <folly/AtomicHashMap.h>
-#include <folly/FBVector.h>
 
 
 namespace minigraph {
@@ -38,7 +37,7 @@ namespace partitioner {
 // v2), (v0, v3), (v1, v0)} and F1 that consists of V_F1: {v3, v4}, E_F1: {(v3,
 // v1), (v3, v4), (v4, v1), (v4, v2)}
 template <typename GRAPH_T>
-class EdgeCutPartitioner {
+class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
   using GID_T = typename GRAPH_T::gid_t;
   using VID_T = typename GRAPH_T::vid_t;
   using VDATA_T = typename GRAPH_T::vdata_t;
@@ -50,27 +49,16 @@ class EdgeCutPartitioner {
 
  public:
   EdgeCutPartitioner() {
-    globalid2gid_ = new std::unordered_map<VID_T, GID_T>;
-    global_border_vertexes_by_gid_ =
+    this->globalid2gid_ = new std::unordered_map<VID_T, GID_T>;
+    this->global_border_vertexes_by_gid_ =
         new std::unordered_map<GID_T, std::vector<VID_T>*>;
-  }
-
-  EdgeCutPartitioner(const size_t max_vid) {
-    globalid2gid_ = new std::unordered_map<VID_T, GID_T>;
-    global_border_vertexes_by_gid_ =
-        new std::unordered_map<GID_T, std::vector<VID_T>*>;
-    max_vid_ = max_vid;
-    vid_map_ = (VID_T*)malloc(sizeof(VID_T) * (max_vid_ + 64));
-    memset(vid_map_, 0, sizeof(VID_T) * (max_vid + 64));
   }
 
   ~EdgeCutPartitioner() = default;
 
   bool ParallelPartitionFromBin(const std::string& pt,
                                 const size_t num_partitions = 1,
-                                std::size_t max_vid = 1, const size_t cores = 1,
-                                const std::string init_model = "val",
-                                const VDATA_T init_vdata = 0) {
+                                const size_t cores = 1) override {
     LOG_INFO("ParallelPartitionFromBin()");
 
     std::string meta_pt = pt + "minigraph_meta" + ".bin";
@@ -92,7 +80,7 @@ class EdgeCutPartitioner {
     std::condition_variable finish_cv;
     std::unique_lock<std::mutex> lck(mtx);
 
-    std::atomic<VID_T> max_vid_atom(max_vid);
+    std::atomic<VID_T> max_vid_atom(0);
     LOG_INFO("Run: Convert std::vector to array.");
     std::atomic<size_t> pending_packages(cores);
     for (size_t i = 0; i < cores; i++) {
@@ -111,22 +99,21 @@ class EdgeCutPartitioner {
     }
     finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
 
-    if (max_vid_atom.load() != max_vid_) {
-      free(vid_map_);
-      max_vid_ = ((max_vid_atom.load() / 64) + 1) * 64;
-      //max_vid_ = max_vid_atom.load();
-      vid_map_ = (VID_T*)malloc(sizeof(VID_T) * max_vid_);
+    if (max_vid_atom.load() != this->max_vid_) {
+      free(this->vid_map_);
+      this->max_vid_ = ((max_vid_atom.load() / 64) + 1) * 64;
+      this->vid_map_ = (VID_T*)malloc(sizeof(VID_T) * this->max_vid_);
     }
 
-    LOG_INFO("MAX_VID: ", max_vid_);
-    size_t* num_in_edges = (size_t*)malloc(sizeof(size_t) * max_vid_);
-    size_t* num_out_edges = (size_t*)malloc(sizeof(size_t) * max_vid_);
-    memset(num_in_edges, 0, sizeof(size_t) * max_vid_);
-    memset(num_out_edges, 0, sizeof(size_t) * max_vid_);
+    LOG_INFO("MAX_VID: ", this->max_vid_);
+    size_t* num_in_edges = (size_t*)malloc(sizeof(size_t) * this->max_vid_);
+    size_t* num_out_edges = (size_t*)malloc(sizeof(size_t) * this->max_vid_);
+    memset(num_in_edges, 0, sizeof(size_t) * this->max_vid_);
+    memset(num_out_edges, 0, sizeof(size_t) * this->max_vid_);
 
-    GID_T* gid_by_vid = (GID_T*)malloc(sizeof(GID_T) * max_vid_);
-    memset(gid_by_vid, 0, sizeof(GID_T) * max_vid_);
-    Bitmap* vertex_indicator = new Bitmap(max_vid_);
+    GID_T* gid_by_vid = (GID_T*)malloc(sizeof(GID_T) * this->max_vid_);
+    memset(gid_by_vid, 0, sizeof(GID_T) * this->max_vid_);
+    Bitmap* vertex_indicator = new Bitmap(this->max_vid_);
     vertex_indicator->clear();
 
     size_t num_vertexes = 0;
@@ -160,13 +147,13 @@ class EdgeCutPartitioner {
     }
     finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
 
-    LOG_INFO("Real MAXIMUM ID: ", max_vid_);
+    LOG_INFO("Real MAXIMUM ID: ", this->max_vid_);
 
     graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>** vertexes = nullptr;
     vertexes = (graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>**)malloc(
-        sizeof(graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>*) * max_vid_);
+        sizeof(graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>*) * this->max_vid_);
 
-    for (size_t i = 0; i < max_vid_; i++) vertexes[i] = nullptr;
+    for (size_t i = 0; i < this->max_vid_; i++) vertexes[i] = nullptr;
 
     LOG_INFO("Run: Merge edges");
     pending_packages.store(cores);
@@ -175,8 +162,8 @@ class EdgeCutPartitioner {
       thread_pool.Commit([this, tid, &cores, &num_in_edges, &num_out_edges,
                           &vertex_indicator, &vertexes, &pending_packages,
                           &finish_cv]() {
-        if (tid > max_vid_) return;
-        for (size_t j = tid; j < max_vid_; j += cores) {
+        if (tid > this->max_vid_) return;
+        for (size_t j = tid; j < this->max_vid_; j += cores) {
           if (!vertex_indicator->get_bit(j)) continue;
           auto u = new graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>();
           u->vid = j;
@@ -195,10 +182,10 @@ class EdgeCutPartitioner {
     finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
 
     LOG_INFO("Run: Edges fill");
-    size_t* offset_in_edges = (size_t*)malloc(sizeof(size_t) * max_vid_);
-    size_t* offset_out_edges = (size_t*)malloc(sizeof(size_t) * max_vid_);
-    memset(offset_in_edges, 0, sizeof(size_t) * max_vid_);
-    memset(offset_out_edges, 0, sizeof(size_t) * max_vid_);
+    size_t* offset_in_edges = (size_t*)malloc(sizeof(size_t) * this->max_vid_);
+    size_t* offset_out_edges = (size_t*)malloc(sizeof(size_t) * this->max_vid_);
+    memset(offset_in_edges, 0, sizeof(size_t) * this->max_vid_);
+    memset(offset_out_edges, 0, sizeof(size_t) * this->max_vid_);
     pending_packages.store(cores);
     for (size_t i = 0; i < cores; i++) {
       size_t tid = i;
@@ -296,11 +283,11 @@ class EdgeCutPartitioner {
           auto graph = new graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>(
               i, fragments[i], num_vertexes_per_bucket[i],
               sum_in_edges_by_fragments[i], sum_out_edges_by_fragments[i],
-              max_vid_);
+              this->max_vid_);
           set_graphs[i] = (graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>*)graph;
           for (size_t j = 0; j < graph->get_num_vertexes(); j++) {
             auto u = graph->GetVertexByIndex(j);
-            vid_map_[graph->localid2globalid(u.vid)] = u.vid;
+            this->vid_map_[graph->localid2globalid(u.vid)] = u.vid;
           }
         }
         if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
@@ -309,31 +296,24 @@ class EdgeCutPartitioner {
     }
     finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
 
-    if (fragments_ == nullptr)
-      fragments_ =
-          new std::vector<graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>*>;
     for (size_t i = 0; i < num_partitions; i++)
-      fragments_->push_back(set_graphs[i]);
+      this->fragments_->push_back(set_graphs[i]);
 
-    global_border_vid_map_ = new Bitmap(max_vid_);
-    global_border_vid_map_->clear();
-    for (auto& iter_fragments : *fragments_) {
+
+    LOG_INFO("Run: Set global_border_vid_map");
+    this->global_border_vid_map_ = new Bitmap(this->max_vid_);
+    this->global_border_vid_map_->clear();
+    for (auto& iter_fragments : *this->fragments_) {
       auto fragment = (CSR_T*)iter_fragments;
-      if (init_model == "val") {
-        fragment->InitVdata2AllX(init_vdata);
-      } else if (init_model == "max") {
-        fragment->InitVdata2AllMax();
-      } else if (init_model == "vid") {
-        fragment->InitVdataByVid();
-      }
-      fragment->SetGlobalBorderVidMap(global_border_vid_map_);
+      fragment->InitVdata2AllX(0);
+      fragment->SetGlobalBorderVidMap(this->global_border_vid_map_);
     }
 
     LOG_INFO("Run: Set communication matrix");
-    if (communication_matrix_ == nullptr)
-      communication_matrix_ =
+    if (this->communication_matrix_ == nullptr)
+      this->communication_matrix_ =
           (bool*)malloc(sizeof(bool) * num_partitions * num_partitions);
-    memset(communication_matrix_, 0,
+    memset(this->communication_matrix_, 0,
            sizeof(bool) * num_partitions * num_partitions);
 
     pending_packages.store(cores);
@@ -347,7 +327,8 @@ class EdgeCutPartitioner {
           auto src_gid = gid_by_vid[src_vid];
           auto dst_gid = gid_by_vid[dst_vid];
           if (src_gid == dst_gid) continue;
-          *(communication_matrix_ + dst_gid * fragments_->size() + src_gid) = 1;
+          *(this->communication_matrix_ + dst_gid * this->fragments_->size() +
+            src_gid) = 1;
         }
         if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
         return;
@@ -368,10 +349,8 @@ class EdgeCutPartitioner {
 
   bool ParallelPartition(const std::string& pt, char separator_params = ',',
                          const size_t num_partitions = 1,
-                         std::size_t max_vid = 1, const size_t cores = 1,
-                         const std::string init_model = "val",
-                         const VDATA_T init_vdata = 0) {
-    LOG_INFO("ParallelPartition()");
+                         const size_t cores = 1) {
+    LOG_INFO("ParallelPartition(): EdgeCut");
     rapidcsv::Document* doc =
         new rapidcsv::Document(pt, rapidcsv::LabelParams(),
                                rapidcsv::SeparatorParams(separator_params));
@@ -391,7 +370,7 @@ class EdgeCutPartitioner {
     std::condition_variable finish_cv;
     std::unique_lock<std::mutex> lck(mtx);
 
-    std::atomic max_vid_atom(max_vid);
+    std::atomic max_vid_atom(0);
     LOG_INFO("Run: Convert std::vector to array.");
     std::atomic<size_t> pending_packages(cores);
     for (size_t i = 0; i < cores; i++) {
@@ -410,20 +389,20 @@ class EdgeCutPartitioner {
     }
     finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
 
-    if (max_vid_atom.load() != max_vid_) {
-      free(vid_map_);
-      max_vid_ = ((max_vid_atom.load() / 64) + 1) * 64;
-      vid_map_ = (VID_T*)malloc(sizeof(VID_T) * max_vid_);
+    if (max_vid_atom.load() != this->max_vid_) {
+      free(this->vid_map_);
+      this->max_vid_ = ((max_vid_atom.load() / 64) + 1) * 64;
+      this->vid_map_ = (VID_T*)malloc(sizeof(VID_T) * this->max_vid_);
     }
 
-    size_t* num_in_edges = (size_t*)malloc(sizeof(size_t) * max_vid_);
-    size_t* num_out_edges = (size_t*)malloc(sizeof(size_t) * max_vid_);
-    memset(num_in_edges, 0, sizeof(size_t) * max_vid_);
-    memset(num_out_edges, 0, sizeof(size_t) * max_vid_);
+    size_t* num_in_edges = (size_t*)malloc(sizeof(size_t) * this->max_vid_);
+    size_t* num_out_edges = (size_t*)malloc(sizeof(size_t) * this->max_vid_);
+    memset(num_in_edges, 0, sizeof(size_t) * this->max_vid_);
+    memset(num_out_edges, 0, sizeof(size_t) * this->max_vid_);
 
-    GID_T* gid_by_vid = (GID_T*)malloc(sizeof(GID_T) * max_vid_);
-    memset(gid_by_vid, 0, sizeof(GID_T) * max_vid_);
-    Bitmap* vertex_indicator = new Bitmap(max_vid_);
+    GID_T* gid_by_vid = (GID_T*)malloc(sizeof(GID_T) * this->max_vid_);
+    memset(gid_by_vid, 0, sizeof(GID_T) * this->max_vid_);
+    Bitmap* vertex_indicator = new Bitmap(this->max_vid_);
     vertex_indicator->clear();
 
     src->clear();
@@ -463,13 +442,13 @@ class EdgeCutPartitioner {
     }
     finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
 
-    LOG_INFO("Real MAXIMUM ID: ", max_vid_);
+    LOG_INFO("Real MAXIMUM ID: ", this->max_vid_);
 
     graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>** vertexes = nullptr;
     vertexes = (graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>**)malloc(
-        sizeof(graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>*) * max_vid_);
+        sizeof(graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>*) * this->max_vid_);
 
-    for (size_t i = 0; i < max_vid_; i++) vertexes[i] = nullptr;
+    for (size_t i = 0; i < this->max_vid_; i++) vertexes[i] = nullptr;
 
     LOG_INFO("Run: Merge edges");
     pending_packages.store(cores);
@@ -478,8 +457,8 @@ class EdgeCutPartitioner {
       thread_pool.Commit([this, tid, &cores, &num_in_edges, &num_out_edges,
                           &vertex_indicator, &vertexes, &pending_packages,
                           &finish_cv]() {
-        if (tid > max_vid_) return;
-        for (size_t j = tid; j < max_vid_; j += cores) {
+        if (tid > this->max_vid_) return;
+        for (size_t j = tid; j < this->max_vid_; j += cores) {
           if (!vertex_indicator->get_bit(j)) continue;
           auto u = new graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>();
           u->vid = j;
@@ -498,10 +477,10 @@ class EdgeCutPartitioner {
     finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
 
     LOG_INFO("Run: Edges fill");
-    size_t* offset_in_edges = (size_t*)malloc(sizeof(size_t) * max_vid_);
-    size_t* offset_out_edges = (size_t*)malloc(sizeof(size_t) * max_vid_);
-    memset(offset_in_edges, 0, sizeof(size_t) * max_vid_);
-    memset(offset_out_edges, 0, sizeof(size_t) * max_vid_);
+    size_t* offset_in_edges = (size_t*)malloc(sizeof(size_t) * this->max_vid_);
+    size_t* offset_out_edges = (size_t*)malloc(sizeof(size_t) * this->max_vid_);
+    memset(offset_in_edges, 0, sizeof(size_t) * this->max_vid_);
+    memset(offset_out_edges, 0, sizeof(size_t) * this->max_vid_);
     pending_packages.store(cores);
     for (size_t i = 0; i < cores; i++) {
       size_t tid = i;
@@ -621,11 +600,11 @@ class EdgeCutPartitioner {
           auto graph = new graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>(
               i, fragments[i], num_vertexes_per_bucket[i],
               sum_in_edges_by_fragments[i], sum_out_edges_by_fragments[i],
-              max_vid_);
+              this->max_vid_);
           set_graphs[i] = (graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>*)graph;
           for (size_t j = 0; j < graph->get_num_vertexes(); j++) {
             auto u = graph->GetVertexByIndex(j);
-            vid_map_[graph->localid2globalid(u.vid)] = u.vid;
+            this->vid_map_[graph->localid2globalid(u.vid)] = u.vid;
           }
         }
         if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
@@ -634,31 +613,25 @@ class EdgeCutPartitioner {
     }
     finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
 
-    if (fragments_ == nullptr)
-      fragments_ =
+    if (this->fragments_ == nullptr)
+      this->fragments_ =
           new std::vector<graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>*>;
     for (size_t i = 0; i < num_partitions; i++)
-      fragments_->push_back(set_graphs[i]);
+      this->fragments_->push_back(set_graphs[i]);
 
-    global_border_vid_map_ = new Bitmap(max_vid_);
-    global_border_vid_map_->clear();
-    for (auto& iter_fragments : *fragments_) {
+    this->global_border_vid_map_ = new Bitmap(this->max_vid_);
+    this->global_border_vid_map_->clear();
+    for (auto& iter_fragments : *this->fragments_) {
       auto fragment = (CSR_T*)iter_fragments;
-      if (init_model == "val") {
-        fragment->InitVdata2AllX(init_vdata);
-      } else if (init_model == "max") {
-        fragment->InitVdata2AllMax();
-      } else if (init_model == "vid") {
-        fragment->InitVdataByVid();
-      }
-      fragment->SetGlobalBorderVidMap(global_border_vid_map_);
+      fragment->InitVdata2AllX(0);
+      fragment->SetGlobalBorderVidMap(this->global_border_vid_map_);
     }
 
     LOG_INFO("Run: Set communication matrix");
-    if (communication_matrix_ == nullptr)
-      communication_matrix_ =
+    if (this->communication_matrix_ == nullptr)
+      this->communication_matrix_ =
           (bool*)malloc(sizeof(bool) * num_partitions * num_partitions);
-    memset(communication_matrix_, 0,
+    memset(this->communication_matrix_, 0,
            sizeof(bool) * num_partitions * num_partitions);
 
     pending_packages.store(cores);
@@ -672,7 +645,8 @@ class EdgeCutPartitioner {
           auto src_gid = gid_by_vid[src_vid];
           auto dst_gid = gid_by_vid[dst_vid];
           if (src_gid == dst_gid) continue;
-          *(communication_matrix_ + dst_gid * fragments_->size() + src_gid) = 1;
+          *(this->communication_matrix_ + dst_gid * this->fragments_->size() +
+            src_gid) = 1;
         }
         if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
         return;
@@ -691,74 +665,22 @@ class EdgeCutPartitioner {
     return true;
   }
 
-  std::vector<graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>*>* GetFragments() {
-    return fragments_;
-  }
-
-  std::unordered_map<VID_T, std::vector<GID_T>*>* GetGlobalBorderVertexes()
-      const {
-    return global_border_vertexes_;
-  }
-
-  std::pair<size_t, bool*> GetCommunicationMatrix() const {
-    return std::make_pair(fragments_->size(), communication_matrix_);
-  }
-
-  std::unordered_map<VID_T, VertexDependencies<VID_T, GID_T>*>*
-  GetBorderVertexesWithDependencies() const {
-    return global_border_vertexes_with_dependencies_;
-  }
-
-  std::unordered_map<VID_T, GID_T>* GetGlobalid2Gid() const {
-    return globalid2gid_;
-  }
-
-  std::unordered_map<GID_T, std::vector<VID_T>*>* GetGlobalBorderVertexesbyGid()
-      const {
-    return global_border_vertexes_by_gid_;
-  }
-
-  VID_T GetMaxVid() const { return max_vid_; }
-
-  Bitmap* GetGlobalBorderVidMap() { return global_border_vid_map_; }
-
-  VID_T* GetVidMap() { return vid_map_; }
-
  private:
-  std::string graph_pt_;
-  // to store fragments
-  VID_T max_vid_ = 0;
-  bool* communication_matrix_ = nullptr;
-  VID_T* vid_map_ = nullptr;
-  std::vector<graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>*>* fragments_ =
-      nullptr;
-  utility::io::DataMngr<GRAPH_T> data_mgnr_;
-  std::unordered_map<VID_T, std::vector<GID_T>*>* global_border_vertexes_ =
-      nullptr;
-
-  Bitmap* global_border_vid_map_ = nullptr;
-
-  std::unordered_map<VID_T, VertexDependencies<VID_T, GID_T>*>*
-      global_border_vertexes_with_dependencies_ = nullptr;
-
-  std::unordered_map<VID_T, GID_T>* globalid2gid_ = nullptr;
-  std::unordered_map<GID_T, std::vector<VID_T>*>*
-      global_border_vertexes_by_gid_ = nullptr;
-
   void MergeBorderVertexes(std::unordered_map<VID_T, GID_T>* border_vertexes) {
-    if (global_border_vertexes_ == nullptr) {
-      global_border_vertexes_ =
+    if (this->global_border_vertexes_ == nullptr) {
+      this->global_border_vertexes_ =
           new std::unordered_map<VID_T, std::vector<GID_T>*>();
     }
     for (auto iter = border_vertexes->begin(); iter != border_vertexes->end();
          iter++) {
-      auto iter_global = global_border_vertexes_->find(iter->first);
-      if (iter_global != global_border_vertexes_->end()) {
+      auto iter_global = this->global_border_vertexes_->find(iter->first);
+      if (iter_global != this->global_border_vertexes_->end()) {
         iter_global->second->push_back(iter->second);
       } else {
         std::vector<GID_T>* vec_gid = new std::vector<GID_T>;
         vec_gid->push_back(iter->second);
-        global_border_vertexes_->insert(std::make_pair(iter->first, vec_gid));
+        this->global_border_vertexes_->insert(
+            std::make_pair(iter->first, vec_gid));
       }
     }
   }
@@ -767,14 +689,14 @@ class EdgeCutPartitioner {
                                std::string output_pt = "") {
     auto global_border_vertex_with_dependencies =
         new std::unordered_map<VID_T, VertexDependencies<VID_T, GID_T>*>;
-    for (auto& iter : *global_border_vertexes_) {
+    for (auto& iter : *this->global_border_vertexes_) {
       GID_T vid = iter.first;
       VertexDependencies<VID_T, GID_T>* vd =
           new VertexDependencies<VID_T, GID_T>(vid);
       for (auto& iter_who_need : *iter.second) {
         vd->who_need_->push_back(iter_who_need);
       }
-      for (auto& iter_fragments : *fragments_) {
+      for (auto& iter_fragments : *this->fragments_) {
         auto fragment = (CSR_T*)iter_fragments;
         if (fragment->globalid2localid(vid) != VID_MAX) {
           vd->who_provide_->push_back(fragment->gid_);
@@ -783,7 +705,7 @@ class EdgeCutPartitioner {
             std::make_pair(iter.first, vd));
       }
     }
-    global_border_vertexes_with_dependencies_ =
+    this->global_border_vertexes_with_dependencies_ =
         global_border_vertex_with_dependencies;
     return true;
   }
@@ -793,7 +715,7 @@ class EdgeCutPartitioner {
     // size_t y = num_partitions / x;
     LOG_INFO("SplitEdgeList: ", num_partitions);
     // size_t num_edges_for_each_fragment = graph.num_edges_ / num_partitions;
-    fragments_ = new std::vector<GRAPH_BASE_T*>();
+    this->fragments_ = new std::vector<GRAPH_BASE_T*>();
     EDGE_LIST_T* edge_list_fragment = nullptr;
     std::unordered_map<GID_T, std::vector<VID_T*>*> bucket;
     for (size_t gid = 0; gid < num_partitions; gid++) {
@@ -834,18 +756,18 @@ class EdgeCutPartitioner {
       }
       edge_list_fragment->num_vertexes_ =
           edge_list_fragment->map_globalid2localid_->size();
-      fragments_->push_back(edge_list_fragment);
+      this->fragments_->push_back(edge_list_fragment);
     }
     return true;
   }
 
   bool SplitImmutableCSR(const size_t& num_partitions, CSR_T& graph) {
-    fragments_ = new std::vector<GRAPH_BASE_T*>();
+    this->fragments_ = new std::vector<GRAPH_BASE_T*>();
     const size_t num_vertex_per_fragments =
         graph.get_num_vertexes() / num_partitions;
     LOG_INFO("Start graph partition: grouping ", graph.get_num_vertexes(),
              " vertexes into ", num_partitions, " fragments.");
-    globalid2gid_->reserve(graph.get_num_vertexes());
+    this->globalid2gid_->reserve(graph.get_num_vertexes());
     VID_T localid = 0;
     GID_T gid = 0;
     size_t count = 0;
@@ -857,15 +779,16 @@ class EdgeCutPartitioner {
       if (csr_fragment == nullptr || count > num_vertex_per_fragments) {
         if (csr_fragment != nullptr) {
           csr_fragment->gid_ = gid++;
-          csr_fragment->max_vid_ = max_vid_;
+          csr_fragment->max_vid_ = this->max_vid_;
           csr_fragment->num_vertexes_ = csr_fragment->vertexes_info_->size();
-          fragments_->push_back(csr_fragment);
+          this->fragments_->push_back(csr_fragment);
           csr_fragment = nullptr;
           count = 0;
           localid = 0;
         }
         csr_fragment = new CSR_T();
-        globalid2gid_->insert(std::make_pair(iter_vertexes->second->vid, gid));
+        this->globalid2gid_->insert(
+            std::make_pair(iter_vertexes->second->vid, gid));
         // auto iter_global_border_vertexes_by_gid =
         //     global_border_vertexes_by_gid_->find(gid);
         // if (iter_global_border_vertexes_by_gid !=
@@ -883,7 +806,7 @@ class EdgeCutPartitioner {
             std::make_pair(localid, iter_vertexes->second->vid));
         csr_fragment->map_globalid2localid_->emplace(
             std::make_pair(iter_vertexes->second->vid, localid));
-        vid_map_[iter_vertexes->second->vid] = localid;
+        this->vid_map_[iter_vertexes->second->vid] = localid;
         iter_vertexes->second->vid = localid;
         csr_fragment->sum_in_edges_ += iter_vertexes->second->indegree;
         csr_fragment->sum_out_edges_ += iter_vertexes->second->outdegree;
@@ -897,8 +820,9 @@ class EdgeCutPartitioner {
             std::make_pair(localid, iter_vertexes->second->vid));
         csr_fragment->map_globalid2localid_->emplace(
             std::make_pair(iter_vertexes->second->vid, localid));
-        vid_map_[iter_vertexes->second->vid] = localid;
-        globalid2gid_->insert(std::make_pair(iter_vertexes->second->vid, gid));
+        this->vid_map_[iter_vertexes->second->vid] = localid;
+        this->globalid2gid_->insert(
+            std::make_pair(iter_vertexes->second->vid, gid));
         iter_vertexes->second->vid = localid;
         csr_fragment->sum_in_edges_ += iter_vertexes->second->indegree;
         csr_fragment->sum_out_edges_ += iter_vertexes->second->outdegree;
@@ -911,11 +835,11 @@ class EdgeCutPartitioner {
     }
     if (csr_fragment != nullptr) {
       csr_fragment->gid_ = gid++;
-      csr_fragment->max_vid_ = max_vid_;
+      csr_fragment->max_vid_ = this->max_vid_;
       csr_fragment->num_vertexes_ = csr_fragment->vertexes_info_->size();
-      fragments_->push_back(csr_fragment);
+      this->fragments_->push_back(csr_fragment);
     }
-    if (fragments_->size() > 0) {
+    if (this->fragments_->size() > 0) {
       return true;
     } else {
       return false;
@@ -923,12 +847,12 @@ class EdgeCutPartitioner {
   }
 
   bool SplitImmutableCSRByHash(const size_t& num_partitions, CSR_T& graph) {
-    fragments_ = new std::vector<GRAPH_BASE_T*>();
+    this->fragments_ = new std::vector<GRAPH_BASE_T*>();
     const size_t num_vertex_per_fragments =
         graph.get_num_vertexes() / num_partitions;
     LOG_INFO("Start graph partition: grouping ", graph.get_num_vertexes(),
              " vertexes into ", num_partitions, " fragments.");
-    globalid2gid_->reserve(graph.get_num_vertexes());
+    this->globalid2gid_->reserve(graph.get_num_vertexes());
 
     std::unordered_map<GID_T, CSR_T*> fragments_map;
     //    std::unordered_map<GID_T, VID_T>
@@ -940,13 +864,13 @@ class EdgeCutPartitioner {
 
     for (auto& iter : *graph.vertexes_info_) {
       GID_T bucket_id = iter.second->vid % num_partitions;
-      globalid2gid_->insert(std::make_pair(iter.second->vid, bucket_id));
+      this->globalid2gid_->insert(std::make_pair(iter.second->vid, bucket_id));
       CSR_T* fragment = fragments_map.find(bucket_id)->second;
       fragment->map_localid2globalid_->insert(
           std::make_pair(localid_by_gid[bucket_id], iter.second->vid));
       fragment->map_globalid2localid_->insert(
           std::make_pair(iter.second->vid, localid_by_gid[bucket_id]));
-      vid_map_[iter.second->vid] = localid_by_gid[bucket_id];
+      this->vid_map_[iter.second->vid] = localid_by_gid[bucket_id];
       fragment->sum_in_edges_ += iter.second->indegree;
       fragment->sum_out_edges_ += iter.second->outdegree;
       fragment->vertexes_info_->insert(
@@ -960,8 +884,8 @@ class EdgeCutPartitioner {
       CSR_T* fragment = fragments_map.find(gid)->second;
       fragment->num_vertexes_ = fragment->vertexes_info_->size();
       LOG_INFO("gid: ", gid, ", num_vertexes: ", fragment->num_vertexes_);
-      fragment->max_vid_ = max_vid_;
-      fragments_->push_back(fragment);
+      fragment->max_vid_ = this->max_vid_;
+      this->fragments_->push_back(fragment);
     }
     free(localid_by_gid);
     return true;

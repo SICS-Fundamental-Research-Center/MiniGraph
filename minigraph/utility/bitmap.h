@@ -1,13 +1,10 @@
 #ifndef BITMAP_H
 #define BITMAP_H
 
-#include <stdio.h>
-
+#include "utility/logging.h"
 #include <cassert>
 #include <cstring>
-
-#include "utility/logging.h"
-
+#include <stdio.h>
 
 #define WORD_OFFSET(i) (i >> 6)
 #define BIT_OFFSET(i) (i & 0x3f)
@@ -156,6 +153,11 @@ class Bitmap {
     for (size_t i = 0; i < size_; i++)
       if (get_bit(i)) count++;
     return count;
+  }
+
+  void invert_bit() {
+    *data_ = ~(*data_);
+    return;
   }
 };
 

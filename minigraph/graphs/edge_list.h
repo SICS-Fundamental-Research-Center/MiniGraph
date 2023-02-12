@@ -8,7 +8,6 @@
 #include <unordered_map>
 
 #include <jemalloc/jemalloc.h>
-
 #include <folly/AtomicHashArray.h>
 #include <folly/AtomicHashMap.h>
 #include <folly/AtomicUnorderedMap.h>
@@ -36,11 +35,13 @@ class EdgeList : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
 
  public:
   EdgeList(const GID_T gid = 0, const size_t num_edges = 0,
-           const size_t num_vertexes = 0)
+           const size_t num_vertexes = 0, VID_T max_vid = 0, VID_T* buf_graph = nullptr)
       : Graph<GID_T, VID_T, VDATA_T, EDATA_T>() {
     gid_ = gid;
-    vertexes_info_ =
-        new std::map<VID_T, graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>*>();
+    num_edges_ = num_edges;
+    max_vid_  = max_vid;
+    num_vertexes_ = num_vertexes;
+
     if (num_vertexes != 0) {
       num_vertexes_ = num_vertexes;
       vdata_ = (VDATA_T*)malloc(sizeof(VDATA_T) * num_vertexes_);
@@ -49,14 +50,15 @@ class EdgeList : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       memset((char*)globalid_by_localid_, 0, sizeof(VID_T) * num_vertexes_);
     }
     if (num_edges != 0) {
-      num_edges_ = num_edges;
       buf_graph_ = (VID_T*)malloc(sizeof(VID_T) * num_edges_ * 2);
       memset((char*)buf_graph_, 0, sizeof(VID_T) * num_edges_ * 2);
+    }
+    if (buf_graph != nullptr){
+      memcpy(this->buf_graph_, buf_graph, num_edges_ * sizeof(VID_T) * 2);
     }
   }
 
   ~EdgeList() {
-    LOG_INFO("~EdgeList()");
     // if(buf_graph_!= nullptr)
     //   delete buf_graph_;
     // if(vdata_!= nullptr)
@@ -219,7 +221,7 @@ class EdgeList : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
   VDATA_T* vdata_ = nullptr;
   size_t* index_by_vid_ = nullptr;
   VID_T* vid_by_index_ = nullptr;
-  Bitmap* bitmap_ = nullptr;
+  // Bitmap* bitmap_ = nullptr;
   VID_T* globalid_by_localid_ = nullptr;
 
   char* vertexes_state_ = nullptr;

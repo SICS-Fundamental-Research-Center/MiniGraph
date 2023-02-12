@@ -1,6 +1,16 @@
 #ifndef MINIGRAPH_2D_PIE_AUTO_MAP_REDUCE_H
 #define MINIGRAPH_2D_PIE_AUTO_MAP_REDUCE_H
 
+#include <condition_variable>
+#include <functional>
+#include <future>
+#include <vector>
+
+#include <folly/MPMCQueue.h>
+#include <folly/ProducerConsumerQueue.h>
+#include <folly/concurrency/DynamicBoundedQueue.h>
+#include <folly/executors/ThreadPoolExecutor.h>
+
 #include "executors/task_runner.h"
 #include "graphs/graph.h"
 #include "graphs/immutable_csr.h"
@@ -9,14 +19,7 @@
 #include "utility/atomic.h"
 #include "utility/bitmap.h"
 #include "utility/thread_pool.h"
-#include <folly/MPMCQueue.h>
-#include <folly/ProducerConsumerQueue.h>
-#include <folly/concurrency/DynamicBoundedQueue.h>
-#include <folly/executors/ThreadPoolExecutor.h>
-#include <condition_variable>
-#include <functional>
-#include <future>
-#include <vector>
+
 
 namespace minigraph {
 
@@ -107,7 +110,7 @@ class AutoMapBase {
   template <class F, class... Args>
   auto VMap(GRAPH_T& graph, executors::TaskRunner* task_runner, Bitmap* visited,
             Bitmap* in_visited, Bitmap* out_visited, F&& f, Args&&... args)
-      ->void {
+      -> void {
     assert(task_runner != nullptr);
     std::vector<std::function<void()>> tasks;
     size_t active_vertices = 0;
