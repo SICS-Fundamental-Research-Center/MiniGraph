@@ -16,6 +16,7 @@
 using CSR_T = minigraph::graphs::ImmutableCSR<gid_t, vid_t, vdata_t, edata_t>;
 using GRAPH_BASE_T = minigraph::graphs::Graph<gid_t, vid_t, vdata_t, edata_t>;
 using EDGE_LIST_T = minigraph::graphs::EdgeList<gid_t, vid_t, vdata_t, edata_t>;
+using VID_T = vid_t;
 
 void GraphPartitionEdgeList2CSR(std::string src_pt, std::string dst_pt,
                                 std::size_t cores, std::size_t num_partitions,
@@ -23,6 +24,8 @@ void GraphPartitionEdgeList2CSR(std::string src_pt, std::string dst_pt,
                                 const bool frombin = false,
                                 const std::string t_partitioner = "edgecut") {
   minigraph::utility::io::DataMngr<CSR_T> data_mngr;
+  minigraph::utility::io::EdgeListIOAdapter<gid_t, vid_t, vdata_t, edata_t>
+      edgelist_io_adapter;
 
   minigraph::utility::partitioner::PartitionerBase<CSR_T>* partitioner =
       nullptr;
@@ -33,11 +36,16 @@ void GraphPartitionEdgeList2CSR(std::string src_pt, std::string dst_pt,
     partitioner =
         new minigraph::utility::partitioner::VertexCutPartitioner<CSR_T>();
 
+  // Read Graph
+  auto edgelist_graph = new EDGE_LIST_T;
   if (frombin) {
     partitioner->ParallelPartitionFromBin(src_pt, num_partitions, cores);
   } else {
-    partitioner->ParallelPartition(src_pt, separator_params, num_partitions);
+    edgelist_io_adapter.ParallelRead((GRAPH_BASE_T*)edgelist_graph,
+                                     edge_list_csv, separator_params, 0, cores,
+                                     src_pt);
   }
+  partitioner->ParallelPartition(edgelist_graph, num_partitions, cores);
 
   if (!data_mngr.IsExist(dst_pt + "minigraph_meta/")) {
     data_mngr.MakeDirectory(dst_pt + "minigraph_meta/");

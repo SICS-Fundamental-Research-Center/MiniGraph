@@ -234,24 +234,40 @@ class SimulationPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
     auto vid_map = this->msg_mngr_->GetVidMap();
 
-    if (graph.IsInGraph(19)) graph.vdata_[graph.index_by_vid_[vid_map[19]]] = 1;
-    if (graph.IsInGraph(20)) graph.vdata_[graph.index_by_vid_[vid_map[20]]] = 2;
-    if (graph.IsInGraph(21)) graph.vdata_[graph.index_by_vid_[vid_map[21]]] = 3;
-    if (graph.IsInGraph(22)) graph.vdata_[graph.index_by_vid_[vid_map[22]]] = 4;
-
-    if (graph.IsInGraph(1)) graph.vdata_[graph.index_by_vid_[vid_map[0]]] = 1;
-    if (graph.IsInGraph(1)) graph.vdata_[graph.index_by_vid_[vid_map[2]]] = 2;
-    if (graph.IsInGraph(5)) graph.vdata_[graph.index_by_vid_[vid_map[5]]] = 3;
-    if (graph.IsInGraph(6)) graph.vdata_[graph.index_by_vid_[vid_map[6]]] = 4;
-    if (graph.IsInGraph(7)) graph.vdata_[graph.index_by_vid_[vid_map[7]]] = 4;
-    if (graph.IsInGraph(8)) graph.vdata_[graph.index_by_vid_[vid_map[8]]] = 4;
-    if (graph.IsInGraph(9)) graph.vdata_[graph.index_by_vid_[vid_map[9]]] = 4;
-    if (graph.IsInGraph(10)) graph.vdata_[graph.index_by_vid_[vid_map[10]]] = 4;
-    if (graph.IsInGraph(11)) graph.vdata_[graph.index_by_vid_[vid_map[11]]] = 4;
-    if (graph.IsInGraph(11)) graph.vdata_[graph.index_by_vid_[vid_map[15]]] = 1;
-    if (graph.IsInGraph(11)) graph.vdata_[graph.index_by_vid_[vid_map[16]]] = 2;
-    if (graph.IsInGraph(11)) graph.vdata_[graph.index_by_vid_[vid_map[17]]] = 5;
-    if (graph.IsInGraph(11)) graph.vdata_[graph.index_by_vid_[vid_map[33]]] = 4;
+    if (graph.IsInGraph(19))
+      graph.vdata_[graph.localid_by_globalid_[vid_map[19]]] = 1;
+    if (graph.IsInGraph(20))
+      graph.vdata_[graph.localid_by_globalid_[vid_map[20]]] = 2;
+    if (graph.IsInGraph(21))
+      graph.vdata_[graph.localid_by_globalid_[vid_map[21]]] = 3;
+    if (graph.IsInGraph(22))
+      graph.vdata_[graph.localid_by_globalid_[vid_map[22]]] = 4;
+    if (graph.IsInGraph(1))
+      graph.vdata_[graph.localid_by_globalid_[vid_map[0]]] = 1;
+    if (graph.IsInGraph(1))
+      graph.vdata_[graph.localid_by_globalid_[vid_map[2]]] = 2;
+    if (graph.IsInGraph(5))
+      graph.vdata_[graph.localid_by_globalid_[vid_map[5]]] = 3;
+    if (graph.IsInGraph(6))
+      graph.vdata_[graph.localid_by_globalid_[vid_map[6]]] = 4;
+    if (graph.IsInGraph(7))
+      graph.vdata_[graph.localid_by_globalid_[vid_map[7]]] = 4;
+    if (graph.IsInGraph(8))
+      graph.vdata_[graph.localid_by_globalid_[vid_map[8]]] = 4;
+    if (graph.IsInGraph(9))
+      graph.vdata_[graph.localid_by_globalid_[vid_map[9]]] = 4;
+    if (graph.IsInGraph(10))
+      graph.vdata_[graph.localid_by_globalid_[vid_map[10]]] = 4;
+    if (graph.IsInGraph(11))
+      graph.vdata_[graph.localid_by_globalid_[vid_map[11]]] = 4;
+    if (graph.IsInGraph(11))
+      graph.vdata_[graph.localid_by_globalid_[vid_map[15]]] = 1;
+    if (graph.IsInGraph(11))
+      graph.vdata_[graph.localid_by_globalid_[vid_map[16]]] = 2;
+    if (graph.IsInGraph(11))
+      graph.vdata_[graph.localid_by_globalid_[vid_map[17]]] = 5;
+    if (graph.IsInGraph(11))
+      graph.vdata_[graph.localid_by_globalid_[vid_map[33]]] = 4;
 
     this->context_.p->vdata_[0] = 1;
     this->context_.p->vdata_[1] = 2;

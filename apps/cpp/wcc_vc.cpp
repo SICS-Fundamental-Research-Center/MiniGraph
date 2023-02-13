@@ -23,6 +23,7 @@ class WCCAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
 
   bool F(const VertexInfo& u, VertexInfo& v,
          GRAPH_T* graph = nullptr) override {
+    LOG_INFO(v.vdata[0], " <- ", u.vdata[0]);
     return write_min(v.vdata, u.vdata[0]);
   }
 
@@ -34,7 +35,7 @@ class WCCAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
   static bool kernel_init(GRAPH_T* graph, const size_t tid, Bitmap* visited,
                           const size_t step) {
     for (size_t i = tid; i < graph->get_num_vertexes(); i += step) {
-      auto u = graph->GetVertexByVid(i);
+      auto u = graph->GetVertexByIndex(i);
       graph->vdata_[i] = graph->localid2globalid(u.vid);
     }
     return true;
@@ -61,6 +62,9 @@ class WCCAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
                                           VDATA_T* global_border_vdata) {
     for (size_t i = tid; i < graph->get_num_vertexes(); i += step) {
       auto u = graph->GetVertexByIndex(i);
+      if (global_border_vdata[graph->localid2globalid(u.vid)] < u.vdata[0]) {
+        u.vdata[0] = global_border_vdata[graph->localid2globalid(u.vid)];
+      }
       for (size_t nbr_i = 0; nbr_i < u.indegree; nbr_i++) {
         if (global_border_vid_map->get_bit(u.in_edges[nbr_i]) == 0) continue;
         if (global_border_vdata[u.in_edges[nbr_i]] < u.vdata[0]) {
@@ -102,6 +106,9 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     LOG_INFO("PEval() - Processing gid: ", graph.gid_,
              " num_vertexes: ", graph.get_num_vertexes());
     auto vid_map = this->msg_mngr_->GetVidMap();
+    for(size_t i =0; i < graph.get_num_vertexes(); i++){
+      LOG_INFO("VID_MAP: ", i, " ", vid_map[i]);
+    }
     auto start_time = std::chrono::system_clock::now();
     Bitmap* in_visited = new Bitmap(graph.get_num_vertexes());
     Bitmap* out_visited = new Bitmap(graph.get_num_vertexes());
@@ -110,11 +117,14 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     Bitmap visited(graph.get_num_vertexes());
     visited.clear();
     bool run = true;
+    LOG_INFO("X");
     while (run) {
       run = this->auto_map_->ActiveEMap(in_visited, out_visited, graph,
                                         task_runner, vid_map, &visited);
       std::swap(in_visited, out_visited);
     }
+    auto bodrder_vid_map = this->msg_mngr_->GetGlobalBorderVidMap();
+    LOG_INFO("X");
     this->auto_map_->ActiveMap(
         graph, task_runner, &visited,
         WCCAutoMap<GRAPH_T, CONTEXT_T>::kernel_push_border_vertexes,
@@ -169,10 +179,11 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     LOG_INFO("Visited: ", visited_num);
     std::cout << "Gid " << graph.gid_ << ":  IncEval elapse time "
               << std::chrono::duration_cast<std::chrono::microseconds>(
-                  end_time - start_time)
-                     .count() /
-                 (double)CLOCKS_PER_SEC
+                     end_time - start_time)
+                         .count() /
+                     (double)CLOCKS_PER_SEC
               << std::endl;
+    graph.ShowGraph(20);
     return !visited.empty();
   }
 

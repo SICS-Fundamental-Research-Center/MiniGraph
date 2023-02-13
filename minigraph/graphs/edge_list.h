@@ -1,13 +1,10 @@
 #ifndef MINIGRAPH_GRAPHS_EDGE_LIST_H
 #define MINIGRAPH_GRAPHS_EDGE_LIST_H
 
-#include <fstream>
-#include <iostream>
-#include <map>
-#include <memory>
-#include <unordered_map>
-
-#include <jemalloc/jemalloc.h>
+#include "graphs/graph.h"
+#include "portability/sys_data_structure.h"
+#include "portability/sys_types.h"
+#include "utility/logging.h"
 #include <folly/AtomicHashArray.h>
 #include <folly/AtomicHashMap.h>
 #include <folly/AtomicUnorderedMap.h>
@@ -19,12 +16,12 @@
 #include <folly/portability/Asm.h>
 #include <folly/portability/Atomic.h>
 #include <folly/portability/SysTime.h>
-
-#include "graphs/graph.h"
-#include "portability/sys_data_structure.h"
-#include "portability/sys_types.h"
-#include "utility/logging.h"
-
+#include <jemalloc/jemalloc.h>
+#include <fstream>
+#include <iostream>
+#include <map>
+#include <memory>
+#include <unordered_map>
 
 namespace minigraph {
 namespace graphs {
@@ -35,38 +32,42 @@ class EdgeList : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
 
  public:
   EdgeList(const GID_T gid = 0, const size_t num_edges = 0,
-           const size_t num_vertexes = 0, VID_T max_vid = 0, VID_T* buf_graph = nullptr)
+           const size_t num_vertexes = 0, VID_T max_vid = 0,
+           VID_T* buf_graph = nullptr)
       : Graph<GID_T, VID_T, VDATA_T, EDATA_T>() {
-    gid_ = gid;
-    num_edges_ = num_edges;
-    max_vid_  = max_vid;
-    num_vertexes_ = num_vertexes;
+    this->gid_ = gid;
+    this->num_edges_ = num_edges;
+    this->max_vid_ = max_vid;
+    this->num_vertexes_ = num_vertexes;
 
     if (num_vertexes != 0) {
-      num_vertexes_ = num_vertexes;
-      vdata_ = (VDATA_T*)malloc(sizeof(VDATA_T) * num_vertexes_);
-      memset((char*)vdata_, 0, sizeof(VDATA_T) * num_vertexes_);
-      globalid_by_localid_ = (VID_T*)malloc(sizeof(VID_T) * num_vertexes_);
-      memset((char*)globalid_by_localid_, 0, sizeof(VID_T) * num_vertexes_);
+      this->num_vertexes_ = num_vertexes;
+      vdata_ = (VDATA_T*)malloc(sizeof(VDATA_T) * this->get_num_vertexes());
+      memset((char*)vdata_, 0, sizeof(VDATA_T) * this->get_num_vertexes());
+      globalid_by_localid_ =
+          (VID_T*)malloc(sizeof(VID_T) * this->get_num_vertexes());
+      memset((char*)globalid_by_localid_, 0,
+             sizeof(VID_T) * this->get_num_vertexes());
     }
     if (num_edges != 0) {
-      buf_graph_ = (VID_T*)malloc(sizeof(VID_T) * num_edges_ * 2);
-      memset((char*)buf_graph_, 0, sizeof(VID_T) * num_edges_ * 2);
+      buf_graph_ = (VID_T*)malloc(sizeof(VID_T) * this->get_num_edges() * 2);
+      memset((char*)buf_graph_, 0, sizeof(VID_T) * this->get_num_edges() * 2);
     }
-    if (buf_graph != nullptr){
-      memcpy(this->buf_graph_, buf_graph, num_edges_ * sizeof(VID_T) * 2);
+    if (buf_graph != nullptr) {
+      memcpy(this->buf_graph_, buf_graph,
+             this->get_num_edges() * sizeof(VID_T) * 2);
     }
   }
 
-  ~EdgeList() {
-    // if(buf_graph_!= nullptr)
-    //   delete buf_graph_;
-    // if(vdata_!= nullptr)
-    //   delete vdata_;
+  ~EdgeList(){
+      // if(buf_graph_!= nullptr)
+      //   delete buf_graph_;
+      // if(vdata_!= nullptr)
+      //   delete vdata_;
   };
 
-  size_t get_num_vertexes() const override { return num_vertexes_; }
-  size_t get_num_edges() const override { return num_edges_; }
+  // size_t get_num_vertexes() const override { return num_vertexes_; }
+  // size_t get_num_edges() const override { return num_edges_; }
 
   void CleanUp() override {
     if (vertexes_info_ != nullptr) {
@@ -78,11 +79,12 @@ class EdgeList : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
   };
 
   void ShowGraph(const size_t count = 2) {
-    std::cout << "\n\n##### EdgeListGraph GID: " << gid_
-              << ", num_verteses: " << num_vertexes_
-              << ", num_edges: " << num_edges_ << " #####" << std::endl;
+    std::cout << "\n\n##### EdgeListGraph GID: " << this->get_gid()
+              << ", num_verteses: " << this->get_num_vertexes()
+              << ", num_edges: " << this->get_num_edges() << " #####"
+              << std::endl;
     std::cout << ">>>> edges_ " << std::endl;
-    for (size_t i = 0; i < num_edges_; i++) {
+    for (size_t i = 0; i < this->get_num_edges(); i++) {
       if (i > count) break;
       std::cout << "src: " << *(buf_graph_ + i * 2)
                 << ", dst: " << *(buf_graph_ + i * 2 + 1) << std::endl;
@@ -90,9 +92,7 @@ class EdgeList : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     std::cout << ">>>> vdata_ " << std::endl;
     for (size_t i = 0; i < this->get_num_vertexes(); i++) {
       if (i > count) break;
-      if (globalid_by_localid_ != nullptr)
-        std::cout << "vid: " << localid2globalid(i) << ", vdata_: " << vdata_[i]
-                  << std::endl;
+      std::cout << "vid: " << i << ", vdata_: " << vdata_[i] << std::endl;
     }
   }
 
@@ -110,7 +110,6 @@ class EdgeList : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
 
   graphs::VertexInfo<VID_T, VDATA_T, EDATA_T> GetVertexByIndex(
       const size_t index) {
-    LOG_INFO("XXX");
     auto vid = vid_by_index_[index];
     auto iter = vertexes_info_->find(vid);
     if (iter != vertexes_info_->end()) {
@@ -127,17 +126,19 @@ class EdgeList : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     if (vdata_ == nullptr) {
       if (map_globalid2localid_->size() == 0)
         LOG_ERROR("segmentation fault: vdata is empty");
-      num_vertexes_ = map_globalid2localid_->size();
+      this->num_vertexes_ = map_globalid2localid_->size();
       vdata_ =
           (VDATA_T*)malloc(sizeof(VDATA_T) * map_globalid2localid_->size());
       if (init_vdata != 0)
-        for (size_t i = 0; i < num_vertexes_; i++) vdata_[i] = init_vdata;
+        for (size_t i = 0; i < this->get_num_vertexes(); i++)
+          vdata_[i] = init_vdata;
       else
-        memset(vdata_, 0, sizeof(VDATA_T) * num_vertexes_);
+        memset(vdata_, 0, sizeof(VDATA_T) * this->get_num_vertexes());
     } else {
-      memset(vdata_, 0, sizeof(VDATA_T) * get_num_vertexes());
+      memset(vdata_, 0, sizeof(VDATA_T) * this->get_num_vertexes());
       if (init_vdata != 0)
-        for (size_t i = 0; i < num_vertexes_; i++) vdata_[i] = init_vdata;
+        for (size_t i = 0; i < this->get_num_vertexes(); i++)
+          vdata_[i] = init_vdata;
     }
   }
 
@@ -145,7 +146,7 @@ class EdgeList : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     if (vdata_ == nullptr) {
       if (map_globalid2localid_->size() == 0)
         LOG_ERROR("segmentation fault: vdata is empty");
-      num_vertexes_ = map_globalid2localid_->size();
+      this->num_vertexes_ = map_globalid2localid_->size();
       vdata_ =
           (VDATA_T*)malloc(sizeof(VDATA_T) * map_globalid2localid_->size());
 
@@ -153,7 +154,7 @@ class EdgeList : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
         vdata_[iter.second] = iter.first;
       }
     } else {
-      memset(vdata_, 0, sizeof(VDATA_T) * get_num_vertexes());
+      memset(vdata_, 0, sizeof(VDATA_T) * this->get_num_vertexes());
       for (auto& iter : *map_globalid2localid_) {
         vdata_[iter.second] = iter.first;
       }
@@ -164,13 +165,15 @@ class EdgeList : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     if (vdata_ == nullptr) {
       if (map_globalid2localid_->size() == 0)
         LOG_ERROR("segmentation fault: vdata is empty");
-      num_vertexes_ = map_globalid2localid_->size();
+      this->num_vertexes_ = map_globalid2localid_->size();
       vdata_ =
           (VDATA_T*)malloc(sizeof(VDATA_T) * map_globalid2localid_->size());
-      for (size_t i = 0; i < num_vertexes_; i++) vdata_[i] = VDATA_MAX;
+      for (size_t i = 0; i < this->get_num_vertexes(); i++)
+        vdata_[i] = VDATA_MAX;
     } else {
-      memset(vdata_, 0, sizeof(VDATA_T) * get_num_vertexes());
-      for (size_t i = 0; i < num_vertexes_; i++) vdata_[i] = VDATA_MAX;
+      memset(vdata_, 0, sizeof(VDATA_T) * this->get_num_vertexes());
+      for (size_t i = 0; i < this->get_num_vertexes(); i++)
+        vdata_[i] = VDATA_MAX;
     }
   }
 
@@ -187,7 +190,7 @@ class EdgeList : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     if (globalid_by_localid_ == nullptr) {
       LOG_ERROR("segmentation fault: globalid_by_localid_ is nullptr");
     }
-    if (vid > num_vertexes_ + 1) return VID_MAX;
+    if (vid > this->get_num_vertexes() + 1) return VID_MAX;
     return globalid_by_localid_[vid];
   }
 
@@ -196,27 +199,21 @@ class EdgeList : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
         new std::unordered_map<VID_T, GID_T>();
 
     VID_T local_id = 0;
-    for (size_t i = 0; i < num_edges_; i++) {
+    for (size_t i = 0; i < this->get_num_edges(); i++) {
       auto src = *(buf_graph_ + i * 2);
       if (map_globalid2localid_->find(src) == map_globalid2localid_->end())
         map_globalid2localid_->insert(std::make_pair(src, local_id++));
     }
-    for (size_t i = 0; i < num_edges_; i++) {
+    for (size_t i = 0; i < this->get_num_edges(); i++) {
       auto src = *(buf_graph_ + i * 2);
       auto dst = *(buf_graph_ + i * 2 + 1);
       if (map_globalid2localid_->find(dst) == map_globalid2localid_->end())
-        border_vertexes->insert(std::make_pair(src, gid_));
+        border_vertexes->insert(std::make_pair(src, this->get_gid()));
     }
     return border_vertexes;
   }
 
  public:
-  //  basic param
-  GID_T gid_ = -1;
-  size_t num_vertexes_ = 0;
-  size_t num_edges_ = 0;
-  VID_T max_vid_ = 0;
-
   VID_T* buf_graph_ = nullptr;
   VDATA_T* vdata_ = nullptr;
   size_t* index_by_vid_ = nullptr;

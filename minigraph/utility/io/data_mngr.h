@@ -116,32 +116,32 @@ class DataMngr {
     return false;
   }
 
-  bool WriteBorderVertexes(const std::unordered_map<VID_T, std::vector<GID_T>*>&
-                               global_border_vertexes,
-                           const std::string& border_vertexes_pt) {
-    if (IsExist(border_vertexes_pt)) {
-      remove(border_vertexes_pt.c_str());
-    }
-    std::ofstream border_vertexes_file(border_vertexes_pt,
-                                       std::ios::binary | std::ios::app);
-    size_t* buf_config = (size_t*)malloc(sizeof(size_t));
-    buf_config[0] = global_border_vertexes.size();
+  //bool WriteBorderVertexes(const std::unordered_map<VID_T, std::vector<GID_T>*>&
+  //                             global_border_vertexes,
+  //                         const std::string& border_vertexes_pt) {
+  //  if (IsExist(border_vertexes_pt)) {
+  //    remove(border_vertexes_pt.c_str());
+  //  }
+  //  std::ofstream border_vertexes_file(border_vertexes_pt,
+  //                                     std::ios::binary | std::ios::app);
+  //  size_t* buf_config = (size_t*)malloc(sizeof(size_t));
+  //  buf_config[0] = global_border_vertexes.size();
 
-    VID_T* buf_global_border_vertexes =
-        (VID_T*)malloc(sizeof(VID_T) * global_border_vertexes.size());
-    ((size_t*)buf_global_border_vertexes)[0] = global_border_vertexes.size();
-    size_t i = 0;
-    for (auto& iter : global_border_vertexes) {
-      buf_global_border_vertexes[i++] = iter.first;
-    }
-    border_vertexes_file.write((char*)buf_config, sizeof(size_t));
-    border_vertexes_file.write((char*)buf_global_border_vertexes,
-                               sizeof(VID_T) * global_border_vertexes.size());
-    free(buf_global_border_vertexes);
-    free(buf_config);
-    border_vertexes_file.close();
-    return true;
-  }
+  //  VID_T* buf_global_border_vertexes =
+  //      (VID_T*)malloc(sizeof(VID_T) * global_border_vertexes.size());
+  //  ((size_t*)buf_global_border_vertexes)[0] = global_border_vertexes.size();
+  //  size_t i = 0;
+  //  for (auto& iter : global_border_vertexes) {
+  //    buf_global_border_vertexes[i++] = iter.first;
+  //  }
+  //  border_vertexes_file.write((char*)buf_config, sizeof(size_t));
+  //  border_vertexes_file.write((char*)buf_global_border_vertexes,
+  //                             sizeof(VID_T) * global_border_vertexes.size());
+  //  free(buf_global_border_vertexes);
+  //  free(buf_config);
+  //  border_vertexes_file.close();
+  //  return true;
+  //}
 
   bool WriteGraphDependencies(
       const std::unordered_map<VID_T, VertexDependencies<VID_T, GID_T>*>&

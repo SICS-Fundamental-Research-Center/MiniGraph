@@ -90,7 +90,6 @@ class SimulationPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
                 const CONTEXT_T& context)
       : minigraph::AutoAppBase<GRAPH_T, CONTEXT_T>(auto_map, context) {}
 
-
   bool Init(GRAPH_T& graph,
             minigraph::executors::TaskRunner* task_runner) override {
     LOG_INFO("Init() - Processing gid: ", graph.gid_);
@@ -101,24 +100,40 @@ class SimulationPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
         SimulationAutoMap<GRAPH_T, CONTEXT_T>::kernel_init);
     auto vid_map = this->msg_mngr_->GetVidMap();
 
-    if (graph.IsInGraph(19)) graph.vdata_[graph.index_by_vid_[vid_map[19]]] = 1;
-    if (graph.IsInGraph(20)) graph.vdata_[graph.index_by_vid_[vid_map[20]]] = 2;
-    if (graph.IsInGraph(21)) graph.vdata_[graph.index_by_vid_[vid_map[21]]] = 3;
-    if (graph.IsInGraph(22)) graph.vdata_[graph.index_by_vid_[vid_map[22]]] = 4;
-
-    if (graph.IsInGraph(1)) graph.vdata_[graph.index_by_vid_[vid_map[0]]] = 1;
-    if (graph.IsInGraph(1)) graph.vdata_[graph.index_by_vid_[vid_map[2]]] = 2;
-    if (graph.IsInGraph(5)) graph.vdata_[graph.index_by_vid_[vid_map[5]]] = 3;
-    if (graph.IsInGraph(6)) graph.vdata_[graph.index_by_vid_[vid_map[6]]] = 4;
-    if (graph.IsInGraph(7)) graph.vdata_[graph.index_by_vid_[vid_map[7]]] = 4;
-    if (graph.IsInGraph(8)) graph.vdata_[graph.index_by_vid_[vid_map[8]]] = 4;
-    if (graph.IsInGraph(9)) graph.vdata_[graph.index_by_vid_[vid_map[9]]] = 4;
-    if (graph.IsInGraph(10)) graph.vdata_[graph.index_by_vid_[vid_map[10]]] = 4;
-    if (graph.IsInGraph(11)) graph.vdata_[graph.index_by_vid_[vid_map[11]]] = 4;
-    if (graph.IsInGraph(11)) graph.vdata_[graph.index_by_vid_[vid_map[15]]] = 1;
-    if (graph.IsInGraph(11)) graph.vdata_[graph.index_by_vid_[vid_map[16]]] = 2;
-    if (graph.IsInGraph(11)) graph.vdata_[graph.index_by_vid_[vid_map[17]]] = 3;
-    if (graph.IsInGraph(11)) graph.vdata_[graph.index_by_vid_[vid_map[33]]] = 4;
+    if (graph.IsInGraph(19))
+      graph.vdata_[graph.localid_by_globalid_[vid_map[19]]] = 1;
+    if (graph.IsInGraph(20))
+      graph.vdata_[graph.localid_by_globalid_[vid_map[20]]] = 2;
+    if (graph.IsInGraph(21))
+      graph.vdata_[graph.localid_by_globalid_[vid_map[21]]] = 3;
+    if (graph.IsInGraph(22))
+      graph.vdata_[graph.localid_by_globalid_[vid_map[22]]] = 4;
+    if (graph.IsInGraph(1))
+      graph.vdata_[graph.localid_by_globalid_[vid_map[0]]] = 1;
+    if (graph.IsInGraph(1))
+      graph.vdata_[graph.localid_by_globalid_[vid_map[2]]] = 2;
+    if (graph.IsInGraph(5))
+      graph.vdata_[graph.localid_by_globalid_[vid_map[5]]] = 3;
+    if (graph.IsInGraph(6))
+      graph.vdata_[graph.localid_by_globalid_[vid_map[6]]] = 4;
+    if (graph.IsInGraph(7))
+      graph.vdata_[graph.localid_by_globalid_[vid_map[7]]] = 4;
+    if (graph.IsInGraph(8))
+      graph.vdata_[graph.localid_by_globalid_[vid_map[8]]] = 4;
+    if (graph.IsInGraph(9))
+      graph.vdata_[graph.localid_by_globalid_[vid_map[9]]] = 4;
+    if (graph.IsInGraph(10))
+      graph.vdata_[graph.localid_by_globalid_[vid_map[10]]] = 4;
+    if (graph.IsInGraph(11))
+      graph.vdata_[graph.localid_by_globalid_[vid_map[11]]] = 4;
+    if (graph.IsInGraph(11))
+      graph.vdata_[graph.localid_by_globalid_[vid_map[15]]] = 1;
+    if (graph.IsInGraph(11))
+      graph.vdata_[graph.localid_by_globalid_[vid_map[16]]] = 2;
+    if (graph.IsInGraph(11))
+      graph.vdata_[graph.localid_by_globalid_[vid_map[17]]] = 3;
+    if (graph.IsInGraph(11))
+      graph.vdata_[graph.localid_by_globalid_[vid_map[33]]] = 4;
 
     this->context_.p->vdata_[0] = 1;
     this->context_.p->vdata_[1] = 2;
@@ -218,9 +233,9 @@ class SimulationPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
         match_sets.indicator_->set_bit(i);
         if (v.outdegree == 0) {
           if (u.outdegree == 0)
-            match_sets.sim_sets_[i]->set_bit(graph.index_by_vid_[v.vid]);
+            match_sets.sim_sets_[i]->set_bit(graph.localid_by_globalid_[v.vid]);
         } else {
-          match_sets.sim_sets_[i]->set_bit(graph.index_by_vid_[v.vid]);
+          match_sets.sim_sets_[i]->set_bit(graph.localid_by_globalid_[v.vid]);
         }
       }
     }
@@ -278,7 +293,7 @@ class SimulationPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
         }
         pre_prevsim_u.try_batch_rm_bit(pre_sim_u);
         for (size_t in_u = 0; in_u < u.indegree; in_u++) {
-          match_sets.sim_sets_[pattern.index_by_vid_[u.in_edges[in_u]]]
+          match_sets.sim_sets_[pattern.localid_by_globalid_[u.in_edges[in_u]]]
               ->batch_rm_bit(pre_prevsim_u);
         }
       }
@@ -315,9 +330,11 @@ class SimulationPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
           match_sets.indicator_->try_set_bit(i);
         if (v.outdegree == 0) {
           if (u.outdegree == 0)
-            match_sets.sim_sets_[i]->try_set_bit(graph.index_by_vid_[v.vid]);
+            match_sets.sim_sets_[i]->try_set_bit(
+                graph.localid_by_globalid_[v.vid]);
         } else {
-          match_sets.sim_sets_[i]->try_set_bit(graph.index_by_vid_[v.vid]);
+          match_sets.sim_sets_[i]->try_set_bit(
+              graph.localid_by_globalid_[v.vid]);
         }
       }
     }
@@ -369,7 +386,7 @@ class SimulationPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
         }
         pre_prevsim_u.try_batch_rm_bit(pre_sim_u);
         for (size_t in_u = 0; in_u < u.indegree; in_u++) {
-          match_sets.sim_sets_[pattern.index_by_vid_[u.in_edges[in_u]]]
+          match_sets.sim_sets_[pattern.localid_by_globalid_[u.in_edges[in_u]]]
               ->try_batch_rm_bit(pre_prevsim_u);
         }
         prevsim[i]->copy_bit(*match_sets.sim_sets_[i]);

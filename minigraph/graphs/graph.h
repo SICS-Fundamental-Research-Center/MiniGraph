@@ -2,14 +2,13 @@
 #ifndef MINIGRAPH_GRAPHS_GRAPH_H
 #define MINIGRAPH_GRAPHS_GRAPH_H
 
-#include <iostream>
-#include <string>
-#include <unordered_map>
-
+#include "utility/bitmap.h"
 #include <folly/AtomicHashMap.h>
 #include <folly/FBString.h>
 #include <folly/Range.h>
-
+#include <iostream>
+#include <string>
+#include <unordered_map>
 
 namespace minigraph {
 namespace graphs {
@@ -87,16 +86,31 @@ class Graph {
   typedef VDATA_T vdata_t;
   typedef EDATA_T edata_t;
 
-  explicit Graph(GID_T gid) { gid_ = gid; };
+  explicit Graph(GID_T gid) { gid_ = gid; }
   explicit Graph() {}
+
   inline GID_T get_gid() const { return gid_; }
-  virtual size_t get_num_vertexes() const = 0;
-  virtual size_t get_num_edges() const = 0;
+  inline size_t get_num_vertexes() const { return num_vertexes_; }
+  inline size_t get_num_edges() const { return num_edges_; }
+  inline size_t get_max_vid() const { return max_vid_; }
+  inline size_t get_aligned_max_vid() const { return aligned_max_vid_; }
+
+  inline bool IsInGraph(const VID_T globalid) const {
+    assert(bitmap_ != nullptr);
+    return bitmap_->get_bit(globalid) != 0;
+  }
+
   virtual void CleanUp() = 0;
   virtual ~Graph() = default;
 
- private:
+ public:
   GID_T gid_ = -1;
+  size_t num_vertexes_ = 0;
+  VID_T max_vid_ = 0;
+  VID_T aligned_max_vid_ = 0;
+  size_t num_edges_ = 0;
+  Bitmap* bitmap_ = nullptr;
+  void* buf_graph_ = nullptr;
 };
 
 }  // namespace graphs

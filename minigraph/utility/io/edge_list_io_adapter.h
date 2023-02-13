@@ -1,22 +1,18 @@
 #ifndef MINIGRAPH_UTILITY_IO_EDGE_LIST_IO_ADAPTER_H
 #define MINIGRAPH_UTILITY_IO_EDGE_LIST_IO_ADAPTER_H
 
+#include "graphs/edge_list.h"
+#include "io_adapter_base.h"
+#include "portability/sys_data_structure.h"
+#include "portability/sys_types.h"
+#include "rapidcsv.h"
+#include "utility/thread_pool.h"
 #include <sys/stat.h>
-
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <string>
 #include <unordered_map>
-
-#include "rapidcsv.h"
-
-#include "graphs/edge_list.h"
-#include "io_adapter_base.h"
-#include "portability/sys_data_structure.h"
-#include "portability/sys_types.h"
-#include "utility/thread_pool.h"
-
 
 namespace minigraph {
 namespace utility {
@@ -209,8 +205,6 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       }
     }
 
-    size_t* index_by_vid_ = nullptr;
-    VID_T* vid_by_index = nullptr;
 
     ((EDGE_LIST_T*)graph)->num_vertexes_ =
         ((EDGE_LIST_T*)graph)->vertexes_info_->size();
@@ -313,8 +307,8 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     // auto edge_list = (EDGE_LIST_T*)graph;
     rapidcsv::Document doc(pt, rapidcsv::LabelParams(),
                            rapidcsv::SeparatorParams(separator_params));
-    //std::vector<VID_T> src = doc.GetColumn<VID_T>("src");
-    //std::vector<VID_T> dst = doc.GetColumn<VID_T>("dst");
+    // std::vector<VID_T> src = doc.GetColumn<VID_T>("src");
+    // std::vector<VID_T> dst = doc.GetColumn<VID_T>("dst");
     std::vector<VID_T> src = doc.GetColumn<VID_T>(0);
     std::vector<VID_T> dst = doc.GetColumn<VID_T>(1);
     ((EDGE_LIST_T*)graph)->buf_graph_ =
@@ -342,9 +336,48 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       });
     }
     finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
+
     ((EDGE_LIST_T*)graph)->num_edges_ = src.size();
-    ((EDGE_LIST_T*)graph)->num_vertexes_ = max_vid_atom.load();
+    //((EDGE_LIST_T*)graph)->num_vertexes_ = max_vid_atom.load();
+    ((EDGE_LIST_T*)graph)->max_vid_ = max_vid_atom.load();
     ((EDGE_LIST_T*)graph)->gid_ = gid;
+
+    Bitmap* vertex_indicator = new Bitmap(max_vid_atom.load());
+    vertex_indicator->clear();
+
+    pending_packages.store(cores);
+    for (size_t i = 0; i < cores; i++) {
+      size_t tid = i;
+      thread_pool.Commit([tid, &cores, &graph, &vertex_indicator,
+                          &pending_packages, &finish_cv]() {
+        if (tid > ((EDGE_LIST_T*)graph)->num_edges_) return;
+        for (size_t j = tid; j < ((EDGE_LIST_T*)graph)->num_edges_;
+             j += cores) {
+          auto src_vid = ((EDGE_LIST_T*)graph)->buf_graph_[j * 2];
+          auto dst_vid = ((EDGE_LIST_T*)graph)->buf_graph_[j * 2 + 1];
+          if (!vertex_indicator->get_bit(src_vid)) {
+            vertex_indicator->set_bit(src_vid);
+            __sync_add_and_fetch(&((EDGE_LIST_T*)graph)->num_vertexes_, 1);
+          }
+          if (!vertex_indicator->get_bit(dst_vid)) {
+            vertex_indicator->set_bit(dst_vid);
+            __sync_add_and_fetch(&((EDGE_LIST_T*)graph)->num_vertexes_, 1);
+          }
+        }
+
+        ((EDGE_LIST_T*)graph)->vdata_ =
+            (VDATA_T*)malloc(sizeof(VDATA_T) * graph->get_num_vertexes());
+
+        memset(((EDGE_LIST_T*)graph)->vdata_, 0,
+               sizeof(VDATA_T) * graph->get_num_vertexes());
+
+        if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
+        return;
+      });
+    }
+
+    finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
+
     LOG_INFO("MAX_VID: ", max_vid_atom.load());
     return true;
   }

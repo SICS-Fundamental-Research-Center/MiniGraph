@@ -1,15 +1,6 @@
 #ifndef MINIGRAPH_UTILITY_EDGE_CUT_PARTITIONER_H
 #define MINIGRAPH_UTILITY_EDGE_CUT_PARTITIONER_H
 
-#include <atomic>
-#include <cstring>
-#include <stdio.h>
-#include <unordered_map>
-#include <vector>
-
-#include <folly/AtomicHashMap.h>
-#include <folly/FBVector.h>
-
 #include "portability/sys_types.h"
 #include "utility/bitmap.h"
 #include "utility/io/csr_io_adapter.h"
@@ -17,7 +8,13 @@
 #include "utility/io/io_adapter_base.h"
 #include "utility/paritioner/partitioner_base.h"
 #include "utility/thread_pool.h"
-
+#include <folly/AtomicHashMap.h>
+#include <folly/FBVector.h>
+#include <atomic>
+#include <cstring>
+#include <stdio.h>
+#include <unordered_map>
+#include <vector>
 
 namespace minigraph {
 namespace utility {
@@ -299,7 +296,6 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
     for (size_t i = 0; i < num_partitions; i++)
       this->fragments_->push_back(set_graphs[i]);
 
-
     LOG_INFO("Run: Set global_border_vid_map");
     this->global_border_vid_map_ = new Bitmap(this->max_vid_);
     this->global_border_vid_map_->clear();
@@ -347,9 +343,10 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
     return true;
   }
 
-  bool ParallelPartition(const std::string& pt, char separator_params = ',',
-                         const size_t num_partitions = 1,
-                         const size_t cores = 1) {
+  bool ParallelPartitionFromCSV(const std::string& pt,
+                                char separator_params = ',',
+                                const size_t num_partitions = 1,
+                                const size_t cores = 1) {
     LOG_INFO("ParallelPartition(): EdgeCut");
     rapidcsv::Document* doc =
         new rapidcsv::Document(pt, rapidcsv::LabelParams(),
@@ -663,6 +660,12 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
     delete num_out_edges;
     LOG_INFO("END");
     return true;
+  }
+
+  bool ParallelPartition(EDGE_LIST_T* edgelist_graph,
+                         const size_t num_partitions = 1,
+                         const size_t cores = 1) override {
+    return false;
   }
 
  private:

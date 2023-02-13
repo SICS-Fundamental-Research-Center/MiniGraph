@@ -26,7 +26,7 @@ void EdgeList2CSR(std::string src_pt, std::string dst_pt, std::size_t cores,
     edge_cut_partitioner.ParallelPartitionFromBin(src_pt, num_partitions,
                                                   cores);
   } else {
-    edge_cut_partitioner.ParallelPartition(src_pt, separator_params,
+    edge_cut_partitioner.ParallelPartitionFromCSV(src_pt, separator_params,
                                            num_partitions, cores);
   }
 

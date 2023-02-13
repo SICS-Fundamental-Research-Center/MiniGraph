@@ -19,7 +19,7 @@ class PartitionerBase {
       minigraph::graphs::EdgeList<gid_t, vid_t, vdata_t, edata_t>;
 
  public:
-  PartitionerBase(){
+  PartitionerBase() {
     if (this->fragments_ == nullptr)
       this->fragments_ =
           new std::vector<graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>*>;
@@ -28,10 +28,14 @@ class PartitionerBase {
   virtual bool ParallelPartitionFromBin(const std::string& pt,
                                         const size_t num_partitions,
                                         const size_t cores) = 0;
-  virtual bool ParallelPartition(const std::string& pt,
-                                 char separator_params = ',',
-                                 const size_t num_partitions = 1,
-                                 const size_t cores = 1) = 0;
+  virtual bool ParallelPartitionFromCSV(const std::string& pt,
+                                        char separator_params = ',',
+                                        const size_t num_partitions = 1,
+                                        const size_t cores = 1) = 0;
+
+  virtual bool ParallelPartition(EDGE_LIST_T* edgelist_graph = nullptr,
+                         const size_t num_partitions = 1,
+                         const size_t cores = 1) = 0;
 
   std::vector<graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>*>* GetFragments() {
     return fragments_;
@@ -68,6 +72,7 @@ class PartitionerBase {
 
  public:
   VID_T max_vid_ = 0;
+  size_t size_vid_map_ = 0;
   bool* communication_matrix_ = nullptr;
   Bitmap* global_border_vid_map_ = nullptr;
   std::unordered_map<VID_T, VertexDependencies<VID_T, GID_T>*>*
