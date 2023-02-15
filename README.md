@@ -90,8 +90,7 @@ We store graphs in a binary CSR format. Edge-list in CSV format
 can be converted to our CSR format with graph_convert tool provided in tools.
 You can use graph_convert_exec as follows:
 ```shell
-$cd $SRC_DIR
-$./bin/graph_convert_exec -t csr_bin -p -n [the number of fragments] -i [graph in csv format] -sep [seperator, e.g. ","] -o [workspace] -cores [degree of parallelism]
+$./bin/graph_partition_exec -t csr_bin -p -n  [the number of fragments] -i [graph in csv format] -sep [seperator, e.g. ","] -o [workspace]  -cores [degree of parallelism] -tobin -partitioner ["vertexcut" or "edgecut"]
 ```
 
 #### Executing 
