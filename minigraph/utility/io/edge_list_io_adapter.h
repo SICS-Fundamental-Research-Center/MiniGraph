@@ -107,7 +107,7 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     return tag;
   }
 
- private:
+ public:
   bool ReadEdgeListFromCSV(graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>* graph,
                            const std::string& pt, const GID_T gid = 0,
                            const bool assemble = false,
@@ -204,7 +204,6 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
         }
       }
     }
-
 
     ((EDGE_LIST_T*)graph)->num_vertexes_ =
         ((EDGE_LIST_T*)graph)->vertexes_info_->size();
@@ -304,30 +303,26 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     std::condition_variable finish_cv;
     std::unique_lock<std::mutex> lck(mtx);
 
-    // auto edge_list = (EDGE_LIST_T*)graph;
     rapidcsv::Document doc(pt, rapidcsv::LabelParams(),
                            rapidcsv::SeparatorParams(separator_params));
-    // std::vector<VID_T> src = doc.GetColumn<VID_T>("src");
-    // std::vector<VID_T> dst = doc.GetColumn<VID_T>("dst");
     std::vector<VID_T> src = doc.GetColumn<VID_T>(0);
     std::vector<VID_T> dst = doc.GetColumn<VID_T>(1);
-    ((EDGE_LIST_T*)graph)->buf_graph_ =
-        (vid_t*)malloc(sizeof(vid_t) * (src.size() + dst.size()));
+    graph->buf_graph_ =
+        (VID_T*)malloc(sizeof(VID_T) * (src.size() + dst.size()));
 
-    VID_T* buff = (VID_T*)((EDGE_LIST_T*)graph)->buf_graph_;
-    memset((char*)buff, 0, sizeof(VID_T) * (src.size() + dst.size()));
+    memset((char*)graph->buf_graph_, 0,
+           sizeof(VID_T) * (src.size() + dst.size()));
     LOG_INFO("num edges: ", src.size(), " sizeof(VID_T)", sizeof(VID_T));
-    std::atomic<size_t> pending_packages(cores);
-
     std::atomic<VID_T> max_vid_atom(0);
-    for (size_t i = 0; i < cores; i++) {
-      size_t tid = i;
+
+    LOG_INFO("Traverse the entire graph to get the maximum vid.");
+    std::atomic<size_t> pending_packages(cores);
+    for (size_t tid = 0; tid < cores; tid++) {
       thread_pool.Commit([tid, &cores, &src, &dst, &graph, &pending_packages,
                           &finish_cv, &max_vid_atom]() {
         for (size_t j = tid; j < src.size(); j += cores) {
-          *((VID_T*)((EDGE_LIST_T*)graph)->buf_graph_ + j * 2) = src.at(j);
-          *((VID_T*)((EDGE_LIST_T*)graph)->buf_graph_ + j * 2 + 1) = dst.at(j);
-
+          *(graph->buf_graph_ + j * 2) = src.at(j);
+          *(graph->buf_graph_ + j * 2 + 1) = dst.at(j);
           if (max_vid_atom.load() < src.at(j)) max_vid_atom.store(src.at(j));
           if (max_vid_atom.load() < dst.at(j)) max_vid_atom.store(dst.at(j));
         }
@@ -338,21 +333,21 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
 
     ((EDGE_LIST_T*)graph)->num_edges_ = src.size();
-    //((EDGE_LIST_T*)graph)->num_vertexes_ = max_vid_atom.load();
     ((EDGE_LIST_T*)graph)->max_vid_ = max_vid_atom.load();
+    ((EDGE_LIST_T*)graph)->aligned_max_vid_ =
+        ceil((float)max_vid_atom.load() / 64) * 64;
     ((EDGE_LIST_T*)graph)->gid_ = gid;
 
-    Bitmap* vertex_indicator = new Bitmap(max_vid_atom.load());
+    Bitmap* vertex_indicator = new Bitmap(graph->get_aligned_max_vid());
     vertex_indicator->clear();
 
+    LOG_INFO("Traverse the entire graph again to fill the vertex_indicator.");
     pending_packages.store(cores);
     for (size_t i = 0; i < cores; i++) {
       size_t tid = i;
       thread_pool.Commit([tid, &cores, &graph, &vertex_indicator,
                           &pending_packages, &finish_cv]() {
-        if (tid > ((EDGE_LIST_T*)graph)->num_edges_) return;
-        for (size_t j = tid; j < ((EDGE_LIST_T*)graph)->num_edges_;
-             j += cores) {
+        for (size_t j = tid; j < graph->get_num_edges(); j += cores) {
           auto src_vid = ((EDGE_LIST_T*)graph)->buf_graph_[j * 2];
           auto dst_vid = ((EDGE_LIST_T*)graph)->buf_graph_[j * 2 + 1];
           if (!vertex_indicator->get_bit(src_vid)) {
@@ -364,21 +359,17 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
             __sync_add_and_fetch(&((EDGE_LIST_T*)graph)->num_vertexes_, 1);
           }
         }
-
-        ((EDGE_LIST_T*)graph)->vdata_ =
-            (VDATA_T*)malloc(sizeof(VDATA_T) * graph->get_num_vertexes());
-
-        memset(((EDGE_LIST_T*)graph)->vdata_, 0,
-               sizeof(VDATA_T) * graph->get_num_vertexes());
-
         if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
         return;
       });
     }
-
     finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
 
-    LOG_INFO("MAX_VID: ", max_vid_atom.load());
+    ((EDGE_LIST_T*)graph)->vdata_ =
+        (VDATA_T*)malloc(sizeof(VDATA_T) * graph->get_num_vertexes());
+    memset(((EDGE_LIST_T*)graph)->vdata_, 0,
+           sizeof(VDATA_T) * graph->get_num_vertexes());
+
     return true;
   }
 

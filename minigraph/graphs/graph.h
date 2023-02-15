@@ -110,7 +110,7 @@ class Graph {
   VID_T aligned_max_vid_ = 0;
   size_t num_edges_ = 0;
   Bitmap* bitmap_ = nullptr;
-  void* buf_graph_ = nullptr;
+  VID_T* buf_graph_ = nullptr;
 };
 
 }  // namespace graphs

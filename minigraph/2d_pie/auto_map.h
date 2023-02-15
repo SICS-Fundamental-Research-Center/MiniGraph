@@ -135,10 +135,10 @@ class AutoMapBase {
       for (size_t i = 0; i < u.outdegree; ++i) {
         if (!graph->IsInGraph(u.out_edges[i])) continue;
         VID_T local_id = VID_MAX;
-        // if(vid_map == nullptr)
-        //   local_id = vid_map[u.out_edges[i]];
-        // else:
-        local_id = graph->globalid2localid(u.out_edges[i]);
+         if(vid_map != nullptr)
+           local_id = vid_map[u.out_edges[i]];
+         else
+          local_id = graph->globalid2localid(u.out_edges[i]);
         VertexInfo&& v = graph->GetVertexByVid(local_id);
         if (F(u, v)) {
           out_visited->set_bit(local_id);

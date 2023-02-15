@@ -25,13 +25,13 @@ class PartitionerBase {
           new std::vector<graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>*>;
   }
 
-  virtual bool ParallelPartitionFromBin(const std::string& pt,
-                                        const size_t num_partitions,
-                                        const size_t cores) = 0;
-  virtual bool ParallelPartitionFromCSV(const std::string& pt,
-                                        char separator_params = ',',
-                                        const size_t num_partitions = 1,
-                                        const size_t cores = 1) = 0;
+ // virtual bool ParallelPartitionFromBin(const std::string& pt,
+ //                                       const size_t num_partitions,
+ //                                       const size_t cores) = 0;
+ // virtual bool ParallelPartitionFromCSV(const std::string& pt,
+ //                                       char separator_params = ',',
+ //                                       const size_t num_partitions = 1,
+ //                                       const size_t cores = 1) = 0;
 
   virtual bool ParallelPartition(EDGE_LIST_T* edgelist_graph = nullptr,
                          const size_t num_partitions = 1,
@@ -71,8 +71,14 @@ class PartitionerBase {
   VID_T* GetVidMap() { return vid_map_; }
 
  public:
+
+  // Basic parameters.
   VID_T max_vid_ = 0;
-  size_t size_vid_map_ = 0;
+  VID_T aligned_max_vid_ = 0;
+  size_t num_vertexes_ = 0;
+  size_t num_edges_ = 0;
+
+
   bool* communication_matrix_ = nullptr;
   Bitmap* global_border_vid_map_ = nullptr;
   std::unordered_map<VID_T, VertexDependencies<VID_T, GID_T>*>*

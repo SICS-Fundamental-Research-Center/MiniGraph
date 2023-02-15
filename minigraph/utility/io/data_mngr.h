@@ -1,13 +1,10 @@
 #ifndef MINIGRAPH_DATA_MNGR_H
 #define MINIGRAPH_DATA_MNGR_H
 
-#include <memory>
-
-#include <folly/AtomicHashMap.h>
-
 #include "utility/io/csr_io_adapter.h"
 #include "utility/io/edge_list_io_adapter.h"
-
+#include <folly/AtomicHashMap.h>
+#include <memory>
 
 namespace minigraph {
 namespace utility {
@@ -116,16 +113,17 @@ class DataMngr {
     return false;
   }
 
-  //bool WriteBorderVertexes(const std::unordered_map<VID_T, std::vector<GID_T>*>&
-  //                             global_border_vertexes,
-  //                         const std::string& border_vertexes_pt) {
-  //  if (IsExist(border_vertexes_pt)) {
-  //    remove(border_vertexes_pt.c_str());
-  //  }
-  //  std::ofstream border_vertexes_file(border_vertexes_pt,
-  //                                     std::ios::binary | std::ios::app);
-  //  size_t* buf_config = (size_t*)malloc(sizeof(size_t));
-  //  buf_config[0] = global_border_vertexes.size();
+  // bool WriteBorderVertexes(const std::unordered_map<VID_T,
+  // std::vector<GID_T>*>&
+  //                              global_border_vertexes,
+  //                          const std::string& border_vertexes_pt) {
+  //   if (IsExist(border_vertexes_pt)) {
+  //     remove(border_vertexes_pt.c_str());
+  //   }
+  //   std::ofstream border_vertexes_file(border_vertexes_pt,
+  //                                      std::ios::binary | std::ios::app);
+  //   size_t* buf_config = (size_t*)malloc(sizeof(size_t));
+  //   buf_config[0] = global_border_vertexes.size();
 
   //  VID_T* buf_global_border_vertexes =
   //      (VID_T*)malloc(sizeof(VID_T) * global_border_vertexes.size());
@@ -374,7 +372,7 @@ class DataMngr {
     return true;
   }
 
-  Bitmap* ReadBitmap(const std::string& input_pt) {
+  std::pair<size_t, Bitmap*> ReadBitmap(const std::string& input_pt) {
     std::ifstream input_file(input_pt, std::ios::binary | std::ios::app);
     size_t meta_buff[2];
     input_file.read((char*)meta_buff, sizeof(size_t) * 2);
@@ -382,7 +380,7 @@ class DataMngr {
     memset(data, 0, meta_buff[1]);
     input_file.read((char*)data, meta_buff[1]);
     input_file.close();
-    return new Bitmap(meta_buff[0], data);
+    return std::make_pair(meta_buff[0], new Bitmap(meta_buff[0], data));
   }
 
   std::unordered_map<VID_T, std::vector<GID_T>*>* ReadBorderVertexes(

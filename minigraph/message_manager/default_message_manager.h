@@ -1,16 +1,14 @@
 #ifndef MINIGRAPH_DEFAULT_MESSAGE_MANAGER_H
 #define MINIGRAPH_DEFAULT_MESSAGE_MANAGER_H
 
-#include <unordered_map>
-#include <vector>
-
 #include "graphs/graph.h"
 #include "message_manager/border_vertexes.h"
 #include "message_manager/message_manager_base.h"
 #include "message_manager/partial_match.h"
 #include "portability/sys_data_structure.h"
 #include "utility/io/data_mngr.h"
-
+#include <unordered_map>
+#include <vector>
 
 namespace minigraph {
 namespace message {
@@ -30,48 +28,40 @@ class DefaultMessageManager : public MessageManagerBase {
 
   DefaultMessageManager(utility::io::DataMngr<GRAPH_T>* data_mngr,
                         const std::string& work_space, bool is_mining = false)
-      : MessageManagerBase() {
-    LOG_INFO("Init MsgManager");
-    data_mngr_ = data_mngr;
-    if (is_mining) {
-      border_vertexes_ = new BorderVertexes<GID_T, VID_T, VDATA_T, EDATA_T>(
-          data_mngr_->ReadBorderVertexes(
-              work_space + "minigraph_border_vertexes/global.bv"));
-      // auto out2 =
-      //     data_mngr_->ReadGlobalid2Gid(work_space +
-      //     "minigraph_message/globalid2gid.bin");
-      // partial_match_ =
-      //     new PartialMatch<GID_T, VID_T, VDATA_T, EDATA_T>(out2.second);
-    } else {
-      // border_vertexes_ = new BorderVertexes<GID_T, VID_T, VDATA_T, EDATA_T>(
-      //     data_mngr_->ReadBorderVertexes(
-      //         work_space + "minigraph_border_vertexes/global.bv"));
-    }
-  }
+      : MessageManagerBase() {}
 
   void Init(const std::string work_space,
             const bool load_dependencies = false) override {
     LOG_INFO("Init Message Manager: ", work_space);
 
+    // Init Communication Matrix.
     auto out1 = data_mngr_->ReadCommunicationMatrix(
         work_space + "minigraph_border_vertexes/communication_matrix.bin");
     num_graphs_ = out1.first;
     communication_matrix_ = out1.second;
+
+    // Init vid_map that map global vid to local vid.
     auto out2 =
         data_mngr_->ReadVidMap(work_space + "minigraph_message/vid_map.bin");
-    max_vid_ = out2.first;
-    vid_map_ = out2.second;
-    global_border_vdata_ = (VDATA_T*)malloc(max_vid_ * sizeof(VDATA_T));
-    for (size_t i = 0; i < max_vid_; i++) global_border_vdata_[i] = VID_MAX;
+    if (out2.first == 0)
+      vid_map_ = nullptr;
+    else {
+      vid_map_ = out2.second;
+    }
 
-    global_border_vid_map_ = data_mngr_->ReadBitmap(
+    // Init global_border_vdata & border_vdata. The first one store v label of
+    // all vertexes, while the second one can indcate which vertex is from
+    // border.
+    auto out3 = data_mngr_->ReadBitmap(
         work_space + "minigraph_message/global_border_vid_map.bin");
-    //for (size_t i = 0; i < num_graphs_; i++) {
-    //  for (size_t j = 0; j < num_graphs_; j++)
-    //    std::cout << *(communication_matrix_ + i * num_graphs_ + j) << ", ";
-    //  std::cout << std::endl;
-    //}
+    max_vid_ = out3.first;
+    global_border_vid_map_ = out3.second;
+    aligned_max_vid_ = ceil((float)max_vid_ / 64) * 64;
+    global_border_vdata_ = (VDATA_T*)malloc(aligned_max_vid_ * sizeof(VDATA_T));
+    for (VID_T vid = 0; vid < aligned_max_vid_; vid++)
+      global_border_vdata_[vid] = VDATA_MAX;
 
+    //// Init others.
     historical_state_matrix_ = (char*)malloc(sizeof(char) * num_graphs_);
     memset(historical_state_matrix_, 0, sizeof(char) * num_graphs_);
     for (size_t i = 0; i < num_graphs_; i++) {
@@ -88,33 +78,11 @@ class DefaultMessageManager : public MessageManagerBase {
     for (size_t i = 0; i < num_graphs_; i++) msg_bucket = nullptr;
   };
 
-  // void BufferPartialResults(
-  //     std::vector<std::vector<VID_T>*>& partial_matching_solutions) {
-  //   this->partial_match_->BufferPartialResults(partial_matching_solutions);
-  // }
-
-  // void BufferResults(std::vector<std::vector<VID_T>*>& matching_solutions) {
-  //   this->partial_match_->BufferResults(matching_solutions);
-  // }
-
-  // bool UpdateBorderVertexes(CSR_T& graph, bool* visited) {
-  //   return this->border_vertexes_->UpdateBorderVertexes(graph, visited);
-  // }
-
-  // std::vector<std::vector<VID_T>*>* GetPartialMatchingSolutionsofX(GID_T gid)
-  // {
-  //   return this->partial_match_->GetPartialMatchingSolutionsofX(gid);
-  // }
-
   void ClearnUp() { active_vertexes_bit_map_->clear(); }
 
   PartialMatch<GID_T, VID_T, VDATA_T, EDATA_T>* GetPartialMatch() {
     return partial_match_;
   }
-
-  // BorderVertexes<GID_T, VID_T, VDATA_T, EDATA_T>* GetBorderVertexes() {
-  //   return border_vertexes_;
-  // }
 
   bool* GetCommunicationMatrix() { return communication_matrix_; }
 
@@ -138,7 +106,7 @@ class DefaultMessageManager : public MessageManagerBase {
   bool GetMsgQueue() { return msg_bucket[offset_bucket]; }
 
   void SetStateMatrix(const size_t gid, char state) {
-    if(gid>= num_graphs_){
+    if (gid >= num_graphs_) {
       LOG_INFO(gid, "/ ", num_graphs_);
     }
     assert(gid < num_graphs_);
@@ -149,14 +117,15 @@ class DefaultMessageManager : public MessageManagerBase {
   char GetStateMatrix(size_t gid) { return *(historical_state_matrix_ + gid); }
 
   bool CheckDependenes(const GID_T x, const GID_T y) {
-    return *(this->communication_matrix_ + x * num_graphs_ + y) == 1;
+    return *(communication_matrix_ + x * num_graphs_ + y) == 1;
   }
 
  private:
   size_t num_graphs_ = 0;
   utility::io::DataMngr<GRAPH_T>* data_mngr_ = nullptr;
   VID_T* vid_map_ = nullptr;
-  size_t max_vid_ = 0;
+  VID_T max_vid_ = 0;
+  VID_T aligned_max_vid_ = 0;
   Bitmap* global_border_vid_map_ = nullptr;
   Bitmap* active_vertexes_bit_map_ = nullptr;
   VDATA_T* global_border_vdata_ = nullptr;

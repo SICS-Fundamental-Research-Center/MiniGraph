@@ -28,7 +28,20 @@ void EdgeList2CSR(std::string src_pt, std::string dst_pt, std::size_t cores,
   partitioner =
       new minigraph::utility::partitioner::EdgeCutPartitioner<CSR_T>();
 
-  partitioner->ParallelPartitionFromBin(src_pt, num_partitions, cores);
+  if (frombin) {
+    std::string meta_pt = src_pt + "minigraph_meta" + ".bin";
+    std::string data_pt = src_pt + "minigraph_data" + ".bin";
+    std::string vdata_pt = src_pt + "minigraph_vdata" + ".bin";
+
+    minigraph::utility::io::EdgeListIOAdapter<gid_t, vid_t, vdata_t, edata_t>
+        edge_list_io_adapter;
+
+    auto graph = new EDGE_LIST_T;
+    edge_list_io_adapter.Read((GRAPH_BASE_T*)graph, edge_list_bin, ' ', 0,
+                              meta_pt, data_pt, vdata_pt);
+    partitioner->ParallelPartition(graph, 1, cores);
+  }
+  // partitioner->ParallelPartitionFromBin(src_pt, num_partitions, cores);
 
   if (!data_mngr.IsExist(dst_pt + "minigraph_meta/")) {
     data_mngr.MakeDirectory(dst_pt + "minigraph_meta/");
@@ -88,9 +101,16 @@ void EdgeList2CSR(std::string src_pt, std::string dst_pt, std::size_t cores,
 
   LOG_INFO("WriteVidMap.");
   auto vid_map = partitioner->GetVidMap();
+  if (vid_map != nullptr)
+    data_mngr.WriteVidMap(partitioner->GetMaxVid(), vid_map,
+                          dst_pt + "minigraph_message/vid_map.bin");
 
   auto global_border_vid_map = partitioner->GetGlobalBorderVidMap();
-  LOG_INFO("WriteGlobalBorderVidMap. size: ", global_border_vid_map->size_);
+  if (global_border_vid_map != nullptr){
+    LOG_INFO("WriteGlobalBorderVidMap. size: ", global_border_vid_map->size_);
+    data_mngr.WriteBitmap(global_border_vid_map,
+                        dst_pt + "minigraph_message/global_border_vid_map.bin");
+  }
 
   remove(
       (dst_pt + "minigraph_border_vertexes/communication_matrix.bin").c_str());
@@ -99,11 +119,7 @@ void EdgeList2CSR(std::string src_pt, std::string dst_pt, std::size_t cores,
   data_mngr.WriteCommunicationMatrix(
       dst_pt + "minigraph_border_vertexes/communication_matrix.bin",
       pair_communication_matrix.second, pair_communication_matrix.first);
-  data_mngr.WriteVidMap(partitioner->GetMaxVid(), vid_map,
-                        dst_pt + "minigraph_message/vid_map.bin");
-  data_mngr.WriteBitmap(global_border_vid_map,
-                        dst_pt + "minigraph_message/global_border_vid_map.bin");
-  LOG_INFO("End graph partition#");
+  LOG_INFO("End graph convert#");
 }
 
 void EdgeList2EdgeList(std::string src_pt, std::string dst_pt,

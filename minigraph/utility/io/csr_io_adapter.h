@@ -92,22 +92,25 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     std::condition_variable finish_cv;
     std::unique_lock<std::mutex> lck(mtx);
 
-    VID_T aligned_max_vid = ceil((float)edgelist_graph->max_vid_ / 64) * 64;
+    VID_T aligned_max_vid =
+        ceil((float)edgelist_graph->get_aligned_max_vid() / 64) * 64;
 
     std::atomic<size_t> pending_packages(cores);
     LOG_INFO("Aligned max vid: ", aligned_max_vid, "  ",
-             edgelist_graph->max_vid_);
+             edgelist_graph->get_max_vid());
 
     size_t* num_in_edges = (size_t*)malloc(sizeof(size_t) * aligned_max_vid);
     size_t* num_out_edges = (size_t*)malloc(sizeof(size_t) * aligned_max_vid);
     memset(num_in_edges, 0, sizeof(size_t) * aligned_max_vid);
     memset(num_out_edges, 0, sizeof(size_t) * aligned_max_vid);
+    // size_t num_in_edges[aligned_max_vid] = {0};
+    // size_t num_out_edges[aligned_max_vid] = {0};
 
     Bitmap* vertex_indicator = new Bitmap(aligned_max_vid);
     vertex_indicator->clear();
 
-    size_t num_vertexes = edgelist_graph->num_vertexes_;
-    size_t num_edges = edgelist_graph->num_edges_;
+    size_t num_vertexes = edgelist_graph->get_num_vertexes();
+    size_t num_edges = edgelist_graph->get_num_edges();
 
     // Go through every edges to count the size of each vertex.
     LOG_INFO(
@@ -115,14 +118,10 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
         "NumEdges: ",
         num_edges);
     pending_packages.store(cores);
-    for (size_t i = 0; i < cores; i++) {
-      size_t tid = i;
+    for (size_t tid = 0; tid < cores; tid++) {
       thread_pool.Commit([tid, &cores, &num_in_edges, &num_out_edges,
                           &num_edges, &edgelist_graph, &vertex_indicator,
                           &pending_packages, &finish_cv, &num_vertexes]() {
-        if (tid > num_edges) {
-          return;
-        }
         for (size_t j = tid; j < num_edges; j += cores) {
           auto src_vid = edgelist_graph->buf_graph_[j * 2];
           auto dst_vid = edgelist_graph->buf_graph_[j * 2 + 1];
@@ -151,18 +150,17 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
 
     LOG_INFO("Run: Merge edges");
     pending_packages.store(cores);
-    for (size_t i = 0; i < cores; i++) {
-      size_t tid = i;
+    for (size_t tid = 0; tid < cores; tid++) {
       thread_pool.Commit([this, tid, &local_id, &cores, &num_in_edges, &vid_map,
                           &num_out_edges, &aligned_max_vid, &vertex_indicator,
                           &vertexes, &pending_packages, &finish_cv]() {
-        if (tid > aligned_max_vid) return;
         for (VID_T global_id = tid; global_id < aligned_max_vid;
              global_id += cores) {
           if (!vertex_indicator->get_bit(global_id)) continue;
           auto u = new graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>();
           u->vid = __sync_fetch_and_add(&local_id, 1);
           if (vid_map != nullptr) vid_map[global_id] = u->vid;
+          // u->vid = global_id;
           u->indegree = num_in_edges[global_id];
           u->outdegree = num_out_edges[global_id];
           u->in_edges = (VID_T*)malloc(sizeof(VID_T) * (u->indegree));
@@ -198,18 +196,12 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
           auto dst_vid = edgelist_graph->buf_graph_[global_eid * 2 + 1];
           assert(vertexes[src_vid] != nullptr);
           assert(vertexes[dst_vid] != nullptr);
-          auto dst_in_offset =
-              __sync_fetch_and_add(offset_in_edges + dst_vid, 1);
-          auto src_out_offset =
-              __sync_fetch_and_add(offset_out_edges + src_vid, 1);
-          assert(dst_in_offset < num_in_edges[dst_vid]);
-          assert(src_out_offset < num_out_edges[src_vid]);
-          if (vertexes[src_vid] != nullptr) {
-            vertexes[src_vid]->out_edges[src_out_offset] = dst_vid;
-          }
-          if (vertexes[dst_vid] != nullptr) {
-            vertexes[dst_vid]->in_edges[dst_in_offset] = src_vid;
-          }
+          vertexes[src_vid]
+              ->out_edges[__sync_fetch_and_add(offset_out_edges + src_vid, 1)] =
+              dst_vid;
+          vertexes[dst_vid]
+              ->in_edges[__sync_fetch_and_add(offset_in_edges + dst_vid, 1)] =
+              src_vid;
         }
         if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
         return;
@@ -226,12 +218,9 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     }
 
     LOG_INFO("Run: Construct graph");
-
     auto csr_graph = new graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>(
         gid, vertexes, edgelist_graph->num_vertexes_, sum_in_edges,
-        sum_out_edges, edgelist_graph->max_vid_);
-
-
+        sum_out_edges, edgelist_graph->max_vid_, vid_map);
     delete offset_out_edges;
     delete offset_in_edges;
     delete num_in_edges;
@@ -354,7 +343,8 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
 
       // read bitmap
       meta_file.read((char*)&graph->max_vid_, sizeof(VID_T));
-      graph->aligned_max_vid_ = int(ceil((float)graph->get_max_vid() / 64)) * 64;
+      graph->aligned_max_vid_ =
+          int(ceil((float)graph->get_max_vid() / 64)) * 64;
       graph->bitmap_ = new Bitmap(graph->get_aligned_max_vid());
       graph->bitmap_->clear();
       meta_file.close();
@@ -362,21 +352,20 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
 
     {
       // read data
-      //size_t size_localid = sizeof(VID_T) * buf_meta[0];
+      // size_t size_localid = sizeof(VID_T) * buf_meta[0];
       size_t size_globalid = sizeof(VID_T) * buf_meta[0];
-      size_t size_localid_by_globalid = sizeof(VID_T) * graph->get_aligned_max_vid();
+      size_t size_localid_by_globalid =
+          sizeof(VID_T) * graph->get_aligned_max_vid();
       size_t size_indegree = sizeof(size_t) * buf_meta[0];
       size_t size_outdegree = sizeof(size_t) * buf_meta[0];
       size_t size_in_offset = sizeof(size_t) * buf_meta[0];
       size_t size_out_offset = sizeof(size_t) * buf_meta[0];
       size_t size_in_edges = sizeof(VID_T) * buf_meta[1];
       size_t size_out_edges = sizeof(VID_T) * buf_meta[2];
-      total_size = size_globalid + size_indegree +
-                   size_outdegree + size_in_offset + size_out_offset +
-                   size_in_edges + size_out_edges + size_localid_by_globalid;
+      total_size = size_globalid + size_indegree + size_outdegree +
+                   size_in_offset + size_out_offset + size_in_edges +
+                   size_out_edges + size_localid_by_globalid;
 
-      //size_t start_localid = 0;
-      //size_t start_globalid = start_localid + size_localid;
       size_t start_globalid = 0;
       size_t start_indegree = start_globalid + size_globalid;
       size_t start_outdegree = start_indegree + size_indegree;
@@ -387,7 +376,7 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       size_t start_localid_by_globalid = start_out_edges + size_out_edges;
 
       std::ifstream data_file(data_pt, std::ios::binary | std::ios::app);
-      graph->buf_graph_ = malloc(total_size);
+      graph->buf_graph_ = (VID_T*)malloc(total_size);
       data_file.read((char*)graph->buf_graph_, total_size);
       graph->globalid_by_index_ =
           (VID_T*)((char*)graph->buf_graph_ + start_globalid);
@@ -458,7 +447,8 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       std::ofstream data_file(data_pt, std::ios::binary | std::ios::app);
       size_t size_localid = sizeof(VID_T) * graph.get_num_vertexes();
       size_t size_globalid = sizeof(VID_T) * graph.get_num_vertexes();
-      size_t size_localid_by_globalid = sizeof(VID_T) * graph.get_aligned_max_vid();
+      size_t size_localid_by_globalid =
+          sizeof(VID_T) * graph.get_aligned_max_vid();
       size_t size_indegree = sizeof(size_t) * graph.get_num_vertexes();
       size_t size_outdegree = sizeof(size_t) * graph.get_num_vertexes();
       size_t size_in_offset = sizeof(size_t) * graph.get_num_vertexes();
@@ -466,9 +456,9 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       size_t size_in_edges = sizeof(VID_T) * graph.sum_in_edges_;
       size_t size_out_edges = sizeof(VID_T) * graph.sum_out_edges_;
 
-      size_t total_size = size_localid + size_globalid +
-                          size_in_offset + size_indegree + size_outdegree +
-                          size_out_offset + size_in_edges + size_out_edges +
+      size_t total_size = size_localid + size_globalid + size_in_offset +
+                          size_indegree + size_outdegree + size_out_offset +
+                          size_in_edges + size_out_edges +
                           size_localid_by_globalid;
       data_file.write((char*)graph.buf_graph_, total_size);
       data_file.close();

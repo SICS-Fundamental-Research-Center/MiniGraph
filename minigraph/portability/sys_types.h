@@ -9,7 +9,8 @@ using vdata_t = float;
 using edata_t = size_t;
 
 #define VID_MAX 0XFFFFFFFF
-#define VDATA_MAX 0XFFFFFFFF
+#define VDATA_MAX 0XFFFFFFF
+#define GID_MAX 0XFFFFFFF
 #define MINIGRAPH_GID_MAX (((unsigned)(-1)) >> 1)
 
 #ifndef HAVE_MODE_T

@@ -39,12 +39,17 @@ void GraphPartitionEdgeList2CSR(std::string src_pt, std::string dst_pt,
   // Read Graph
   auto edgelist_graph = new EDGE_LIST_T;
   if (frombin) {
-    partitioner->ParallelPartitionFromBin(src_pt, num_partitions, cores);
+    std::string meta_pt = src_pt + "minigraph_meta" + ".bin";
+    std::string data_pt = src_pt + "minigraph_data" + ".bin";
+    std::string vdata_pt = src_pt + "minigraph_vdata" + ".bin";
+    edgelist_io_adapter.ReadEdgeListFromBin(edgelist_graph, 0, meta_pt, data_pt,
+                                            vdata_pt);
   } else {
     edgelist_io_adapter.ParallelRead((GRAPH_BASE_T*)edgelist_graph,
                                      edge_list_csv, separator_params, 0, cores,
                                      src_pt);
   }
+
   partitioner->ParallelPartition(edgelist_graph, num_partitions, cores);
 
   if (!data_mngr.IsExist(dst_pt + "minigraph_meta/")) {
@@ -120,6 +125,7 @@ void GraphPartitionEdgeList2CSR(std::string src_pt, std::string dst_pt,
                         dst_pt + "minigraph_message/vid_map.bin");
   data_mngr.WriteBitmap(global_border_vid_map,
                         dst_pt + "minigraph_message/global_border_vid_map.bin");
+
   LOG_INFO("End graph partition#");
 }
 

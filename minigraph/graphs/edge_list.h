@@ -38,6 +38,7 @@ class EdgeList : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     this->gid_ = gid;
     this->num_edges_ = num_edges;
     this->max_vid_ = max_vid;
+    this->aligned_max_vid_ = ceil((float)max_vid / 64) * 64;
     this->num_vertexes_ = num_vertexes;
 
     if (num_vertexes != 0) {
@@ -50,8 +51,8 @@ class EdgeList : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
              sizeof(VID_T) * this->get_num_vertexes());
     }
     if (num_edges != 0) {
-      buf_graph_ = (VID_T*)malloc(sizeof(VID_T) * this->get_num_edges() * 2);
-      memset((char*)buf_graph_, 0, sizeof(VID_T) * this->get_num_edges() * 2);
+      this->buf_graph_ = (VID_T*)malloc(sizeof(VID_T) * this->get_num_edges() * 2);
+      memset((char*)this->buf_graph_, 0, sizeof(VID_T) * this->get_num_edges() * 2);
     }
     if (buf_graph != nullptr) {
       memcpy(this->buf_graph_, buf_graph,
@@ -86,8 +87,8 @@ class EdgeList : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     std::cout << ">>>> edges_ " << std::endl;
     for (size_t i = 0; i < this->get_num_edges(); i++) {
       if (i > count) break;
-      std::cout << "src: " << *(buf_graph_ + i * 2)
-                << ", dst: " << *(buf_graph_ + i * 2 + 1) << std::endl;
+      std::cout << "src: " << *(this->buf_graph_ + i * 2)
+                << ", dst: " << *(this->buf_graph_ + i * 2 + 1) << std::endl;
     }
     std::cout << ">>>> vdata_ " << std::endl;
     for (size_t i = 0; i < this->get_num_vertexes(); i++) {
@@ -200,13 +201,13 @@ class EdgeList : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
 
     VID_T local_id = 0;
     for (size_t i = 0; i < this->get_num_edges(); i++) {
-      auto src = *(buf_graph_ + i * 2);
+      auto src = *(this->buf_graph_ + i * 2);
       if (map_globalid2localid_->find(src) == map_globalid2localid_->end())
         map_globalid2localid_->insert(std::make_pair(src, local_id++));
     }
     for (size_t i = 0; i < this->get_num_edges(); i++) {
-      auto src = *(buf_graph_ + i * 2);
-      auto dst = *(buf_graph_ + i * 2 + 1);
+      auto src = *(this->buf_graph_ + i * 2);
+      auto dst = *(this->buf_graph_ + i * 2 + 1);
       if (map_globalid2localid_->find(dst) == map_globalid2localid_->end())
         border_vertexes->insert(std::make_pair(src, this->get_gid()));
     }
@@ -214,7 +215,7 @@ class EdgeList : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
   }
 
  public:
-  VID_T* buf_graph_ = nullptr;
+ // VID_T* buf_graph_ = nullptr;
   VDATA_T* vdata_ = nullptr;
   size_t* index_by_vid_ = nullptr;
   VID_T* vid_by_index_ = nullptr;
