@@ -124,8 +124,8 @@ $./bin/sim_vc_exec  -i [workspace] -cc [The number of ComputingComponent] -buffe
 #### Demo: WCC on road-Net
 ```shell
 $cd $SRC_DIR
-$./bin/graph_convert_exec -t csr_bin -p -n 1 -i inputs/edge_graph_csv/roadNet-CA.csv -sep "," -o inputs/tmp/ -cores 4
-$./bin/wcc_vc_exec -i inputs/tmp/ -cc c -buffer_size 1 -cores 4
+$./bin/graph_partition_exec -t csr_bin -p -n 1 -i inputs/roadNet-CA.csv -sep "," -o inputs/workspace/ -cores 10 -tobin -partitioner vertexcut
+$./bin/wcc_vc_exec -i inputs/workspace/ -cc 1 -buffer_size 1 -cores 4
 ```
 
 ## Writing Your Own Graph Algorithms: WCC
