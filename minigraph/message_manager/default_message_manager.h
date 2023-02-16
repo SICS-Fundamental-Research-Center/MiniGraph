@@ -1,14 +1,15 @@
 #ifndef MINIGRAPH_DEFAULT_MESSAGE_MANAGER_H
 #define MINIGRAPH_DEFAULT_MESSAGE_MANAGER_H
 
+#include <unordered_map>
+#include <vector>
+
 #include "graphs/graph.h"
 #include "message_manager/border_vertexes.h"
 #include "message_manager/message_manager_base.h"
 #include "message_manager/partial_match.h"
 #include "portability/sys_data_structure.h"
 #include "utility/io/data_mngr.h"
-#include <unordered_map>
-#include <vector>
 
 namespace minigraph {
 namespace message {

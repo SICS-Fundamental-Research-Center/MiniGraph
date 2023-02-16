@@ -1,10 +1,12 @@
 #ifndef MINIGRAPH_GRAPHS_EDGE_LIST_H
 #define MINIGRAPH_GRAPHS_EDGE_LIST_H
 
-#include "graphs/graph.h"
-#include "portability/sys_data_structure.h"
-#include "portability/sys_types.h"
-#include "utility/logging.h"
+#include <fstream>
+#include <iostream>
+#include <map>
+#include <memory>
+#include <unordered_map>
+
 #include <folly/AtomicHashArray.h>
 #include <folly/AtomicHashMap.h>
 #include <folly/AtomicUnorderedMap.h>
@@ -17,11 +19,11 @@
 #include <folly/portability/Atomic.h>
 #include <folly/portability/SysTime.h>
 #include <jemalloc/jemalloc.h>
-#include <fstream>
-#include <iostream>
-#include <map>
-#include <memory>
-#include <unordered_map>
+
+#include "graphs/graph.h"
+#include "portability/sys_data_structure.h"
+#include "portability/sys_types.h"
+#include "utility/logging.h"
 
 namespace minigraph {
 namespace graphs {
@@ -51,8 +53,10 @@ class EdgeList : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
              sizeof(VID_T) * this->get_num_vertexes());
     }
     if (num_edges != 0) {
-      this->buf_graph_ = (VID_T*)malloc(sizeof(VID_T) * this->get_num_edges() * 2);
-      memset((char*)this->buf_graph_, 0, sizeof(VID_T) * this->get_num_edges() * 2);
+      this->buf_graph_ =
+          (VID_T*)malloc(sizeof(VID_T) * this->get_num_edges() * 2);
+      memset((char*)this->buf_graph_, 0,
+             sizeof(VID_T) * this->get_num_edges() * 2);
     }
     if (buf_graph != nullptr) {
       memcpy(this->buf_graph_, buf_graph,
@@ -60,15 +64,7 @@ class EdgeList : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     }
   }
 
-  ~EdgeList(){
-      // if(buf_graph_!= nullptr)
-      //   delete buf_graph_;
-      // if(vdata_!= nullptr)
-      //   delete vdata_;
-  };
-
-  // size_t get_num_vertexes() const override { return num_vertexes_; }
-  // size_t get_num_edges() const override { return num_edges_; }
+  ~EdgeList() = default;
 
   void CleanUp() override {
     if (vertexes_info_ != nullptr) {
@@ -215,7 +211,7 @@ class EdgeList : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
   }
 
  public:
- // VID_T* buf_graph_ = nullptr;
+  // VID_T* buf_graph_ = nullptr;
   VDATA_T* vdata_ = nullptr;
   size_t* index_by_vid_ = nullptr;
   VID_T* vid_by_index_ = nullptr;

@@ -1,3 +1,11 @@
+#include <cstring>
+#include <iostream>
+#include <math.h>
+#include <string>
+
+#include <gflags/gflags.h>
+#include <rapidcsv.h>
+
 #include "graphs/edge_list.h"
 #include "graphs/immutable_csr.h"
 #include "portability/sys_data_structure.h"
@@ -6,17 +14,11 @@
 #include "utility/io/edge_list_io_adapter.h"
 #include "utility/logging.h"
 #include "utility/thread_pool.h"
-#include <gflags/gflags.h>
-#include <cstring>
-#include <iostream>
-#include <math.h>
-#include <rapidcsv.h>
-#include <string>
 
 using EDGE_LIST_T = minigraph::graphs::EdgeList<gid_t, vid_t, vdata_t, edata_t>;
 using GRAPH_BASE_T = minigraph::graphs::Graph<gid_t, vid_t, vdata_t, edata_t>;
 
-template <typename VID_T>
+template <typename VID_T, typename VDATA_T>
 void GraphReduceCSVToCSV(const std::string input_pt,
                          const std::string output_pt, const size_t cores,
                          char separator_params = ',') {
@@ -31,9 +33,9 @@ void GraphReduceCSVToCSV(const std::string input_pt,
       new rapidcsv::Document(input_pt, rapidcsv::LabelParams(),
                              rapidcsv::SeparatorParams(separator_params));
   std::vector<VID_T>* src = new std::vector<VID_T>();
-  *src = doc->GetColumn<VID_T>("src");
+  *src = doc->GetColumn<VID_T>(0);
   std::vector<VID_T>* dst = new std::vector<VID_T>();
-  *dst = doc->GetColumn<VID_T>("dst");
+  *dst = doc->GetColumn<VID_T>(1);
 
   size_t num_edges = src->size();
   VID_T* src_v = (VID_T*)malloc(sizeof(VID_T) * num_edges);
@@ -59,7 +61,7 @@ void GraphReduceCSVToCSV(const std::string input_pt,
     });
   }
   finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
-  max_vid_atom.store((size_t(max_vid_atom.load() / 64) + 1) * 64);
+  max_vid_atom.store((ceil((float)max_vid_atom.load() / 64)) * 64);
   LOG_INFO("#maximum vid: ", max_vid_atom.load());
   // delete doc;
   VID_T* vid_map = (VID_T*)malloc(sizeof(VID_T) * max_vid_atom.load());
@@ -80,12 +82,12 @@ void GraphReduceCSVToCSV(const std::string input_pt,
         if (!visited->get_bit(src_v[j])) {
           auto vid = __sync_fetch_and_add(&local_id, 1);
           visited->set_bit(src_v[j]);
-          __sync_bool_compare_and_swap(vid_map + src_v[j], 0, vid);
+          vid_map[src_v[j]] = vid;
         }
         if (!visited->get_bit(dst_v[j])) {
           auto vid = __sync_fetch_and_add(&local_id, 1);
           visited->set_bit(dst_v[j]);
-          __sync_bool_compare_and_swap(vid_map + dst_v[j], 0, vid);
+          vid_map[dst_v[j]] = vid;
         }
       }
       if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
@@ -138,7 +140,7 @@ void GraphReduceCSVToCSV(const std::string input_pt,
   return;
 }
 
-template <typename VID_T>
+template <typename VID_T, typename VDATA_T>
 void GraphReduceCSVToBin(const std::string input_pt, const std::string dst_pt,
                          const size_t cores, char separator_params = ',') {
   minigraph::utility::io::EdgeListIOAdapter<gid_t, vid_t, vdata_t, edata_t>
@@ -161,9 +163,9 @@ void GraphReduceCSVToBin(const std::string input_pt, const std::string dst_pt,
       new rapidcsv::Document(input_pt, rapidcsv::LabelParams(),
                              rapidcsv::SeparatorParams(separator_params));
   std::vector<size_t>* src = new std::vector<size_t>();
-  *src = doc->GetColumn<size_t>("src");
+  *src = doc->GetColumn<size_t>(0);
   std::vector<size_t>* dst = new std::vector<size_t>();
-  *dst = doc->GetColumn<size_t>("dst");
+  *dst = doc->GetColumn<size_t>(1);
 
   size_t num_edges = src->size();
   size_t* src_v = (size_t*)malloc(sizeof(size_t) * num_edges);
@@ -191,9 +193,8 @@ void GraphReduceCSVToBin(const std::string input_pt, const std::string dst_pt,
     });
   }
   finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
-  max_vid_atom.store((size_t(max_vid_atom.load() / 64) + 1) * 64);
+  max_vid_atom.store((ceil((float)max_vid_atom.load() / 64)) * 64);
   LOG_INFO("#maximum vid: ", max_vid_atom.load());
-  graph->max_vid_ = max_vid_atom.load();
   delete doc;
   delete src;
   delete dst;
@@ -249,6 +250,12 @@ void GraphReduceCSVToBin(const std::string input_pt, const std::string dst_pt,
   }
   finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
 
+  graph->max_vid_ = local_id;
+  graph->num_vertexes_ = local_id;
+  graph->aligned_max_vid_ = ceil(float(local_id) / 64) * 64;
+
+  graph->vdata_ = (VDATA_T*)malloc(sizeof(VDATA_T) * graph->get_num_vertexes());
+  memset(graph->vdata_, 0, sizeof(VDATA_T) * graph->get_num_vertexes());
   free(vid_map);
   free(src_v);
   free(dst_v);
@@ -259,11 +266,11 @@ void GraphReduceCSVToBin(const std::string input_pt, const std::string dst_pt,
   return;
 }
 
-template <typename VID_T>
+template <typename VID_T, typename VDATA_T>
 void GraphReduceBinToBin(const std::string input_pt, const std::string dst_pt,
                          const size_t cores) {
   minigraph::utility::io::EdgeListIOAdapter<gid_t, vid_t, vdata_t, edata_t>
-      edge_list_io_adapter;
+      edgelist_io_adapter;
   std::string input_meta_pt = input_pt + "minigraph_meta" + ".bin";
   std::string input_data_pt = input_pt + "minigraph_data" + ".bin";
   std::string input_vdata_pt = input_pt + "minigraph_vdata" + ".bin";
@@ -278,8 +285,9 @@ void GraphReduceBinToBin(const std::string input_pt, const std::string dst_pt,
   LOG_INFO("Write: ", dst_vdata_pt);
 
   auto graph = new EDGE_LIST_T;
-  edge_list_io_adapter.Read((GRAPH_BASE_T*)graph, edge_list_bin, ' ', 0,
-                            input_meta_pt, input_data_pt, input_vdata_pt);
+
+  edgelist_io_adapter.ReadEdgeListFromBin(
+      (GRAPH_BASE_T*)graph, 0, input_meta_pt, input_data_pt, input_vdata_pt);
   graph->ShowGraph();
   std::mutex mtx;
   std::condition_variable finish_cv;
@@ -315,9 +323,9 @@ void GraphReduceBinToBin(const std::string input_pt, const std::string dst_pt,
     });
   }
   finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
+
   max_vid_atom.store((VID_T(max_vid_atom.load() / 64) + 1) * 64);
   LOG_INFO("#maximum vid: ", max_vid_atom.load());
-  graph->max_vid_ = max_vid_atom.load();
   VID_T* vid_map = (VID_T*)malloc(sizeof(VID_T) * max_vid_atom.load());
   memset(vid_map, 0, sizeof(VID_T) * max_vid_atom.load());
   Bitmap* visited = new Bitmap(max_vid_atom.load());
@@ -373,9 +381,12 @@ void GraphReduceBinToBin(const std::string input_pt, const std::string dst_pt,
   free(vid_map);
   free(src_v);
   free(dst_v);
+  graph->max_vid_ = local_id;
   graph->num_vertexes_ = local_id;
-  edge_list_io_adapter.Write(*graph, edge_list_bin, false, dst_meta_pt,
-                             dst_data_pt, dst_vdata_pt);
+  graph->aligned_max_vid_ = ceil((float)graph->max_vid_ / 64) * 64;
+
+  edgelist_io_adapter.Write(*graph, edge_list_bin, false, dst_meta_pt,
+                            dst_data_pt, dst_vdata_pt);
   graph->ShowGraph(10);
   std::cout << "Save at " << dst_pt << std::endl;
   return;
@@ -389,11 +400,13 @@ int main(int argc, char* argv[]) {
   LOG_INFO("Reduce: ", FLAGS_i);
   if (FLAGS_tobin) {
     if (FLAGS_frombin)
-      GraphReduceBinToBin<vid_t>(FLAGS_i, FLAGS_o, cores);
+      GraphReduceBinToBin<vid_t, vdata_t>(FLAGS_i, FLAGS_o, cores);
     else
-      GraphReduceCSVToBin<vid_t>(FLAGS_i, FLAGS_o, cores, *FLAGS_sep.c_str());
+      GraphReduceCSVToBin<vid_t, vdata_t>(FLAGS_i, FLAGS_o, cores,
+                                          *FLAGS_sep.c_str());
   } else {
-    GraphReduceCSVToCSV<vid_t>(FLAGS_i, FLAGS_o, cores, *FLAGS_sep.c_str());
+    GraphReduceCSVToCSV<vid_t, vdata_t>(FLAGS_i, FLAGS_o, cores,
+                                        *FLAGS_sep.c_str());
   }
   gflags::ShutDownCommandLineFlags();
 }

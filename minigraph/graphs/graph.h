@@ -2,13 +2,15 @@
 #ifndef MINIGRAPH_GRAPHS_GRAPH_H
 #define MINIGRAPH_GRAPHS_GRAPH_H
 
-#include "utility/bitmap.h"
-#include <folly/AtomicHashMap.h>
-#include <folly/FBString.h>
-#include <folly/Range.h>
 #include <iostream>
 #include <string>
 #include <unordered_map>
+
+#include <folly/AtomicHashMap.h>
+#include <folly/FBString.h>
+#include <folly/Range.h>
+
+#include "utility/bitmap.h"
 
 namespace minigraph {
 namespace graphs {

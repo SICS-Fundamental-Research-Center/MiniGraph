@@ -1,6 +1,16 @@
 #ifndef MINIGRAPH_UTILITY_IO_CSR_IO_ADAPTER_H
 #define MINIGRAPH_UTILITY_IO_CSR_IO_ADAPTER_H
 
+#include <sys/stat.h>
+#include <fstream>
+#include <iostream>
+#include <string>
+#include <unordered_map>
+
+#include <folly/AtomicHashArray.h>
+#include <folly/AtomicHashMap.h>
+#include <folly/FileUtil.h>
+
 #include "graphs/immutable_csr.h"
 #include "io_adapter_base.h"
 #include "portability/sys_data_structure.h"
@@ -8,14 +18,6 @@
 #include "rapidcsv.h"
 #include "utility/bitmap.h"
 #include "utility/logging.h"
-#include <folly/AtomicHashArray.h>
-#include <folly/AtomicHashMap.h>
-#include <folly/FileUtil.h>
-#include <sys/stat.h>
-#include <fstream>
-#include <iostream>
-#include <string>
-#include <unordered_map>
 
 namespace minigraph {
 namespace utility {

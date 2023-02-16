@@ -1,3 +1,8 @@
+#include <sys/stat.h>
+#include <iostream>
+#include <string>
+
+#include <gflags/gflags.h>
 
 #include "graphs/edge_list.h"
 #include "graphs/immutable_csr.h"
@@ -8,10 +13,6 @@
 #include "utility/paritioner/edge_cut_partitioner.h"
 #include "utility/paritioner/partitioner_base.h"
 #include "utility/paritioner/vertex_cut_partitioner.h"
-#include <gflags/gflags.h>
-#include <sys/stat.h>
-#include <iostream>
-#include <string>
 
 using CSR_T = minigraph::graphs::ImmutableCSR<gid_t, vid_t, vdata_t, edata_t>;
 using GRAPH_BASE_T = minigraph::graphs::Graph<gid_t, vid_t, vdata_t, edata_t>;
@@ -48,6 +49,8 @@ void GraphPartitionEdgeList2CSR(std::string src_pt, std::string dst_pt,
     edgelist_io_adapter.ParallelRead((GRAPH_BASE_T*)edgelist_graph,
                                      edge_list_csv, separator_params, 0, cores,
                                      src_pt);
+    //edgelist_io_adapter.ParallelReadEdgeListFromCSV(
+    //    (GRAPH_BASE_T*)edgelist_graph, src_pt, separator_params, cores);
   }
 
   partitioner->ParallelPartition(edgelist_graph, num_partitions, cores);

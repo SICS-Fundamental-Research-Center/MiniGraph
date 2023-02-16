@@ -1,10 +1,12 @@
 #ifndef MINIGRAPH_DATA_MNGR_H
 #define MINIGRAPH_DATA_MNGR_H
 
+#include <memory>
+
+#include <folly/AtomicHashMap.h>
+
 #include "utility/io/csr_io_adapter.h"
 #include "utility/io/edge_list_io_adapter.h"
-#include <folly/AtomicHashMap.h>
-#include <memory>
 
 namespace minigraph {
 namespace utility {

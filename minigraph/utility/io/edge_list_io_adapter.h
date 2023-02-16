@@ -1,18 +1,21 @@
 #ifndef MINIGRAPH_UTILITY_IO_EDGE_LIST_IO_ADAPTER_H
 #define MINIGRAPH_UTILITY_IO_EDGE_LIST_IO_ADAPTER_H
 
-#include "graphs/edge_list.h"
-#include "io_adapter_base.h"
-#include "portability/sys_data_structure.h"
-#include "portability/sys_types.h"
-#include "rapidcsv.h"
-#include "utility/thread_pool.h"
 #include <sys/stat.h>
+
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <string>
 #include <unordered_map>
+
+#include "rapidcsv.h"
+
+#include "graphs/edge_list.h"
+#include "io_adapter_base.h"
+#include "portability/sys_data_structure.h"
+#include "portability/sys_types.h"
+#include "utility/thread_pool.h"
 
 namespace minigraph {
 namespace utility {
@@ -61,8 +64,8 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     bool tag = false;
     switch (graph_format) {
       case edge_list_csv:
-        tag = ParallelReadEdgeListFromCSV(graph, pt[0], gid, true,
-                                          separator_params, cores);
+        tag = ParallelReadEdgeListFromCSV(graph, pt[0], gid, separator_params,
+                                          cores);
         break;
       default:
         break;
@@ -107,7 +110,6 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     return tag;
   }
 
- public:
   bool ReadEdgeListFromCSV(graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>* graph,
                            const std::string& pt, const GID_T gid = 0,
                            const bool assemble = false,
@@ -123,8 +125,8 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     // auto edge_list = (EDGE_LIST_T*)graph;
     rapidcsv::Document doc(pt, rapidcsv::LabelParams(),
                            rapidcsv::SeparatorParams(separator_params));
-    std::vector<VID_T> src = doc.GetColumn<VID_T>("src");
-    std::vector<VID_T> dst = doc.GetColumn<VID_T>("dst");
+    std::vector<VID_T> src = doc.GetColumn<VID_T>(0);
+    std::vector<VID_T> dst = doc.GetColumn<VID_T>(1);
     ((EDGE_LIST_T*)graph)->buf_graph_ =
         (vid_t*)malloc(sizeof(vid_t) * (src.size() + dst.size()));
 
@@ -274,7 +276,6 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     for (size_t i = 0; i < meta_buff[0]; i++) {
       edge_list_graph->map_globalid2localid_->insert(
           std::make_pair(edge_list_graph->globalid_by_localid_[i], i));
-      //      edge_list_graph->globalid_by_localid_[i];
     }
     edge_list_graph->num_vertexes_ = meta_buff[0];
     edge_list_graph->num_edges_ = meta_buff[1];
@@ -287,8 +288,8 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
 
   bool ParallelReadEdgeListFromCSV(
       graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>* graph,
-      const std::string& pt, const GID_T gid = 0, const bool assemble = false,
-      char separator_params = ',', const size_t cores = 1) {
+      const std::string& pt, const GID_T gid, char separator_params,
+      const size_t cores = 1) {
     if (!this->IsExist(pt)) {
       XLOG(ERR, "Read file fault: ", pt);
       return false;
@@ -305,6 +306,8 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
 
     rapidcsv::Document doc(pt, rapidcsv::LabelParams(),
                            rapidcsv::SeparatorParams(separator_params));
+    LOG_INFO("Open ", pt);
+
     std::vector<VID_T> src = doc.GetColumn<VID_T>(0);
     std::vector<VID_T> dst = doc.GetColumn<VID_T>(1);
     graph->buf_graph_ =
@@ -312,7 +315,6 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
 
     memset((char*)graph->buf_graph_, 0,
            sizeof(VID_T) * (src.size() + dst.size()));
-    LOG_INFO("num edges: ", src.size(), " sizeof(VID_T)", sizeof(VID_T));
     std::atomic<VID_T> max_vid_atom(0);
 
     LOG_INFO("Traverse the entire graph to get the maximum vid.");
@@ -495,12 +497,47 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
              buf_graph_bucket_[pi], num_edges_bucket[pi] * 2 * sizeof(VID_T));
     }
 
-    ((EDGE_LIST_T*)graph)->num_vertexes_ = max_vid_atom.load();
+    ((EDGE_LIST_T*)graph)->max_vid_ = max_vid_atom.load();
+    ((EDGE_LIST_T*)graph)->aligned_max_vid_ =
+        ceil((float)max_vid_atom.load() / 64) * 64;
     ((EDGE_LIST_T*)graph)->gid_ = gid;
 
+    LOG_INFO("Traverse the entire graph again to fill the vertex_indicator.");
+    std::atomic<size_t> pending_packages(cores);
+    Bitmap vertex_indicator(graph->get_aligned_max_vid());
+    vertex_indicator.clear();
+    for (size_t i = 0; i < cores; i++) {
+      size_t tid = i;
+      thread_pool.Commit([tid, &cores, &graph, &vertex_indicator,
+                          &pending_packages, &finish_cv]() {
+        for (size_t j = tid; j < graph->get_num_edges(); j += cores) {
+          auto src_vid = ((EDGE_LIST_T*)graph)->buf_graph_[j * 2];
+          auto dst_vid = ((EDGE_LIST_T*)graph)->buf_graph_[j * 2 + 1];
+          if (!vertex_indicator.get_bit(src_vid)) {
+            vertex_indicator.set_bit(src_vid);
+            __sync_add_and_fetch(&((EDGE_LIST_T*)graph)->num_vertexes_, 1);
+          }
+          if (!vertex_indicator.get_bit(dst_vid)) {
+            vertex_indicator.set_bit(dst_vid);
+            __sync_add_and_fetch(&((EDGE_LIST_T*)graph)->num_vertexes_, 1);
+          }
+        }
+        if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
+        return;
+      });
+    }
+    finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
+
+    ((EDGE_LIST_T*)graph)->vdata_ =
+        (VDATA_T*)malloc(sizeof(VDATA_T) * graph->get_num_vertexes());
+    memset(((EDGE_LIST_T*)graph)->vdata_, 0,
+           sizeof(VDATA_T) * graph->get_num_vertexes());
+
     LOG_INFO("Gid: ", ((EDGE_LIST_T*)graph)->gid_,
-             " num_vertexes: ", ((EDGE_LIST_T*)graph)->num_vertexes_,
-             " num_edges: ", ((EDGE_LIST_T*)graph)->num_edges_);
+             " num_vertexes: ", graph->num_vertexes_,
+             " num_edges: ", graph->num_edges_,
+             "max_vid: ", graph->get_max_vid(),
+             "aligned_mavid: ", graph->get_aligned_max_vid());
     return true;
   }
 };

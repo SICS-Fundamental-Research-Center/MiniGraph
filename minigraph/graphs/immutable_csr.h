@@ -1,13 +1,13 @@
 #ifndef MINIGRAPH_GRAPHS_IMMUTABLECSR_H
 #define MINIGRAPH_GRAPHS_IMMUTABLECSR_H
 
-#include "graphs/edge_list.h"
-#include "graphs/graph.h"
-#include "portability/sys_data_structure.h"
-#include "portability/sys_types.h"
-#include "utility/bitmap.h"
-#include "utility/logging.h"
-#include <folly/AtomicHashArray.h>
+#include <fstream>
+#include <iostream>
+#include <malloc.h>
+#include <map>
+#include <memory>
+#include <unordered_map>
+
 #include <folly/AtomicHashMap.h>
 #include <folly/AtomicUnorderedMap.h>
 #include <folly/Benchmark.h>
@@ -19,12 +19,14 @@
 #include <folly/portability/Atomic.h>
 #include <folly/portability/SysTime.h>
 #include <jemalloc/jemalloc.h>
-#include <fstream>
-#include <iostream>
-#include <malloc.h>
-#include <map>
-#include <memory>
-#include <unordered_map>
+
+#include "graphs/edge_list.h"
+#include "graphs/graph.h"
+#include "portability/sys_data_structure.h"
+#include "portability/sys_types.h"
+#include "utility/bitmap.h"
+#include "utility/logging.h"
+#include <folly/AtomicHashArray.h>
 
 namespace minigraph {
 namespace graphs {
@@ -90,7 +92,7 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     for (VID_T global_id = 0; global_id < this->get_aligned_max_vid();
          global_id++) {
       if (set_vertexes[global_id] == nullptr) continue;
-      if(vid_map != nullptr) vid_map[global_id] = local_id;
+      if (vid_map != nullptr) vid_map[global_id] = local_id;
       this->bitmap_->set_bit(global_id);
       ((VID_T*)((char*)this->buf_graph_ +
                 start_localid_by_globalid))[global_id] = local_id;

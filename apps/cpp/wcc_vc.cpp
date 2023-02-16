@@ -1,3 +1,5 @@
+#include <folly/concurrency/DynamicBoundedQueue.h>
+
 #include "2d_pie/auto_app_base.h"
 #include "executors/task_runner.h"
 #include "graphs/graph.h"
@@ -6,7 +8,6 @@
 #include "portability/sys_types.h"
 #include "utility/bitmap.h"
 #include "utility/logging.h"
-#include <folly/concurrency/DynamicBoundedQueue.h>
 
 template <typename GRAPH_T, typename CONTEXT_T>
 class WCCAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
@@ -44,6 +45,7 @@ class WCCAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
                                           Bitmap* visited, const size_t step,
                                           Bitmap* global_border_vid_map,
                                           VDATA_T* global_border_vdata) {
+    if(global_border_vid_map->size_ == 0) return true;
     for (size_t i = tid; i < graph->get_num_vertexes(); i += step) {
       auto u = graph->GetVertexByIndex(i);
       if (global_border_vid_map->get_bit(graph->localid2globalid(u.vid)) == 0)
@@ -59,6 +61,7 @@ class WCCAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
                                           Bitmap* in_visited,
                                           Bitmap* global_border_vid_map,
                                           VDATA_T* global_border_vdata) {
+    if(global_border_vid_map->size_ == 0) return true;
     for (size_t i = tid; i < graph->get_num_vertexes(); i += step) {
       auto u = graph->GetVertexByIndex(i);
       if (global_border_vdata[graph->localid2globalid(u.vid)] < u.vdata[0]) {

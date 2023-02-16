@@ -1,14 +1,13 @@
-#include "graphs/edge_list.h"
-#include "graphs/immutable_csr.h"
-#include "portability/sys_data_structure.h"
-#include "portability/sys_types.h"
-#include "utility/io/data_mngr.h"
-#include "utility/io/edge_list_io_adapter.h"
-#include "utility/paritioner/edge_cut_partitioner.h"
 #include <gflags/gflags.h>
 #include <sys/stat.h>
 #include <iostream>
 #include <string>
+
+#include "graphs/edge_list.h"
+#include "graphs/immutable_csr.h"
+#include "portability/sys_data_structure.h"
+#include "portability/sys_types.h"
+#include "utility/io/edge_list_io_adapter.h"
 
 using CSR_T = minigraph::graphs::ImmutableCSR<gid_t, vid_t, vdata_t, edata_t>;
 using GRAPH_BASE_T = minigraph::graphs::Graph<gid_t, vid_t, vdata_t, edata_t>;
@@ -65,7 +64,7 @@ int main(int argc, char* argv[]) {
 
   if (FLAGS_tobin) {
     if (graph_type == "edgelist_bin") {
-      BatchEdgeList2EdgeList(src_pt, dst_pt, *FLAGS_sep.c_str());
+      BatchEdgeList2EdgeList(src_pt, dst_pt, *FLAGS_sep.c_str(), cores);
     }
   }
   gflags::ShutDownCommandLineFlags();

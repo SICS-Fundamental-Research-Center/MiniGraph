@@ -1,6 +1,16 @@
 #ifndef MINIGRAPH_UTILITY_EDGE_CUT_PARTITIONER_H
 #define MINIGRAPH_UTILITY_EDGE_CUT_PARTITIONER_H
 
+#include <stdio.h>
+
+#include <atomic>
+#include <cstring>
+#include <unordered_map>
+#include <vector>
+
+#include <folly/AtomicHashMap.h>
+#include <folly/FBVector.h>
+
 #include "portability/sys_types.h"
 #include "utility/bitmap.h"
 #include "utility/io/csr_io_adapter.h"
@@ -8,13 +18,6 @@
 #include "utility/io/io_adapter_base.h"
 #include "utility/paritioner/partitioner_base.h"
 #include "utility/thread_pool.h"
-#include <folly/AtomicHashMap.h>
-#include <folly/FBVector.h>
-#include <atomic>
-#include <cstring>
-#include <stdio.h>
-#include <unordered_map>
-#include <vector>
 
 namespace minigraph {
 namespace utility {
@@ -179,7 +182,6 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
     }
     finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
 
-
     size_t* offset_fragments = (size_t*)malloc(sizeof(size_t) * num_partitions);
     memset(offset_fragments, 0, sizeof(size_t) * num_partitions);
     size_t* sum_in_edges_by_fragments =
@@ -270,7 +272,6 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
 
     for (size_t gid = 0; gid < num_partitions; gid++)
       this->fragments_->push_back(set_graphs[gid]);
-
 
     LOG_INFO("Run: Set communication matrix");
     if (this->communication_matrix_ == nullptr)

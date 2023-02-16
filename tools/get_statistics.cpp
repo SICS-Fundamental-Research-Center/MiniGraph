@@ -12,14 +12,15 @@
 #include "utility/logging.h"
 #include "utility/thread_pool.h"
 
-
 using EDGE_LIST_T = minigraph::graphs::EdgeList<gid_t, vid_t, vdata_t, edata_t>;
 using GRAPH_BASE_T = minigraph::graphs::Graph<gid_t, vid_t, vdata_t, edata_t>;
 
 template <typename VID_T>
-void GetGraphStatistic(const std::string input_pt, const std::string output_pt,
-                       char separator_params = ',', const size_t cores = 1,
-                       const size_t expected_edges = 1073741824) {
+void GetGraphStatisticFromCSV(const std::string input_pt,
+                              const std::string output_pt,
+                              char separator_params = ',',
+                              const size_t cores = 1,
+                              const size_t expected_edges = 1073741824) {
   std::mutex mtx;
   std::condition_variable finish_cv;
   std::unique_lock<std::mutex> lck(mtx);
@@ -33,8 +34,8 @@ void GetGraphStatistic(const std::string input_pt, const std::string output_pt,
   std::vector<VID_T>* dst = new std::vector<VID_T>();
   src->reserve(expected_edges);
   dst->reserve(expected_edges);
-  *src = doc->GetColumn<VID_T>("src");
-  *dst = doc->GetColumn<VID_T>("dst");
+  *src = doc->GetColumn<VID_T>(0);
+  *dst = doc->GetColumn<VID_T>(1);
 
   size_t num_edges = src->size();
   VID_T* src_v = (VID_T*)malloc(sizeof(VID_T) * num_edges);
@@ -129,8 +130,8 @@ void GetGraphStatistic(const std::string input_pt, const std::string output_pt,
 }
 
 template <typename VID_T>
-void GetGraphStatistic(const std::string input_pt, const std::string output_pt,
-                       const size_t cores) {
+void GetGraphStatisticFromBin(const std::string input_pt,
+                              const std::string output_pt, const size_t cores) {
   minigraph::utility::io::EdgeListIOAdapter<gid_t, vid_t, vdata_t, edata_t>
       edge_list_io_adapter;
   std::string input_meta_pt = input_pt + "minigraph_meta" + ".bin";
@@ -251,9 +252,9 @@ int main(int argc, char* argv[]) {
 
   LOG_INFO("Statistic: ", FLAGS_i);
   if (FLAGS_frombin)
-    GetGraphStatistic<vid_t>(FLAGS_i, FLAGS_o, cores);
+    GetGraphStatisticFromBin<vid_t>(FLAGS_i, FLAGS_o, cores);
   else
-    GetGraphStatistic<vid_t>(FLAGS_i, FLAGS_o, *(FLAGS_sep.c_str()), cores,
-                             FLAGS_edges);
+    GetGraphStatisticFromCSV<vid_t>(FLAGS_i, FLAGS_o, *(FLAGS_sep.c_str()),
+                                    cores, FLAGS_edges);
   gflags::ShutDownCommandLineFlags();
 }
