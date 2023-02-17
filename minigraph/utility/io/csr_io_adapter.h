@@ -114,7 +114,6 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     size_t num_vertexes = edgelist_graph->get_num_vertexes();
     size_t num_edges = edgelist_graph->get_num_edges();
 
-    // Go through every edges to count the size of each vertex.
     LOG_INFO(
         "Run: Go through every edges to count the size of each vertex. "
         "NumEdges: ",

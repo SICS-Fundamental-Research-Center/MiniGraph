@@ -2,18 +2,18 @@
 #define MINIGRAPH_UTILITY_IO_EDGE_LIST_IO_ADAPTER_H
 
 #include <sys/stat.h>
-
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <string>
 #include <unordered_map>
 
+#include "rapidcsv.h"
+
 #include "graphs/edge_list.h"
 #include "io_adapter_base.h"
 #include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
-#include "rapidcsv.h"
 #include "utility/thread_pool.h"
 
 namespace minigraph {
@@ -274,7 +274,6 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
         (VID_T*)malloc(sizeof(VID_T) * meta_buff[0]);
     vdata_file.read((char*)edge_list_graph->globalid_by_localid_,
                     sizeof(VID_T) * meta_buff[0]);
-    LOG_INFO("Num Vertexes: ", meta_buff[0], " Num Edges: ", meta_buff[1]);
 
     edge_list_graph->num_vertexes_ = meta_buff[0];
     edge_list_graph->num_edges_ = meta_buff[1];
@@ -291,6 +290,11 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       edge_list_graph->aligned_max_vid_ =
           ceil((float)max_vid_atom.load() / 64) * 64;
     }
+    LOG_INFO("Read ", data_pt, " successful", ", num vertexes: ", meta_buff[0],
+             " num edges: ", meta_buff[1],
+             " max_vid: ", edge_list_graph->get_max_vid(), " aligned max vid: ",
+             edge_list_graph->get_aligned_max_vid());
+
     free(meta_buff);
     data_file.close();
     meta_file.close();
@@ -420,9 +424,6 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     if ((char*)((EDGE_LIST_T*)&graph)->vdata_ != nullptr)
       vdata_file.write((char*)((EDGE_LIST_T*)&graph)->vdata_,
                        sizeof(VID_T) * ((EDGE_LIST_T*)&graph)->num_vertexes_);
-
-    // vdata_file.write((char*)((EDGE_LIST_T*)&graph)->globalid_by_localid_,
-    //                  sizeof(VID_T) * ((EDGE_LIST_T*)&graph)->num_vertexes_);
 
     LOG_INFO("EDGE_UNIT: ", sizeof(VID_T) * 2,
              ", num_edges: ", ((EDGE_LIST_T*)&graph)->num_edges_,

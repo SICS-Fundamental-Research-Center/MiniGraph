@@ -56,7 +56,6 @@ class VertexCutPartitioner : public PartitionerBase<GRAPH_T> {
                          const size_t num_partitions = 1,
                          const size_t cores = 1) override {
     LOG_INFO("ParallelPartition(): VertexCut");
-    size_t num_edges = edgelist_graph->num_edges_;
 
     auto thread_pool = CPUThreadPool(cores, 1);
     std::mutex mtx;
@@ -75,6 +74,7 @@ class VertexCutPartitioner : public PartitionerBase<GRAPH_T> {
     memset(num_out_edges, 0, sizeof(size_t) * aligned_max_vid);
     size_t* size_per_bucket = new size_t[num_partitions];
     memset(size_per_bucket, 0, sizeof(size_t) * num_partitions);
+    size_t num_edges = edgelist_graph->num_edges_;
 
     LOG_INFO("Compute the number of edges for each bucket.");
     pending_packages.store(cores);
@@ -95,7 +95,6 @@ class VertexCutPartitioner : public PartitionerBase<GRAPH_T> {
     }
     finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
 
-    LOG_INFO("Second round of iterations to drop edges into buckets.");
     VID_T** edges_buckets = nullptr;
     edges_buckets = (VID_T**)malloc(sizeof(VID_T*) * num_partitions);
     for (GID_T i = 0; i < num_partitions; i++) {
@@ -114,6 +113,7 @@ class VertexCutPartitioner : public PartitionerBase<GRAPH_T> {
     VID_T* max_vid_per_bucket = new VID_T[num_partitions];
     memset(max_vid_per_bucket, 0, sizeof(VID_T) * num_partitions);
 
+    LOG_INFO("Second round of iterations to drop edges into buckets.");
     pending_packages.store(cores);
     for (size_t tid = 0; tid < cores; tid++) {
       thread_pool.Commit([tid, &cores, &num_edges, &edgelist_graph,
