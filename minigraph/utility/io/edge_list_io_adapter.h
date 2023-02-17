@@ -1,18 +1,20 @@
 #ifndef MINIGRAPH_UTILITY_IO_EDGE_LIST_IO_ADAPTER_H
 #define MINIGRAPH_UTILITY_IO_EDGE_LIST_IO_ADAPTER_H
 
+#include <sys/stat.h>
+
+#include <filesystem>
+#include <fstream>
+#include <iostream>
+#include <string>
+#include <unordered_map>
+
 #include "graphs/edge_list.h"
 #include "io_adapter_base.h"
 #include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
 #include "rapidcsv.h"
 #include "utility/thread_pool.h"
-#include <sys/stat.h>
-#include <filesystem>
-#include <fstream>
-#include <iostream>
-#include <string>
-#include <unordered_map>
 
 namespace minigraph {
 namespace utility {
@@ -277,6 +279,18 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     edge_list_graph->num_vertexes_ = meta_buff[0];
     edge_list_graph->num_edges_ = meta_buff[1];
 
+    if (edge_list_graph->max_vid_ == 0) {
+      std::atomic<VID_T> max_vid_atom(0);
+      for (size_t j = 0; j < edge_list_graph->num_edges_; j++) {
+        auto src_vid = edge_list_graph->buf_graph_[j * 2];
+        auto dst_vid = edge_list_graph->buf_graph_[j * 2 + 1];
+        if (max_vid_atom.load() < src_vid) max_vid_atom.store(src_vid);
+        if (max_vid_atom.load() < dst_vid) max_vid_atom.store(dst_vid);
+      }
+      edge_list_graph->max_vid_ = max_vid_atom.load();
+      edge_list_graph->aligned_max_vid_ =
+          ceil((float)max_vid_atom.load() / 64) * 64;
+    }
     free(meta_buff);
     data_file.close();
     meta_file.close();
