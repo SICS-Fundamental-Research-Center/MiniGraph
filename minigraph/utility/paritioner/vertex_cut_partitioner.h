@@ -129,6 +129,10 @@ class VertexCutPartitioner : public PartitionerBase<GRAPH_T> {
             __sync_bool_compare_and_swap(&max_vid_per_bucket[bucket_id],
                                          max_vid_per_bucket[bucket_id],
                                          src_vid);
+          if (max_vid_per_bucket[bucket_id] < dst_vid)
+            __sync_bool_compare_and_swap(&max_vid_per_bucket[bucket_id],
+                                         max_vid_per_bucket[bucket_id],
+                                         dst_vid);
 
           auto offset = __sync_fetch_and_add(buckets_offset + bucket_id, 1);
           edges_buckets[bucket_id][offset * 2] = src_vid;
@@ -142,7 +146,6 @@ class VertexCutPartitioner : public PartitionerBase<GRAPH_T> {
             is_in_bucketX[bucket_id]->set_bit(dst_vid);
             __sync_add_and_fetch(num_vertexes_per_bucket + bucket_id, 1);
           }
-          //__sync_add_and_fetch(buckets_offset + bucket_id, 1);
         }
         if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
         return;

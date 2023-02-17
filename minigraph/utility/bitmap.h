@@ -75,8 +75,8 @@ class Bitmap {
 
   unsigned long get_bit(size_t i) {
     if (i > size_) {
-      LOG_INFO("Bitmap: query point", i,
-               "beyound the scope of get_bit that size of ", size_);
+      LOG_INFO("Bitmap: query point ", i,
+               " beyound the scope of get_bit that size of ", size_);
     }
     assert(i <= size_);
     return data_[WORD_OFFSET(i)] & (1ul << BIT_OFFSET(i));
@@ -88,8 +88,8 @@ class Bitmap {
 
   void set_bit(size_t i) {
     if (i > size_) {
-      LOG_INFO("Bitmap: query point", i,
-               "beyound the scope of set_bit that size of ", size_);
+      LOG_INFO("Bitmap: query point ", i,
+               " beyound the scope of set_bit that size of ", size_);
     }
     assert(i <= size_);
     __sync_fetch_and_or(data_ + WORD_OFFSET(i), 1ul << BIT_OFFSET(i));
