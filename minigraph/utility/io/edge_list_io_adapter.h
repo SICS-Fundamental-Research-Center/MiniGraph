@@ -1,21 +1,18 @@
 #ifndef MINIGRAPH_UTILITY_IO_EDGE_LIST_IO_ADAPTER_H
 #define MINIGRAPH_UTILITY_IO_EDGE_LIST_IO_ADAPTER_H
 
+#include "graphs/edge_list.h"
+#include "io_adapter_base.h"
+#include "portability/sys_data_structure.h"
+#include "portability/sys_types.h"
+#include "rapidcsv.h"
+#include "utility/thread_pool.h"
 #include <sys/stat.h>
-
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <string>
 #include <unordered_map>
-
-#include "rapidcsv.h"
-
-#include "graphs/edge_list.h"
-#include "io_adapter_base.h"
-#include "portability/sys_data_structure.h"
-#include "portability/sys_types.h"
-#include "utility/thread_pool.h"
 
 namespace minigraph {
 namespace utility {
@@ -255,9 +252,15 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     std::ifstream data_file(data_pt, std::ios::binary | std::ios::app);
     std::ifstream vdata_file(vdata_pt, std::ios::binary | std::ios::app);
 
+    LOG_INFO("Read workspace: ", meta_pt);
+
     size_t* meta_buff = (size_t*)malloc(sizeof(size_t) * 2);
     memset((char*)meta_buff, 0, sizeof(size_t) * 2);
     meta_file.read((char*)meta_buff, sizeof(size_t) * 2);
+    meta_file.read((char*)&edge_list_graph->max_vid_, sizeof(VID_T));
+    edge_list_graph->aligned_max_vid_ =
+        ceil((float)edge_list_graph->max_vid_ / 64) * 64;
+
     edge_list_graph->buf_graph_ =
         (VID_T*)malloc(sizeof(VID_T) * 2 * meta_buff[1]);
     edge_list_graph->vdata_ = (VDATA_T*)malloc(sizeof(VDATA_T) * meta_buff[0]);
@@ -269,16 +272,11 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
         (VID_T*)malloc(sizeof(VID_T) * meta_buff[0]);
     vdata_file.read((char*)edge_list_graph->globalid_by_localid_,
                     sizeof(VID_T) * meta_buff[0]);
-    edge_list_graph->map_globalid2localid_ =
-        new std::unordered_map<VID_T, VID_T>;
-    edge_list_graph->map_globalid2localid_->reserve(meta_buff[0]);
     LOG_INFO("Num Vertexes: ", meta_buff[0], " Num Edges: ", meta_buff[1]);
-    for (size_t i = 0; i < meta_buff[0]; i++) {
-      edge_list_graph->map_globalid2localid_->insert(
-          std::make_pair(edge_list_graph->globalid_by_localid_[i], i));
-    }
+
     edge_list_graph->num_vertexes_ = meta_buff[0];
     edge_list_graph->num_edges_ = meta_buff[1];
+
     free(meta_buff);
     data_file.close();
     meta_file.close();
@@ -400,6 +398,7 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     meta_buff[1] = ((EDGE_LIST_T*)&graph)->num_edges_;
 
     meta_file.write((char*)meta_buff, 2 * sizeof(size_t));
+    meta_file.write((char*)&graph.max_vid_, sizeof(VID_T));
     data_file.write((char*)((EDGE_LIST_T*)&graph)->buf_graph_,
                     sizeof(VID_T) * 2 * ((EDGE_LIST_T*)&graph)->num_edges_);
 

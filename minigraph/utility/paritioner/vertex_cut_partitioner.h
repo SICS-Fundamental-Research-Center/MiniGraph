@@ -7,11 +7,11 @@
 #include <string.h>
 #include <unordered_map>
 #include <vector>
-#include "graphs/graph.h"
 
 #include <folly/AtomicHashMap.h>
 #include <folly/FBVector.h>
 
+#include "graphs/graph.h"
 #include "portability/sys_types.h"
 #include "utility/bitmap.h"
 #include "utility/io/csr_io_adapter.h"
@@ -19,7 +19,6 @@
 #include "utility/io/io_adapter_base.h"
 #include "utility/paritioner/partitioner_base.h"
 #include "utility/thread_pool.h"
-
 
 namespace minigraph {
 namespace utility {
@@ -64,6 +63,30 @@ class VertexCutPartitioner : public PartitionerBase<GRAPH_T> {
     std::condition_variable finish_cv;
     std::unique_lock<std::mutex> lck(mtx);
     std::atomic<size_t> pending_packages(cores);
+
+    LOG_INFO(ceil((float)edgelist_graph->max_vid_ / 64) * 64);
+
+    if (edgelist_graph->get_max_vid() == 0) {
+      pending_packages.store(cores);
+      std::atomic<VID_T> max_vid_atom(0);
+      for (size_t i = 0; i < cores; i++) {
+        size_t tid = i;
+        thread_pool.Commit([tid, &cores, &edgelist_graph, &pending_packages,
+                            &max_vid_atom, &finish_cv]() {
+          for (size_t j = tid; j < edgelist_graph->get_num_edges();
+               j += cores) {
+            if (max_vid_atom.load() < edgelist_graph->buf_graph_[j * 2])
+              max_vid_atom.store(edgelist_graph->buf_graph_[j * 2]);
+            if (max_vid_atom.load() < edgelist_graph->buf_graph_[j * 2 + 1])
+              max_vid_atom.store(edgelist_graph->buf_graph_[j * 2 + 1]);
+          }
+          if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
+          return;
+        });
+      }
+      finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
+      edgelist_graph->max_vid_ = max_vid_atom.load();
+    }
 
     VID_T aligned_max_vid = ceil((float)edgelist_graph->max_vid_ / 64) * 64;
     this->vid_map_ = (VID_T*)malloc(sizeof(VID_T) * aligned_max_vid);
