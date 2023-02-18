@@ -1,16 +1,6 @@
 #ifndef MINIGRAPH_UTILITY_EDGE_CUT_PARTITIONER_H
 #define MINIGRAPH_UTILITY_EDGE_CUT_PARTITIONER_H
 
-#include <stdio.h>
-
-#include <atomic>
-#include <cstring>
-#include <unordered_map>
-#include <vector>
-
-#include <folly/AtomicHashMap.h>
-#include <folly/FBVector.h>
-
 #include "portability/sys_types.h"
 #include "utility/bitmap.h"
 #include "utility/io/csr_io_adapter.h"
@@ -18,6 +8,13 @@
 #include "utility/io/io_adapter_base.h"
 #include "utility/paritioner/partitioner_base.h"
 #include "utility/thread_pool.h"
+#include <folly/AtomicHashMap.h>
+#include <folly/FBVector.h>
+#include <atomic>
+#include <cstring>
+#include <stdio.h>
+#include <unordered_map>
+#include <vector>
 
 namespace minigraph {
 namespace utility {
@@ -246,6 +243,13 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
       });
     }
     finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
+
+    LOG_INFO("Run: Refine subgraph.");
+    for (size_t i = 0; i < num_partitions; i++) {
+      LOG_INFO("GID: ", i, " num_vertexes: ", num_vertexes_per_bucket[i],
+               " sum_inedges: ", sum_in_edges_by_fragments[i],
+               " sum_out_edges: ", sum_out_edges_by_fragments[i]);
+    }
 
     auto set_graphs = (graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>**)malloc(
         sizeof(graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>*) *
