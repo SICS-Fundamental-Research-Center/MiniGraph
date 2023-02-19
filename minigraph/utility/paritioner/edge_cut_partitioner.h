@@ -70,7 +70,7 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
     this->num_vertexes_ = edgelist_graph->get_num_vertexes();
     auto num_edges = edgelist_graph->get_num_edges();
     this->num_edges_ = edgelist_graph->get_num_edges();
-    size_t num_new_buckets = 3;
+    size_t num_new_buckets = 5;
 
     auto vid_map =
         (VID_T*)malloc(sizeof(VID_T) * edgelist_graph->get_aligned_max_vid());
