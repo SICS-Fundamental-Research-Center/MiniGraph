@@ -99,6 +99,9 @@ class Graph {
 
   inline bool IsInGraph(const VID_T globalid) const {
     assert(bitmap_ != nullptr);
+    if (globalid > bitmap_->size_) {
+      return false;
+    }
     return bitmap_->get_bit(globalid) != 0;
   }
 

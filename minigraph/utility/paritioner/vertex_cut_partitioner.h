@@ -179,6 +179,8 @@ class VertexCutPartitioner : public PartitionerBase<GRAPH_T> {
            sizeof(bool) * num_partitions * num_partitions);
     for (size_t i = 0; i < num_partitions * num_partitions; i++)
       this->communication_matrix_[i] = 1;
+    for (size_t i = 0; i < num_partitions; i++)
+      *(this->communication_matrix_ + i * num_partitions + i) = 0;
 
     LOG_INFO("Run: Set global_border_vid_map");
     if (this->global_border_vid_map_ == nullptr)

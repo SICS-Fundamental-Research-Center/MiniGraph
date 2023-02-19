@@ -540,6 +540,7 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       for (size_t i = 0; i < vertex_info.indegree; i++) {
         for (GID_T gid = 0; gid < num_partitions; gid++) {
           if (gid == this->get_gid()) continue;
+          if(is_in_bucketX[gid] == nullptr) continue;
           if (is_in_bucketX[gid]->get_bit(vertex_info.in_edges[i]) &&
               global_border_vid_map->get_bit((vertex_info.in_edges[i])) == 0) {
             global_border_vid_map->set_bit((vertex_info.in_edges[i]));
@@ -549,6 +550,7 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       for (size_t i = 0; i < vertex_info.outdegree; i++) {
         for (GID_T gid = 0; gid < num_partitions; gid++) {
           if (gid == this->get_gid()) continue;
+          if(is_in_bucketX[gid] == nullptr) continue;
           if (is_in_bucketX[gid]->get_bit(vertex_info.out_edges[i]) &&
               global_border_vid_map->get_bit((vertex_info.out_edges[i])) == 0) {
             global_border_vid_map->set_bit((vertex_info.out_edges[i]));
