@@ -258,6 +258,7 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
       if (max_degree <
           sum_in_edges_by_fragments[i] + sum_out_edges_by_fragments[i]) {
         bucket_id_to_be_splitted = i;
+        max_degree = sum_in_edges_by_fragments[i] + sum_out_edges_by_fragments[i];
       }
     }
 
@@ -363,7 +364,6 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
               sum_in_edges_by_new_fragments[gid],
               sum_out_edges_by_new_fragments[gid],
               max_vid_per_bucket[bucket_id_to_be_splitted], vid_map);
-          LOG_INFO(max_vid_per_bucket[bucket_id_to_be_splitted]);
           set_graphs[num_partitions + gid] =
               (graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>*)graph;
         }
@@ -406,6 +406,7 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
     GID_T local_gid = 0;
     for (auto& iter_fragments : *this->fragments_) {
       auto fragment = (CSR_T*)iter_fragments;
+      LOG_INFO(fragement->get_gid(), "->", local_gid);
       fragment->gid_ = local_gid++;
     }
 
