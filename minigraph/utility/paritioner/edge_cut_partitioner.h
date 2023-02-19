@@ -406,9 +406,10 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
     GID_T local_gid = 0;
     for (auto& iter_fragments : *this->fragments_) {
       auto fragment = (CSR_T*)iter_fragments;
-      LOG_INFO(fragement->get_gid(), "->", local_gid);
+      LOG_INFO("gid: ", fragment->get_gid(), "->", local_gid);
       fragment->gid_ = local_gid++;
     }
+
 
     return false;
   }
