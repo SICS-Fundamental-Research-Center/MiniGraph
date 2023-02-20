@@ -3,13 +3,13 @@
 #include <math.h>
 #include <string>
 
-#include <gflags/gflags.h>
 #include <rapidcsv.h>
+#include <gflags/gflags.h>
 
 #include "graphs/edge_list.h"
-#include "graphs/immutable_csr.h"
 #include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
+#include "utility/atomic.h"
 #include "utility/bitmap.h"
 #include "utility/io/edge_list_io_adapter.h"
 #include "utility/logging.h"
@@ -42,41 +42,40 @@ void GraphReduceCSVToCSV(const std::string input_pt,
   VID_T* dst_v = (VID_T*)malloc(sizeof(VID_T) * num_edges);
   memset(src_v, 0, sizeof(VID_T) * num_edges);
   memset(dst_v, 0, sizeof(VID_T) * num_edges);
-  std::atomic<VID_T> max_vid_atom(0);
+  VID_T max_vid(0);
 
   LOG_INFO("Read ", num_edges, " edges");
   LOG_INFO("Run: get maximum vid");
   for (size_t i = 0; i < cores; i++) {
     size_t tid = i;
-    thread_pool.Commit([tid, &cores, &src_v, &dst_v, &src, &dst,
-                        &pending_packages, &finish_cv, &max_vid_atom]() {
+    thread_pool.Commit([tid, &cores, &src_v, &dst_v, &src, &dst, &max_vid,
+                        &pending_packages, &finish_cv]() {
       for (size_t j = tid; j < src->size(); j += cores) {
         dst_v[j] = dst->at(j);
         src_v[j] = src->at(j);
-        if (max_vid_atom.load() < dst->at(j)) max_vid_atom.store(dst->at(j));
-        if (max_vid_atom.load() < src->at(j)) max_vid_atom.store(src->at(j));
+        write_max(&max_vid, dst->at(j));
+        write_max(&max_vid, src->at(j));
       }
       if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
       return;
     });
   }
   finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
-  max_vid_atom.store((ceil((float)max_vid_atom.load() / 64)) * 64);
-  LOG_INFO("#maximum vid: ", max_vid_atom.load());
-  // delete doc;
-  VID_T* vid_map = (VID_T*)malloc(sizeof(VID_T) * max_vid_atom.load());
-  memset(vid_map, 0, sizeof(VID_T) * max_vid_atom.load());
-  Bitmap* visited = new Bitmap(max_vid_atom.load());
+  auto aligned_max_vid =
+      (ceil((float)max_vid / ALIGNMENT_FACTOR)) * ALIGNMENT_FACTOR;
+  LOG_INFO("#maximum vid: ", max_vid);
+  VID_T* vid_map = (VID_T*)malloc(sizeof(VID_T) * aligned_max_vid);
+  memset(vid_map, 0, sizeof(VID_T) * aligned_max_vid);
+  Bitmap* visited = new Bitmap(aligned_max_vid);
   visited->clear();
 
   LOG_INFO("Run: transfer");
-  std::atomic local_vid(0);
   VID_T local_id = 0;
   pending_packages.store(cores);
   for (size_t i = 0; i < cores; i++) {
     size_t tid = i;
     thread_pool.Commit([tid, &cores, &src_v, &dst_v, &num_edges,
-                        &pending_packages, &finish_cv, &max_vid_atom, &visited,
+                        &pending_packages, &finish_cv, &max_vid, &visited,
                         &vid_map, &local_id]() {
       for (size_t j = tid; j < num_edges; j += cores) {
         if (!visited->get_bit(src_v[j])) {
@@ -125,8 +124,6 @@ void GraphReduceCSVToCSV(const std::string input_pt,
   rapidcsv::Document doc_out(
       "", rapidcsv::LabelParams(0, -1),
       rapidcsv::SeparatorParams(separator_params, false, false));
-  doc_out.SetColumnName(0, "src");
-  doc_out.SetColumnName(1, "dst");
   doc_out.SetColumn<VID_T>(0, *out_src);
   doc_out.SetColumn<VID_T>(1, *out_dst);
   doc_out.Save(output_pt);
@@ -168,39 +165,39 @@ void GraphReduceCSVToBin(const std::string input_pt, const std::string dst_pt,
   *dst = doc->GetColumn<size_t>(1);
 
   size_t num_edges = src->size();
-  size_t* src_v = (size_t*)malloc(sizeof(size_t) * num_edges);
-  size_t* dst_v = (size_t*)malloc(sizeof(size_t) * num_edges);
-  memset(src_v, 0, sizeof(size_t) * num_edges);
-  memset(dst_v, 0, sizeof(size_t) * num_edges);
+  VID_T* src_v = (VID_T*)malloc(sizeof(VID_T) * num_edges);
+  VID_T* dst_v = (VID_T*)malloc(sizeof(VID_T) * num_edges);
+  memset(src_v, 0, sizeof(VID_T) * num_edges);
+  memset(dst_v, 0, sizeof(VID_T) * num_edges);
   auto graph = new EDGE_LIST_T(0, num_edges, 0);
 
-  std::atomic<size_t> max_vid_atom(0);
+  VID_T max_vid = 0;
 
   LOG_INFO("Read ", num_edges, " edges");
   LOG_INFO("Run: get maximum vid");
   for (size_t i = 0; i < cores; i++) {
     size_t tid = i;
     thread_pool.Commit([tid, &cores, &src_v, &dst_v, &src, &dst,
-                        &pending_packages, &finish_cv, &max_vid_atom]() {
+                        &pending_packages, &finish_cv, &max_vid]() {
       for (size_t j = tid; j < src->size(); j += cores) {
         dst_v[j] = dst->at(j);
         src_v[j] = src->at(j);
-        if (max_vid_atom.load() < dst->at(j)) max_vid_atom.store(dst->at(j));
-        if (max_vid_atom.load() < src->at(j)) max_vid_atom.store(src->at(j));
+        write_max(&max_vid, dst_v[j]);
+        write_max(&max_vid, src_v[j]);
       }
       if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
       return;
     });
   }
   finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
-  max_vid_atom.store((ceil((float)max_vid_atom.load() / 64)) * 64);
-  LOG_INFO("#maximum vid: ", max_vid_atom.load());
+  VID_T aligned_max_vid =
+      ceil((float)max_vid / ALIGNMENT_FACTOR) * ALIGNMENT_FACTOR;
   delete doc;
   delete src;
   delete dst;
-  size_t* vid_map = (size_t*)malloc(sizeof(size_t) * max_vid_atom.load());
-  memset(vid_map, 0, sizeof(size_t) * max_vid_atom.load());
-  Bitmap* visited = new Bitmap(max_vid_atom.load());
+  size_t* vid_map = (size_t*)malloc(sizeof(size_t) * aligned_max_vid);
+  memset(vid_map, 0, sizeof(size_t) * aligned_max_vid);
+  Bitmap* visited = new Bitmap(aligned_max_vid);
   visited->clear();
 
   LOG_INFO("Run: transfer");
@@ -252,7 +249,8 @@ void GraphReduceCSVToBin(const std::string input_pt, const std::string dst_pt,
 
   graph->max_vid_ = local_id;
   graph->num_vertexes_ = local_id;
-  graph->aligned_max_vid_ = ceil(float(local_id) / 64) * 64;
+  graph->aligned_max_vid_ =
+      ceil(float(local_id) / ALIGNMENT_FACTOR) * ALIGNMENT_FACTOR;
 
   graph->vdata_ = (VDATA_T*)malloc(sizeof(VDATA_T) * graph->get_num_vertexes());
   memset(graph->vdata_, 0, sizeof(VDATA_T) * graph->get_num_vertexes());
@@ -302,21 +300,19 @@ void GraphReduceBinToBin(const std::string input_pt, const std::string dst_pt,
   memset(src_v, 0, sizeof(VID_T) * num_edges);
   memset(dst_v, 0, sizeof(VID_T) * num_edges);
 
-  std::atomic<VID_T> max_vid_atom(0);
+  VID_T max_vid(0);
 
   LOG_INFO("Read ", num_edges, " edges");
   LOG_INFO("Run: get maximum vid");
   for (size_t i = 0; i < cores; i++) {
     size_t tid = i;
     thread_pool.Commit([tid, &cores, &src_v, &dst_v, &graph, &pending_packages,
-                        &finish_cv, &max_vid_atom]() {
+                        &finish_cv, &max_vid]() {
       for (size_t j = tid; j < graph->num_edges_; j += cores) {
         src_v[j] = graph->buf_graph_[j * 2];
         dst_v[j] = graph->buf_graph_[j * 2 + 1];
-        if (max_vid_atom.load() < graph->buf_graph_[j * 2 + 1])
-          max_vid_atom.store(graph->buf_graph_[j * 2 + 1]);
-        if (max_vid_atom.load() < graph->buf_graph_[j * 2])
-          max_vid_atom.store(graph->buf_graph_[j * 2]);
+        write_max(&max_vid, src_v[j]);
+        write_max(&max_vid, dst_v[j]);
       }
       if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
       return;
@@ -324,11 +320,11 @@ void GraphReduceBinToBin(const std::string input_pt, const std::string dst_pt,
   }
   finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
 
-  max_vid_atom.store((VID_T(max_vid_atom.load() / 64) + 1) * 64);
-  LOG_INFO("#maximum vid: ", max_vid_atom.load());
-  VID_T* vid_map = (VID_T*)malloc(sizeof(VID_T) * max_vid_atom.load());
-  memset(vid_map, 0, sizeof(VID_T) * max_vid_atom.load());
-  Bitmap* visited = new Bitmap(max_vid_atom.load());
+  VID_T aligned_max_vid =
+      ceil((float)max_vid / ALIGNMENT_FACTOR) * ALIGNMENT_FACTOR;
+  VID_T* vid_map = (VID_T*)malloc(sizeof(VID_T) * aligned_max_vid);
+  memset(vid_map, 0, sizeof(VID_T) * aligned_max_vid);
+  Bitmap* visited = new Bitmap(aligned_max_vid);
   visited->clear();
 
   LOG_INFO("Run: transfer");
@@ -383,7 +379,8 @@ void GraphReduceBinToBin(const std::string input_pt, const std::string dst_pt,
   free(dst_v);
   graph->max_vid_ = local_id;
   graph->num_vertexes_ = local_id;
-  graph->aligned_max_vid_ = ceil((float)graph->max_vid_ / 64) * 64;
+  graph->aligned_max_vid_ =
+      ceil((float)graph->max_vid_ / ALIGNMENT_FACTOR) * ALIGNMENT_FACTOR;
 
   edgelist_io_adapter.Write(*graph, edge_list_bin, false, dst_meta_pt,
                             dst_data_pt, dst_vdata_pt);
