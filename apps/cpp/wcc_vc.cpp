@@ -110,7 +110,6 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     auto vid_map = this->msg_mngr_->GetVidMap();
     auto start_time = std::chrono::system_clock::now();
 
-    graph.ShowGraph(20);
     Bitmap* in_visited = new Bitmap(graph.get_num_vertexes());
     Bitmap* out_visited = new Bitmap(graph.get_num_vertexes());
     in_visited->fill();
@@ -146,7 +145,6 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
   bool IncEval(GRAPH_T& graph,
                minigraph::executors::TaskRunner* task_runner) override {
     LOG_INFO("IncEval() - Processing gid: ", graph.gid_);
-    auto global_vdata = this->msg_mngr_->GetGlobalVdata();
     auto start_time = std::chrono::system_clock::now();
     Bitmap visited(graph.get_num_vertexes());
     visited.clear();
@@ -181,7 +179,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     auto visited_num = output_visited.get_num_bit();
     auto end_time = std::chrono::system_clock::now();
     LOG_INFO("Visited: ", visited_num, " / ", graph.get_num_vertexes(), " | ",
-             graph.get_num_vertexes() / 1000);
+             graph.get_num_vertexes() / 10000);
     std::cout << "Gid " << graph.gid_ << ":  IncEval elapse time "
               << std::chrono::duration_cast<std::chrono::microseconds>(
                      end_time - start_time)
