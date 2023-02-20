@@ -177,14 +177,14 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     delete out_visited;
     auto visited_num = visited.get_num_bit();
     auto end_time = std::chrono::system_clock::now();
-    LOG_INFO("Visited: ", visited_num);
+    LOG_INFO("Visited: ", visited_num, " / ", graph.get_num_vertexes());
     std::cout << "Gid " << graph.gid_ << ":  IncEval elapse time "
               << std::chrono::duration_cast<std::chrono::microseconds>(
                      end_time - start_time)
                          .count() /
                      (double)CLOCKS_PER_SEC
               << std::endl;
-    if(visited.get_num_bit() < graph.get_num_vertexes()/ 10000) return false;
+    if(visited.get_num_bit() < graph.get_num_vertexes()/ 1000) return false;
     return !visited.empty();
   }
 
