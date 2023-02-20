@@ -70,7 +70,7 @@ class WCCAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
         if (global_border_vid_map->get_bit(u.in_edges[nbr_i]) == 0) continue;
         if (global_border_vdata[u.in_edges[nbr_i]] < u.vdata[0]) {
           u.vdata[0] = global_border_vdata[u.in_edges[nbr_i]];
-          in_visited->set_bit(u.vid);
+          //in_visited->set_bit(u.vid);
         }
       }
     }
@@ -184,7 +184,10 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
                          .count() /
                      (double)CLOCKS_PER_SEC
               << std::endl;
-    if (visited_num < graph.get_num_vertexes() / 1000) return false;
+    if (visited_num < graph.get_num_vertexes() / 1000) {
+      LOG_INFO("Jump out");
+      return false;
+    }
     return !visited.empty();
   }
 
