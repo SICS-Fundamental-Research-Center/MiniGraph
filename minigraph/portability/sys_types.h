@@ -12,6 +12,8 @@ using edata_t = size_t;
 #define VDATA_MAX 0XFFFFFFF
 #define GID_MAX 0XFFFFFFF
 #define MINIGRAPH_GID_MAX (((unsigned)(-1)) >> 1)
+#define ALIGNMENT_FACTOR 1024
+
 
 #ifndef HAVE_MODE_T
 #define HAVE_MODE_T 1

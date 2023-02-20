@@ -1,13 +1,14 @@
 #include <cstring>
 #include <iostream>
 #include <math.h>
+#include <rapidcsv.h>
 #include <string>
 
 #include <gflags/gflags.h>
-#include <rapidcsv.h>
 
 #include "graphs/edge_list.h"
 #include "portability/sys_types.h"
+#include "utility/atomic.h"
 #include "utility/io/edge_list_io_adapter.h"
 #include "utility/logging.h"
 #include "utility/thread_pool.h"
@@ -44,20 +45,20 @@ void GetGraphStatisticFromCSV(const std::string input_pt,
   memset(dst_v, 0, sizeof(VID_T) * num_edges);
 
   LOG_INFO("read: ", num_edges, " edges");
-  std::atomic<VID_T> max_vid_atom(0);
-  std::atomic<size_t> max_indegree(0);
-  std::atomic<size_t> max_outdegree(0);
-  std::atomic<size_t> max_degree(0);
+  VID_T max_vid = 0;
+  size_t max_indegree(0);
+  size_t max_outdegree(0);
+  size_t max_degree(0);
 
   for (size_t i = 0; i < cores; i++) {
     size_t tid = i;
     thread_pool.Commit([tid, &cores, &src_v, &dst_v, &src, &dst, &num_edges,
-                        &pending_packages, &finish_cv, &max_vid_atom]() {
+                        &pending_packages, &finish_cv, &max_vid]() {
       for (size_t j = tid; j < num_edges; j += cores) {
         dst_v[j] = dst->at(j);
         src_v[j] = src->at(j);
-        if (max_vid_atom.load() < dst_v[j]) max_vid_atom.store(dst_v[j]);
-        if (max_vid_atom.load() < src_v[j]) max_vid_atom.store(src_v[j]);
+        write_max(&max_vid, dst_v[j]);
+        write_max(&max_vid, src_v[j]);
       }
       if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
       return;
@@ -65,14 +66,12 @@ void GetGraphStatisticFromCSV(const std::string input_pt,
   }
   finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
 
-  LOG_INFO("MAXVID: ", max_vid_atom.load());
-  max_vid_atom.store((size_t(max_vid_atom.load() / 64) + 1) * 64);
-  LOG_INFO("update MAXVID: ", max_vid_atom.load());
-
-  size_t* outdegree = (size_t*)malloc(sizeof(size_t) * max_vid_atom.load());
-  size_t* indegree = (size_t*)malloc(sizeof(size_t) * max_vid_atom.load());
-  memset(outdegree, 0, sizeof(size_t) * max_vid_atom.load());
-  memset(indegree, 0, sizeof(size_t) * max_vid_atom.load());
+  auto aligned_max_vid =
+      ceil((float)max_vid / ALIGNMENT_FACTOR) * ALIGNMENT_FACTOR;
+  size_t* outdegree = (size_t*)malloc(sizeof(size_t) * aligned_max_vid);
+  size_t* indegree = (size_t*)malloc(sizeof(size_t) * aligned_max_vid);
+  memset(outdegree, 0, sizeof(size_t) * aligned_max_vid);
+  memset(indegree, 0, sizeof(size_t) * aligned_max_vid);
 
   LOG_INFO("Aggregate indegree and outdegree");
   pending_packages.store(cores);
@@ -95,14 +94,12 @@ void GetGraphStatisticFromCSV(const std::string input_pt,
   for (size_t i = 0; i < cores; i++) {
     size_t tid = i;
     thread_pool.Commit([tid, &cores, &indegree, &outdegree, &pending_packages,
-                        &finish_cv, &max_vid_atom, &max_indegree,
+                        &finish_cv, &aligned_max_vid, &max_indegree,
                         &max_outdegree, &max_degree]() {
-      for (size_t j = tid; j < max_vid_atom.load(); j += cores) {
-        if (indegree[j] > max_indegree.load()) max_indegree.store(indegree[j]);
-        if (outdegree[j] > max_outdegree.load())
-          max_outdegree.store(outdegree[j]);
-        if (outdegree[j] + indegree[j] > max_degree.load())
-          max_degree.store(outdegree[j] + indegree[j]);
+      for (size_t j = tid; j < aligned_max_vid; j += cores) {
+        write_max(&max_outdegree, outdegree[j]);
+        write_max(&max_indegree, indegree[j]);
+        write_max(&max_degree, indegree[j] + outdegree[j]);
       }
       if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
       return;
@@ -113,16 +110,16 @@ void GetGraphStatisticFromCSV(const std::string input_pt,
   std::ofstream ofs;
   ofs.open(output_pt, std::ios::out);
 
-  LOG_INFO("#maximum vid: ", max_vid_atom.load());
-  LOG_INFO("#maximum indegree: ", max_indegree.load());
-  LOG_INFO("#maximum outdegree: ", max_outdegree.load());
-  LOG_INFO("#maximum degree: ", max_degree.load());
+  LOG_INFO("#maximum vid: ", max_vid);
+  LOG_INFO("#maximum indegree: ", max_indegree);
+  LOG_INFO("#maximum outdegree: ", max_outdegree);
+  LOG_INFO("#maximum degree: ", max_degree);
   LOG_INFO("#num_edges: ", num_edges);
 
-  ofs << "#maximum vid: " << max_vid_atom.load() << std::endl;
-  ofs << "#maximum indegree: " << max_indegree.load() << std::endl;
-  ofs << "#maximum outdegree: " << max_outdegree.load() << std::endl;
-  ofs << "#maximum degree: " << max_degree.load() << std::endl;
+  ofs << "#maximum vid: " << max_vid << std::endl;
+  ofs << "#maximum indegree: " << max_indegree << std::endl;
+  ofs << "#maximum outdegree: " << max_outdegree << std::endl;
+  ofs << "#maximum degree: " << max_degree << std::endl;
   ofs << "#num_edges:" << num_edges << std::endl;
 
   ofs.close();
@@ -157,22 +154,20 @@ void GetGraphStatisticFromBin(const std::string input_pt,
   memset(dst_v, 0, sizeof(VID_T) * num_edges);
 
   LOG_INFO("read: ", num_edges, " edges");
-  std::atomic<VID_T> max_vid_atom(0);
-  std::atomic<size_t> max_indegree(0);
-  std::atomic<size_t> max_outdegree(0);
-  std::atomic<size_t> max_degree(0);
+  VID_T max_vid(0);
+  size_t max_indegree(0);
+  size_t max_outdegree(0);
+  size_t max_degree(0);
 
   for (size_t i = 0; i < cores; i++) {
     size_t tid = i;
     thread_pool.Commit([tid, &cores, &src_v, &dst_v, &num_edges, &graph,
-                        &pending_packages, &finish_cv, &max_vid_atom]() {
+                        &pending_packages, &finish_cv, &max_vid]() {
       for (size_t j = tid; j < num_edges; j += cores) {
         src_v[j] = graph->buf_graph_[j * 2];
         dst_v[j] = graph->buf_graph_[j * 2 + 1];
-        if (max_vid_atom.load() < graph->buf_graph_[j * 2 + 1])
-          max_vid_atom.store(graph->buf_graph_[j * 2 + 1]);
-        if (max_vid_atom.load() < graph->buf_graph_[j * 2])
-          max_vid_atom.store(graph->buf_graph_[j * 2]);
+        write_max(&max_vid, graph->buf_graph_[j * 2 + 1]);
+        write_max(&max_vid, graph->buf_graph_[j * 2]);
       }
       if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
       return;
@@ -180,14 +175,12 @@ void GetGraphStatisticFromBin(const std::string input_pt,
   }
   finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
 
-  LOG_INFO("MAXVID: ", max_vid_atom.load());
-  max_vid_atom.store((size_t(max_vid_atom.load() / 64) + 1) * 64);
-  LOG_INFO("update MAXVID: ", max_vid_atom.load());
-
-  size_t* outdegree = (size_t*)malloc(sizeof(size_t) * max_vid_atom.load());
-  size_t* indegree = (size_t*)malloc(sizeof(size_t) * max_vid_atom.load());
-  memset(outdegree, 0, sizeof(size_t) * max_vid_atom.load());
-  memset(indegree, 0, sizeof(size_t) * max_vid_atom.load());
+  VID_T aligned_max_vid =
+      ceil((float)max_vid / ALIGNMENT_FACTOR) * ALIGNMENT_FACTOR;
+  size_t* outdegree = (size_t*)malloc(sizeof(size_t) * aligned_max_vid);
+  size_t* indegree = (size_t*)malloc(sizeof(size_t) * aligned_max_vid);
+  memset(outdegree, 0, sizeof(size_t) * aligned_max_vid);
+  memset(indegree, 0, sizeof(size_t) * aligned_max_vid);
 
   LOG_INFO("Aggregate indegree and outdegree");
   pending_packages.store(cores);
@@ -197,8 +190,6 @@ void GetGraphStatisticFromBin(const std::string input_pt,
       for (size_t j = i; j < num_edges; j += cores) {
         __sync_fetch_and_add(indegree + dst_v[j], 1);
         __sync_fetch_and_add(outdegree + src_v[j], 1);
-        //__sync_fetch_and_add(indegree + dst->at(j), 1);
-        //__sync_fetch_and_add(outdegree + src->at(j), 1);
       }
       if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
       return;
@@ -211,14 +202,12 @@ void GetGraphStatisticFromBin(const std::string input_pt,
   for (size_t i = 0; i < cores; i++) {
     size_t tid = i;
     thread_pool.Commit([tid, &cores, &indegree, &outdegree, &pending_packages,
-                        &finish_cv, &max_vid_atom, &max_indegree,
+                        &finish_cv, &aligned_max_vid, &max_indegree,
                         &max_outdegree, &max_degree]() {
-      for (size_t j = tid; j < max_vid_atom.load(); j += cores) {
-        if (indegree[j] > max_indegree.load()) max_indegree.store(indegree[j]);
-        if (outdegree[j] > max_outdegree.load())
-          max_outdegree.store(outdegree[j]);
-        if (outdegree[j] + indegree[j] > max_degree.load())
-          max_degree.store(outdegree[j] + indegree[j]);
+      for (size_t j = tid; j < aligned_max_vid; j += cores) {
+        write_max(&max_indegree, indegree[j]);
+        write_max(&max_outdegree, outdegree[j]);
+        write_max(&max_degree, indegree[j] + outdegree[j]);
       }
       if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
       return;
@@ -229,16 +218,16 @@ void GetGraphStatisticFromBin(const std::string input_pt,
   std::ofstream ofs;
   ofs.open(output_pt, std::ios::out);
 
-  LOG_INFO("#maximum vid: ", max_vid_atom.load());
-  LOG_INFO("#maximum indegree: ", max_indegree.load());
-  LOG_INFO("#maximum outdegree: ", max_outdegree.load());
-  LOG_INFO("#maximum degree: ", max_degree.load());
+  LOG_INFO("#maximum vid: ", max_vid);
+  LOG_INFO("#maximum indegree: ", max_indegree);
+  LOG_INFO("#maximum outdegree: ", max_outdegree);
+  LOG_INFO("#maximum degree: ", max_degree);
   LOG_INFO("#num_edges: ", num_edges);
 
-  ofs << "#maximum vid: " << max_vid_atom.load() << std::endl;
-  ofs << "#maximum indegree: " << max_indegree.load() << std::endl;
-  ofs << "#maximum outdegree: " << max_outdegree.load() << std::endl;
-  ofs << "#maximum degree: " << max_degree.load() << std::endl;
+  ofs << "#maximum vid: " << max_vid << std::endl;
+  ofs << "#maximum indegree: " << max_indegree << std::endl;
+  ofs << "#maximum outdegree: " << max_outdegree << std::endl;
+  ofs << "#maximum degree: " << max_degree << std::endl;
   ofs << "#num_edges:" << num_edges << std::endl;
 
   ofs.close();

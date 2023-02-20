@@ -2,6 +2,7 @@
 #define MINIGRAPH_UTILITY_IO_EDGE_LIST_IO_ADAPTER_H
 
 #include <sys/stat.h>
+
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -14,6 +15,7 @@
 #include "io_adapter_base.h"
 #include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
+#include "utility/atomic.h"
 #include "utility/thread_pool.h"
 
 namespace minigraph {
@@ -280,20 +282,21 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
 
     if (edge_list_graph->max_vid_ == 0) {
       std::atomic<VID_T> max_vid_atom(0);
+      VID_T max_vid = 0;
       for (size_t j = 0; j < edge_list_graph->num_edges_; j++) {
         auto src_vid = edge_list_graph->buf_graph_[j * 2];
         auto dst_vid = edge_list_graph->buf_graph_[j * 2 + 1];
-        if (max_vid_atom.load() < src_vid) max_vid_atom.store(src_vid);
-        if (max_vid_atom.load() < dst_vid) max_vid_atom.store(dst_vid);
+        write_max(&max_vid, src_vid);
+        write_max(&max_vid, dst_vid);
       }
-      edge_list_graph->max_vid_ = max_vid_atom.load();
+      edge_list_graph->max_vid_ = max_vid;
       edge_list_graph->aligned_max_vid_ =
-          ceil((float)max_vid_atom.load() / 64) * 64;
+          ceil((float)max_vid / ALIGNMENT_FACTOR) * ALIGNMENT_FACTOR;
     }
     LOG_INFO("Read ", data_pt, " successful", ", num vertexes: ", meta_buff[0],
              " num edges: ", meta_buff[1],
-             " max_vid: ", edge_list_graph->get_max_vid(), " aligned max vid: ",
-             edge_list_graph->get_aligned_max_vid());
+             " max_vid: ", edge_list_graph->get_max_vid(),
+             " aligned max vid: ", edge_list_graph->get_aligned_max_vid());
 
     free(meta_buff);
     data_file.close();
@@ -333,16 +336,17 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
            sizeof(VID_T) * (src.size() + dst.size()));
     std::atomic<VID_T> max_vid_atom(0);
 
+    VID_T max_vid = 0;
     LOG_INFO("Traverse the entire graph to get the maximum vid.");
     std::atomic<size_t> pending_packages(cores);
     for (size_t tid = 0; tid < cores; tid++) {
       thread_pool.Commit([tid, &cores, &src, &dst, &graph, &pending_packages,
-                          &finish_cv, &max_vid_atom]() {
+                          &finish_cv, &max_vid]() {
         for (size_t j = tid; j < src.size(); j += cores) {
           *(graph->buf_graph_ + j * 2) = src.at(j);
           *(graph->buf_graph_ + j * 2 + 1) = dst.at(j);
-          if (max_vid_atom.load() < src.at(j)) max_vid_atom.store(src.at(j));
-          if (max_vid_atom.load() < dst.at(j)) max_vid_atom.store(dst.at(j));
+          write_max(&max_vid, src.at(j));
+          write_max(&max_vid, dst.at(j));
         }
         if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
         return;
@@ -351,9 +355,9 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
 
     ((EDGE_LIST_T*)graph)->num_edges_ = src.size();
-    ((EDGE_LIST_T*)graph)->max_vid_ = max_vid_atom.load();
+    ((EDGE_LIST_T*)graph)->max_vid_ = max_vid;
     ((EDGE_LIST_T*)graph)->aligned_max_vid_ =
-        ceil((float)max_vid_atom.load() / 64) * 64;
+        ceil((float)max_vid / ALIGNMENT_FACTOR) * ALIGNMENT_FACTOR;
     ((EDGE_LIST_T*)graph)->gid_ = gid;
 
     Bitmap* vertex_indicator = new Bitmap(graph->get_aligned_max_vid());
@@ -468,8 +472,10 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     memset((char*)num_edges_bucket, 0, sizeof(size_t) * (files.size()));
     memset((char*)offset_edges_bucket, 0, sizeof(size_t) * (1 + files.size()));
 
+    VID_T max_vid = 0;
     std::atomic<VID_T> max_vid_atom(0);
     for (auto pi = 0; pi < files.size(); pi++) {
+      LOG_INFO("Process ", files.at(pi));
       rapidcsv::Document doc(files.at(pi), rapidcsv::LabelParams(),
                              rapidcsv::SeparatorParams(separator_params));
       LOG_INFO(files.at(pi));
@@ -478,17 +484,18 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       VID_T* buff = (vid_t*)malloc(sizeof(vid_t) * (src.size() + dst.size()));
       memset((char*)buff, 0, sizeof(VID_T) * (src.size() + dst.size()));
       buf_graph_bucket_[pi] = buff;
+
       std::atomic<size_t> pending_packages(cores);
 
       for (size_t i = 0; i < cores; i++) {
         size_t tid = i;
         thread_pool.Commit([tid, &cores, &src, &dst, &graph, &pending_packages,
-                            &finish_cv, &max_vid_atom, &buff]() {
+                            &finish_cv, &max_vid, &buff]() {
           for (size_t j = tid; j < src.size(); j += cores) {
             *(buff + j * 2) = src.at(j);
             *(buff + j * 2 + 1) = dst.at(j);
-            if (max_vid_atom.load() < src.at(j)) max_vid_atom.store(src.at(j));
-            if (max_vid_atom.load() < dst.at(j)) max_vid_atom.store(dst.at(j));
+            write_max(&max_vid, src.at(j));
+            write_max(&max_vid, dst.at(j));
           }
           if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
           return;
@@ -506,14 +513,15 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     memset((char*)((EDGE_LIST_T*)graph)->buf_graph_, 0,
            sizeof(VID_T) * ((EDGE_LIST_T*)graph)->num_edges_ * 2);
 
+    // Copy edges from buffs to graph->buf_graph_;
     for (size_t pi = 0; pi < files.size(); pi++) {
       memcpy(((EDGE_LIST_T*)graph)->buf_graph_ + offset_edges_bucket[pi] * 2,
              buf_graph_bucket_[pi], num_edges_bucket[pi] * 2 * sizeof(VID_T));
     }
 
-    ((EDGE_LIST_T*)graph)->max_vid_ = max_vid_atom.load();
+    ((EDGE_LIST_T*)graph)->max_vid_ = max_vid;
     ((EDGE_LIST_T*)graph)->aligned_max_vid_ =
-        ceil((float)max_vid_atom.load() / 64) * 64;
+        ceil((float)max_vid / ALIGNMENT_FACTOR) * ALIGNMENT_FACTOR;
     ((EDGE_LIST_T*)graph)->gid_ = gid;
 
     LOG_INFO("Traverse the entire graph again to fill the vertex_indicator.");
@@ -550,8 +558,8 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     LOG_INFO("Gid: ", ((EDGE_LIST_T*)graph)->gid_,
              " num_vertexes: ", graph->num_vertexes_,
              " num_edges: ", graph->num_edges_,
-             "max_vid: ", graph->get_max_vid(),
-             "aligned_mavid: ", graph->get_aligned_max_vid());
+             " max_vid: ", graph->get_max_vid(),
+             " aligned_mavid: ", graph->get_aligned_max_vid());
     return true;
   }
 };

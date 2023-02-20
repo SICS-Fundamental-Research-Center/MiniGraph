@@ -10,6 +10,7 @@
 #include <folly/FBString.h>
 #include <folly/Range.h>
 
+#include "portability/sys_types.h"
 #include "utility/bitmap.h"
 
 namespace minigraph {
@@ -95,7 +96,9 @@ class Graph {
   inline size_t get_num_vertexes() const { return num_vertexes_; }
   inline size_t get_num_edges() const { return num_edges_; }
   inline size_t get_max_vid() const { return max_vid_; }
-  inline size_t get_aligned_max_vid() const { return aligned_max_vid_; }
+  inline size_t get_aligned_max_vid() const {
+    return ceil((float)aligned_max_vid_ / ALIGNMENT_FACTOR) * ALIGNMENT_FACTOR;
+  }
 
   inline bool IsInGraph(const VID_T globalid) const {
     assert(bitmap_ != nullptr);
