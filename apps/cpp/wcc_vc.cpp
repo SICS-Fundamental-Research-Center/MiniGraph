@@ -1,5 +1,3 @@
-#include <folly/concurrency/DynamicBoundedQueue.h>
-
 #include "2d_pie/auto_app_base.h"
 #include "executors/task_runner.h"
 #include "graphs/graph.h"
@@ -8,6 +6,7 @@
 #include "portability/sys_types.h"
 #include "utility/bitmap.h"
 #include "utility/logging.h"
+#include <folly/concurrency/DynamicBoundedQueue.h>
 
 template <typename GRAPH_T, typename CONTEXT_T>
 class WCCAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
@@ -45,7 +44,7 @@ class WCCAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
                                           Bitmap* visited, const size_t step,
                                           Bitmap* global_border_vid_map,
                                           VDATA_T* global_border_vdata) {
-    if(global_border_vid_map->size_ == 0) return true;
+    if (global_border_vid_map->size_ == 0) return true;
     for (size_t i = tid; i < graph->get_num_vertexes(); i += step) {
       auto u = graph->GetVertexByIndex(i);
       if (global_border_vid_map->get_bit(graph->localid2globalid(u.vid)) == 0)
@@ -61,7 +60,7 @@ class WCCAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
                                           Bitmap* in_visited,
                                           Bitmap* global_border_vid_map,
                                           VDATA_T* global_border_vdata) {
-    if(global_border_vid_map->size_ == 0) return true;
+    if (global_border_vid_map->size_ == 0) return true;
     for (size_t i = tid; i < graph->get_num_vertexes(); i += step) {
       auto u = graph->GetVertexByIndex(i);
       if (global_border_vdata[graph->localid2globalid(u.vid)] < u.vdata[0]) {
@@ -177,14 +176,15 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     delete out_visited;
     auto visited_num = visited.get_num_bit();
     auto end_time = std::chrono::system_clock::now();
-    LOG_INFO("Visited: ", visited_num, " / ", graph.get_num_vertexes());
+    LOG_INFO("Visited: ", visited_num, " / ", graph.get_num_vertexes(), " | ",
+             graph.get_num_vertexes() / 1000);
     std::cout << "Gid " << graph.gid_ << ":  IncEval elapse time "
               << std::chrono::duration_cast<std::chrono::microseconds>(
                      end_time - start_time)
                          .count() /
                      (double)CLOCKS_PER_SEC
               << std::endl;
-    if(visited.get_num_bit() < graph.get_num_vertexes()/ 1000) return false;
+    if (visited_num < graph.get_num_vertexes() / 1000) return false;
     return !visited.empty();
   }
 
