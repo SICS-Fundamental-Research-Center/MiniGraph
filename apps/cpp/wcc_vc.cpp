@@ -184,6 +184,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
                          .count() /
                      (double)CLOCKS_PER_SEC
               << std::endl;
+    if(visited.get_num_bit() < graph.get_num_vertexes()/ 10000) return false;
     return !visited.empty();
   }
 

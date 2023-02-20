@@ -478,7 +478,6 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       LOG_INFO("Process ", files.at(pi));
       rapidcsv::Document doc(files.at(pi), rapidcsv::LabelParams(),
                              rapidcsv::SeparatorParams(separator_params));
-      LOG_INFO(files.at(pi));
       std::vector<VID_T> src = doc.GetColumn<VID_T>(0);
       std::vector<VID_T> dst = doc.GetColumn<VID_T>(1);
       VID_T* buff = (vid_t*)malloc(sizeof(vid_t) * (src.size() + dst.size()));
