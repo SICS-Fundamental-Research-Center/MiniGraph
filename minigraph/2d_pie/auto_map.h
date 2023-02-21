@@ -106,25 +106,6 @@ class AutoMapBase {
     return;
   };
 
-  template <class F, class... Args>
-  auto VMap(GRAPH_T& graph, executors::TaskRunner* task_runner, Bitmap* visited,
-            Bitmap* in_visited, Bitmap* out_visited, F&& f, Args&&... args)
-      -> void {
-    assert(task_runner != nullptr);
-    std::vector<std::function<void()>> tasks;
-    size_t active_vertices = 0;
-    for (size_t tid = 0; tid < task_runner->GetParallelism(); ++tid) {
-      auto task = std::bind(&AutoMapBase<GRAPH_T, CONTEXT_T>::VReduce, this, f,
-                            &graph, tid, task_runner->GetParallelism(),
-                            in_visited, out_visited, visited);
-      tasks.push_back(task);
-    }
-    LOG_INFO("AutoMap ActiveMap Run");
-    task_runner->Run(tasks, false);
-    LOG_INFO("# ", active_vertices);
-    return;
-  };
-
  private:
   void ActiveEReduce(GRAPH_T* graph, Bitmap* in_visited, Bitmap* out_visited,
                      const size_t tid, const size_t step, bool* global_visited,
@@ -137,10 +118,11 @@ class AutoMapBase {
       for (size_t i = 0; i < u.outdegree; ++i) {
         if (!graph->IsInGraph(u.out_edges[i])) continue;
         VID_T local_id = VID_MAX;
-         if(vid_map != nullptr)
-           local_id = vid_map[u.out_edges[i]];
-         else
+        if (vid_map != nullptr)
+          local_id = vid_map[u.out_edges[i]];
+        else
           local_id = graph->globalid2localid(u.out_edges[i]);
+        assert(local_id != VID_MAX);
         VertexInfo&& v = graph->GetVertexByVid(local_id);
         if (F(u, v)) {
           out_visited->set_bit(local_id);
@@ -164,30 +146,20 @@ class AutoMapBase {
       VertexInfo&& u = graph->GetVertexByIndex(index);
       if (F(u, graph, vid_map)) {
         for (size_t j = 0; j < u.outdegree; j++) {
-          if (graph->IsInGraph(u.out_edges[j]))
-            out_visited->set_bit(vid_map[u.out_edges[j]]);
+          if (graph->IsInGraph(u.out_edges[j])) {
+            VID_T local_id = VID_MAX;
+            if (vid_map != nullptr)
+              local_id = vid_map[u.out_edges[j]];
+            else
+              local_id = graph->globalid2localid(u.out_edges[j]);
+            assert(local_id != VID_MAX);
+            out_visited->set_bit(local_id);
+          }
         }
         out_visited->set_bit(u.vid);
         visited->set_bit(u.vid);
         *global_visited == true ? 0 : *global_visited = true;
         ++local_active_vertices;
-      }
-    }
-    write_add(active_vertices, local_active_vertices);
-  }
-
-  template <class F, class... Args>
-  void VReduce(F&& f, GRAPH_T* graph, const size_t tid, const size_t step,
-               Bitmap* in_visited, Bitmap* out_visited, Bitmap* visited,
-               size_t* active_vertices, Args&&... args) {
-    size_t local_active_vertices = 0;
-    for (size_t index = tid; index < graph->get_num_vertexes(); index += step) {
-      if (!in_visited->get_bit(index)) continue;
-      if (!graph->IsInGraph(index)) continue;
-      VertexInfo&& u = graph->GetVertexByIndex(index);
-      if (f(u, args...)) {
-        visited->set_bit(index);
-        out_visited->set_bit(index);
       }
     }
     write_add(active_vertices, local_active_vertices);

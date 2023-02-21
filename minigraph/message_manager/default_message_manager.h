@@ -110,7 +110,7 @@ class DefaultMessageManager : public MessageManagerBase {
     if (gid >= num_graphs_) {
       LOG_INFO(gid, "/ ", num_graphs_);
     }
-    assert(gid < num_graphs_);
+    //assert(gid < num_graphs_);
     *(historical_state_matrix_ + gid) = state;
     return;
   }

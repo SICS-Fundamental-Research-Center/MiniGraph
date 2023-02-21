@@ -449,7 +449,7 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
   graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>* GetPVertexByIndex(
       const size_t index) {
     auto vertex_info = new graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>;
-    vertex_info->vid = vid_by_index_[index];
+    vertex_info->vid = index;
     if (index != this->get_num_vertexes() - 1) {
       vertex_info->outdegree = outdegree_[index];
       vertex_info->indegree = indegree_[index];

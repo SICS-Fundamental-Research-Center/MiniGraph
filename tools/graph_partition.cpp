@@ -11,6 +11,7 @@
 #include "utility/io/data_mngr.h"
 #include "utility/io/edge_list_io_adapter.h"
 #include "utility/paritioner/edge_cut_partitioner.h"
+#include "utility/paritioner/hybrid_cut_partitioner.h"
 #include "utility/paritioner/partitioner_base.h"
 #include "utility/paritioner/vertex_cut_partitioner.h"
 
@@ -36,6 +37,9 @@ void GraphPartitionEdgeList2CSR(std::string src_pt, std::string dst_pt,
   else if (t_partitioner == "vertexcut")
     partitioner =
         new minigraph::utility::partitioner::VertexCutPartitioner<CSR_T>();
+  else if (t_partitioner == "hybridcut")
+    partitioner =
+        new minigraph::utility::partitioner::HybridCutPartitioner<CSR_T>();
 
   // Read Graph
   auto edgelist_graph = new EDGE_LIST_T;

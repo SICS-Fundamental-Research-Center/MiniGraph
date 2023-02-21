@@ -1,15 +1,6 @@
 #ifndef MINIGRAPH_UTILITY_EDGE_CUT_PARTITIONER_H
 #define MINIGRAPH_UTILITY_EDGE_CUT_PARTITIONER_H
 
-#include <atomic>
-#include <cstring>
-#include <stdio.h>
-#include <unordered_map>
-#include <vector>
-
-#include <folly/AtomicHashMap.h>
-#include <folly/FBVector.h>
-
 #include "portability/sys_types.h"
 #include "utility/bitmap.h"
 #include "utility/io/csr_io_adapter.h"
@@ -17,6 +8,13 @@
 #include "utility/io/io_adapter_base.h"
 #include "utility/paritioner/partitioner_base.h"
 #include "utility/thread_pool.h"
+#include <folly/AtomicHashMap.h>
+#include <folly/FBVector.h>
+#include <atomic>
+#include <cstring>
+#include <stdio.h>
+#include <unordered_map>
+#include <vector>
 
 namespace minigraph {
 namespace utility {
@@ -63,14 +61,16 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
     auto max_vid = edgelist_graph->get_max_vid();
     this->max_vid_ = edgelist_graph->get_max_vid();
     auto aligned_max_vid =
-        ceil((float)edgelist_graph->get_aligned_max_vid() / 64) * 64;
+        ceil((float)edgelist_graph->get_aligned_max_vid() / ALIGNMENT_FACTOR) *
+        ALIGNMENT_FACTOR;
     this->aligned_max_vid_ =
-        ceil((float)edgelist_graph->get_aligned_max_vid() / 64) * 64;
+        ceil((float)edgelist_graph->get_aligned_max_vid() / ALIGNMENT_FACTOR) *
+        ALIGNMENT_FACTOR;
     auto num_vertexes = edgelist_graph->get_num_vertexes();
     this->num_vertexes_ = edgelist_graph->get_num_vertexes();
     auto num_edges = edgelist_graph->get_num_edges();
     this->num_edges_ = edgelist_graph->get_num_edges();
-    size_t num_new_buckets = 5;
+    size_t num_new_buckets = NUM_NEW_BUCKETS;
 
     auto vid_map =
         (VID_T*)malloc(sizeof(VID_T) * edgelist_graph->get_aligned_max_vid());
@@ -258,7 +258,8 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
       if (max_degree <
           sum_in_edges_by_fragments[i] + sum_out_edges_by_fragments[i]) {
         bucket_id_to_be_splitted = i;
-        max_degree = sum_in_edges_by_fragments[i] + sum_out_edges_by_fragments[i];
+        max_degree =
+            sum_in_edges_by_fragments[i] + sum_out_edges_by_fragments[i];
       }
     }
 
@@ -409,7 +410,6 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
       LOG_INFO("gid: ", fragment->get_gid(), "->", local_gid);
       fragment->gid_ = local_gid++;
     }
-
 
     return false;
   }

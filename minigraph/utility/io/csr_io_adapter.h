@@ -221,7 +221,7 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     LOG_INFO("Run: Construct graph");
     auto csr_graph = new graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>(
         gid, vertexes, edgelist_graph->num_vertexes_, sum_in_edges,
-        sum_out_edges, edgelist_graph->max_vid_, vid_map);
+        sum_out_edges, edgelist_graph->max_vid_);
     delete offset_out_edges;
     delete offset_in_edges;
     delete num_in_edges;
