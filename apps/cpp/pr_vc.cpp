@@ -125,6 +125,7 @@ class PRAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
       auto u = graph->GetVertexByIndex(i);
       float next = 0;
       size_t count = 0;
+
       for (size_t j = 0; j < u.indegree; j++) {
         if (!graph->IsInGraph(u.in_edges[j]) &&
             global_vdata[u.in_edges[j]] != VDATA_MAX) {
@@ -142,7 +143,6 @@ class PRAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
           count++;
         }
         next = gamma * (next / (float)count);
-
         if ((u.vdata[0] - next) * (u.vdata[0] - next) > epsilon) {
           if (global_border_vid_map->get_bit(graph->localid2globalid(u.vid)))
             write_min(global_vdata + graph->localid2globalid(u.vid), next);
@@ -151,7 +151,13 @@ class PRAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
           visited->set_bit(u.vid);
           for (size_t j = 0; j < u.outdegree; j++) {
             if (graph->IsInGraph(u.out_edges[j])) {
-              out_visited->set_bit(vid_map[u.out_edges[j]]);
+              VID_T local_nbr_id = VID_MAX;
+              if (vid_map != nullptr)
+                local_nbr_id = vid_map[u.out_edges[i]];
+              else
+                local_nbr_id = graph->globalid2localid(u.out_edges[i]);
+              assert(local_nbr_id != VID_MAX);
+              out_visited->set_bit(local_nbr_id);
             }
           }
         }
@@ -239,7 +245,6 @@ class PRPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
         this->msg_mngr_->GetGlobalVdata(), vid_map, this->context_.gamma,
         this->context_.epsilon);
 
-    // while (in_visited->get_num_bit()) {
     size_t num_iter = 0;
     while (num_iter++ < this->context_.num_iter && !in_visited->empty()) {
       LOG_INFO("iter:", num_iter);

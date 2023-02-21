@@ -1,6 +1,15 @@
 #ifndef MINIGRAPH_UTILITY_HYBRID_CUT_PARTITIONER_H
 #define MINIGRAPH_UTILITY_HYBRID_CUT_PARTITIONER_H
 
+#include <atomic>
+#include <cstring>
+#include <stdio.h>
+#include <unordered_map>
+#include <vector>
+
+#include <folly/AtomicHashMap.h>
+#include <folly/FBVector.h>
+
 #include "portability/sys_types.h"
 #include "utility/bitmap.h"
 #include "utility/io/csr_io_adapter.h"
@@ -8,19 +17,12 @@
 #include "utility/io/io_adapter_base.h"
 #include "utility/paritioner/partitioner_base.h"
 #include "utility/thread_pool.h"
-#include <folly/AtomicHashMap.h>
-#include <folly/FBVector.h>
-#include <atomic>
-#include <cstring>
-#include <stdio.h>
-#include <unordered_map>
-#include <vector>
 
 namespace minigraph {
 namespace utility {
 namespace partitioner {
 
-// With an edgecut partition, each vertex is assigned to a fragment.
+// With a hybrid partition, each vertex is assigned to a fragment.
 // In a fragment, inner vertices are those vertices assigned to it, and the
 // outer vertices are the remaining vertices adjacent to some of the inner
 // vertices. The load strategy defines how to store the adjacency between inner
@@ -59,6 +61,7 @@ class HybridCutPartitioner : public PartitionerBase<GRAPH_T> {
     std::unique_lock<std::mutex> lck(mtx);
     std::atomic<size_t> pending_packages(cores);
 
+    this->vid_map_ = nullptr;
     LOG_INFO(ceil((float)edgelist_graph->max_vid_ / ALIGNMENT_FACTOR) *
              ALIGNMENT_FACTOR);
     size_t num_new_buckets = NUM_NEW_BUCKETS;
@@ -105,8 +108,8 @@ class HybridCutPartitioner : public PartitionerBase<GRAPH_T> {
       edges_buckets[i] = (VID_T*)malloc(sizeof(VID_T) * 2 * size_per_bucket[i]);
       memset(edges_buckets[i], 0, sizeof(VID_T) * 2 * size_per_bucket[i]);
     }
-    Bitmap* is_in_bucketX[num_partitions];
-    for (size_t i = 0; i < num_partitions; i++) {
+    Bitmap* is_in_bucketX[num_partitions+num_new_buckets];
+    for (size_t i = 0; i < num_partitions+num_new_buckets; i++) {
       is_in_bucketX[i] = new Bitmap(aligned_max_vid);
       is_in_bucketX[i]->clear();
     }
@@ -171,7 +174,6 @@ class HybridCutPartitioner : public PartitionerBase<GRAPH_T> {
                                                    this->vid_map_);
       set_graphs[gid] = csr_graph;
       delete edgelist_graph;
-      //      this->fragments_->push_back(csr_graph);
     }
 
     auto bucket_id_to_be_splitted = 0;
@@ -187,8 +189,6 @@ class HybridCutPartitioner : public PartitionerBase<GRAPH_T> {
 
     LOG_INFO("Split gid: ", bucket_id_to_be_splitted);
 
-    LOG_INFO("X");
-    is_in_bucketX[bucket_id_to_be_splitted] = nullptr;
     size_t* sum_in_edges_by_new_fragments =
         (size_t*)malloc(sizeof(size_t) * num_new_buckets);
     memset(sum_in_edges_by_new_fragments, 0, sizeof(size_t) * num_new_buckets);
@@ -208,9 +208,9 @@ class HybridCutPartitioner : public PartitionerBase<GRAPH_T> {
         new_fragments[i][j] = nullptr;
     }
 
-    LOG_INFO("X");
 
-    auto csr_graph_to_be_splitted = (CSR_T*)set_graphs[bucket_id_to_be_splitted];
+    auto csr_graph_to_be_splitted =
+        (CSR_T*)set_graphs[bucket_id_to_be_splitted];
     csr_graph_to_be_splitted->ShowGraph();
     for (size_t i = 0; i < csr_graph_to_be_splitted->get_num_vertexes(); i++) {
       auto u = csr_graph_to_be_splitted->GetPVertexByIndex(i);
@@ -268,7 +268,8 @@ class HybridCutPartitioner : public PartitionerBase<GRAPH_T> {
       *(this->communication_matrix_ +
         i * (num_partitions + num_new_buckets - 1) + i) = 0;
 
-    LOG_INFO("Run: Set global_border_vid_map");
+    is_in_bucketX[bucket_id_to_be_splitted] = nullptr;
+    LOG_INFO("Run: Set global_border_vid_map, size: ", this->aligned_max_vid_);
     this->global_border_vid_map_ = new Bitmap(this->aligned_max_vid_);
     this->global_border_vid_map_->clear();
     for (auto& iter_fragments : *this->fragments_) {
@@ -277,30 +278,29 @@ class HybridCutPartitioner : public PartitionerBase<GRAPH_T> {
       fragment->SetGlobalBorderVidMap(this->global_border_vid_map_,
                                       is_in_bucketX,
                                       (num_partitions + num_new_buckets - 1));
-
-      for (size_t i = 0; i < num_partitions; i++) {
-        delete is_in_bucketX[i];
-      }
-      for (GID_T gid = 0; gid < num_partitions; gid++) {
-        free(edges_buckets[gid]);
-      }
-      free(num_vertexes_per_bucket);
-      free(max_vid_per_bucket);
-      free(size_per_bucket);
-      delete num_in_edges;
-      delete num_out_edges;
-
-      GID_T local_gid = 0;
-      for (auto& iter_fragments : *this->fragments_) {
-        auto fragment = (CSR_T*)iter_fragments;
-        LOG_INFO("gid: ", fragment->get_gid(), "->", local_gid);
-        fragment->gid_ = local_gid++;
-      }
-
-      LOG_INFO("END");
-
-      return true;
     }
+
+    GID_T local_gid = 0;
+    for (auto& iter_fragments : *this->fragments_) {
+      auto fragment = (CSR_T*)iter_fragments;
+      LOG_INFO("gid: ", fragment->get_gid(), "->", local_gid);
+      fragment->gid_ = local_gid++;
+    }
+
+    for (size_t i = 0; i < num_partitions; i++) {
+      delete is_in_bucketX[i];
+    }
+    for (GID_T gid = 0; gid < num_partitions; gid++) {
+      free(edges_buckets[gid]);
+    }
+    free(num_vertexes_per_bucket);
+    free(max_vid_per_bucket);
+    free(size_per_bucket);
+    delete num_in_edges;
+    delete num_out_edges;
+
+    LOG_INFO("END");
+    return true;
   }
 };
 

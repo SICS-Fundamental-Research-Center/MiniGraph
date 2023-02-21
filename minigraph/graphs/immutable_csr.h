@@ -1,13 +1,13 @@
 #ifndef MINIGRAPH_GRAPHS_IMMUTABLECSR_H
 #define MINIGRAPH_GRAPHS_IMMUTABLECSR_H
 
-#include <fstream>
-#include <iostream>
-#include <malloc.h>
-#include <map>
-#include <memory>
-#include <unordered_map>
-
+#include "graphs/edge_list.h"
+#include "graphs/graph.h"
+#include "portability/sys_data_structure.h"
+#include "portability/sys_types.h"
+#include "utility/bitmap.h"
+#include "utility/logging.h"
+#include <folly/AtomicHashArray.h>
 #include <folly/AtomicHashMap.h>
 #include <folly/AtomicUnorderedMap.h>
 #include <folly/Benchmark.h>
@@ -19,14 +19,12 @@
 #include <folly/portability/Atomic.h>
 #include <folly/portability/SysTime.h>
 #include <jemalloc/jemalloc.h>
-
-#include "graphs/edge_list.h"
-#include "graphs/graph.h"
-#include "portability/sys_data_structure.h"
-#include "portability/sys_types.h"
-#include "utility/bitmap.h"
-#include "utility/logging.h"
-#include <folly/AtomicHashArray.h>
+#include <fstream>
+#include <iostream>
+#include <malloc.h>
+#include <map>
+#include <memory>
+#include <unordered_map>
 
 namespace minigraph {
 namespace graphs {
@@ -534,13 +532,14 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     assert(global_border_vid_map != nullptr && is_in_bucketX != nullptr &&
            num_partitions > 0);
 
+    LOG_INFO("SetGlobalBorderVidMap, GID: ", this->get_gid());
     for (VID_T local_id = 0; local_id < this->get_num_vertexes(); local_id++) {
       graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>&& vertex_info =
           GetVertexByIndex(local_id);
       for (size_t i = 0; i < vertex_info.indegree; i++) {
         for (GID_T gid = 0; gid < num_partitions; gid++) {
           if (gid == this->get_gid()) continue;
-          if(is_in_bucketX[gid] == nullptr) continue;
+          if (is_in_bucketX[gid] == nullptr) continue;
           if (is_in_bucketX[gid]->get_bit(vertex_info.in_edges[i]) &&
               global_border_vid_map->get_bit((vertex_info.in_edges[i])) == 0) {
             global_border_vid_map->set_bit((vertex_info.in_edges[i]));
@@ -550,7 +549,7 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       for (size_t i = 0; i < vertex_info.outdegree; i++) {
         for (GID_T gid = 0; gid < num_partitions; gid++) {
           if (gid == this->get_gid()) continue;
-          if(is_in_bucketX[gid] == nullptr) continue;
+          if (is_in_bucketX[gid] == nullptr) continue;
           if (is_in_bucketX[gid]->get_bit(vertex_info.out_edges[i]) &&
               global_border_vid_map->get_bit((vertex_info.out_edges[i])) == 0) {
             global_border_vid_map->set_bit((vertex_info.out_edges[i]));

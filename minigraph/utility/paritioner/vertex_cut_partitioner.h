@@ -183,12 +183,8 @@ class VertexCutPartitioner : public PartitionerBase<GRAPH_T> {
       *(this->communication_matrix_ + i * num_partitions + i) = 0;
 
     LOG_INFO("Run: Set global_border_vid_map");
-    if (this->global_border_vid_map_ == nullptr)
+
       this->global_border_vid_map_ = new Bitmap(aligned_max_vid);
-    else {
-      delete this->global_border_vid_map_;
-      this->global_border_vid_map_ = new Bitmap(aligned_max_vid);
-    }
 
     this->global_border_vid_map_->clear();
     for (GID_T i = 0; i < num_partitions; i++) {
