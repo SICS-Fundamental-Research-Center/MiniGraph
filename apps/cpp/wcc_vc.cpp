@@ -190,7 +190,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
       LOG_INFO("Jump out");
       return false;
     }
-    return !visited.empty();
+    return !(visited_num == 0);
   }
 
   bool Aggregate(void* a, void* b,
