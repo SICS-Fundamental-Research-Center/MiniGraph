@@ -164,7 +164,7 @@ class AutoMapBase {
     }
     write_add(active_vertices, local_active_vertices);
   }
-}
+};
 
 }  // namespace minigraph
 #endif  // MINIGRAPH_2d_PIE_EDGE_MAP_REDUCE_H
