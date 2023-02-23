@@ -70,10 +70,8 @@ class WCCAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
       }
       for (size_t nbr_i = 0; nbr_i < u.indegree; nbr_i++) {
         if (global_border_vid_map->get_bit(u.in_edges[nbr_i]) == 0) continue;
-        if (u.vdata[0] > global_border_vdata[u.in_edges[nbr_i]]) {
-          u.vdata[0] = global_border_vdata[u.in_edges[nbr_i]];
+        if (write_min(u.vdata, global_border_vdata[u.in_edges[nbr_i]]))
           in_visited->set_bit(u.vid);
-        }
       }
     }
     return true;
