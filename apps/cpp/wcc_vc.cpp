@@ -66,10 +66,11 @@ class WCCAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
       auto u = graph->GetVertexByIndex(i);
       if (global_border_vdata[graph->localid2globalid(u.vid)] < u.vdata[0]) {
         u.vdata[0] = global_border_vdata[graph->localid2globalid(u.vid)];
+        in_visited->set_bit(u.vid);
       }
       for (size_t nbr_i = 0; nbr_i < u.indegree; nbr_i++) {
         if (global_border_vid_map->get_bit(u.in_edges[nbr_i]) == 0) continue;
-        if (u.vdata[0] < global_border_vdata[u.in_edges[nbr_i]]) {
+        if (u.vdata[0] > global_border_vdata[u.in_edges[nbr_i]]) {
           u.vdata[0] = global_border_vdata[u.in_edges[nbr_i]];
           in_visited->set_bit(u.vid);
         }
@@ -169,14 +170,14 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     }
 
     this->auto_map_->ActiveMap(
-        graph, task_runner, &output_visited,
+        graph, task_runner, &visited,
         WCCAutoMap<GRAPH_T, CONTEXT_T>::kernel_push_border_vertexes,
         this->msg_mngr_->GetGlobalBorderVidMap(),
         this->msg_mngr_->GetGlobalVdata());
 
     delete in_visited;
     delete out_visited;
-    auto visited_num = output_visited.get_num_bit();
+    auto visited_num = visited.get_num_bit();
     auto end_time = std::chrono::system_clock::now();
     LOG_INFO("Visited: ", visited_num, " / ", graph.get_num_vertexes(), " | ",
              graph.get_num_vertexes() / 10000);
@@ -188,7 +189,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
               << std::endl;
     if (visited_num < graph.get_num_vertexes() / 10000) {
       LOG_INFO("Jump out");
-      return false;
+      // return false;
     }
     return !(visited_num == 0);
   }
