@@ -89,8 +89,6 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
          const CONTEXT_T& context)
       : minigraph::AutoAppBase<GRAPH_T, CONTEXT_T>(auto_map, context) {}
 
-  using Frontier = folly::DMPMCQueue<VertexInfo, false>;
-
   bool Init(GRAPH_T& graph,
             minigraph::executors::TaskRunner* task_runner) override {
     LOG_INFO("Init() - Processing gid: ", graph.gid_);
