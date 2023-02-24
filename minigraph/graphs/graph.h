@@ -6,12 +6,12 @@
 #include <string>
 #include <unordered_map>
 
-#include <folly/AtomicHashMap.h>
 #include <folly/FBString.h>
 #include <folly/Range.h>
 
 #include "portability/sys_types.h"
 #include "utility/bitmap.h"
+#include <folly/AtomicHashMap.h>
 
 namespace minigraph {
 namespace graphs {
@@ -72,12 +72,20 @@ class VertexInfo {
     }
     return false;
   }
+
   bool IsParrents(const VID_T vid) const {
     if (indegree == 0) return false;
     for (size_t i = 0; i < indegree; i++) {
       if (in_edges[i] == vid) return true;
     }
     return false;
+  }
+
+  VID_T get_random_out_edge() {
+    if (outdegree == 0)
+      return VID_MAX;
+    else
+      return out_edges[rand() % outdegree];
   }
 };
 
@@ -108,6 +116,34 @@ class Graph {
     return bitmap_->get_bit(globalid) != 0;
   }
 
+  void InitVdata2AllX(const VDATA_T init_vdata = 0) {
+    if (vdata_ == nullptr) {
+      vdata_ = (VDATA_T*)malloc(sizeof(VDATA_T) * get_num_vertexes());
+      if (init_vdata != 0)
+        for (size_t i = 0; i < this->get_num_vertexes(); i++)
+          vdata_[i] = init_vdata;
+      else
+        memset(vdata_, 0, sizeof(VDATA_T) * this->get_num_vertexes());
+    } else {
+      memset(vdata_, 0, sizeof(VDATA_T) * this->get_num_vertexes());
+      if (init_vdata != 0)
+        for (size_t i = 0; i < this->get_num_vertexes(); i++)
+          vdata_[i] = init_vdata;
+    }
+  }
+
+  void InitVdataByVid() {
+    if (vdata_ == nullptr) {
+      vdata_ = (VDATA_T*)malloc(sizeof(VDATA_T) * get_num_vertexes());
+      memset(vdata_, 0, sizeof(VDATA_T) * this->get_num_vertexes());
+      for (size_t i = 0; i < this->get_num_vertexes(); i++) vdata_[i] = i;
+
+    } else {
+      memset(vdata_, 0, sizeof(VDATA_T) * this->get_num_vertexes());
+      for (size_t i = 0; i < this->get_num_vertexes(); i++) vdata_[i] = i;
+    }
+  }
+
   virtual void CleanUp() = 0;
   virtual ~Graph() = default;
 
@@ -117,6 +153,7 @@ class Graph {
   VID_T max_vid_ = 0;
   VID_T aligned_max_vid_ = 0;
   size_t num_edges_ = 0;
+  VDATA_T* vdata_ = nullptr;
   Bitmap* bitmap_ = nullptr;
   VID_T* buf_graph_ = nullptr;
 };

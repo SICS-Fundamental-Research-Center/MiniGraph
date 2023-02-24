@@ -1,9 +1,10 @@
 #ifndef BITMAP_H
 #define BITMAP_H
 
+#include <stdio.h>
+
 #include <cassert>
 #include <cstring>
-#include <stdio.h>
 
 #include "utility/logging.h"
 

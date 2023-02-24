@@ -1,6 +1,16 @@
 #ifndef MINIGRAPH_UTILITY_VERTEXCUT_PARTITIONER_H
 #define MINIGRAPH_UTILITY_VERTEXCUT_PARTITIONER_H
 
+#include <atomic>
+#include <cstring>
+#include <stdio.h>
+#include <string.h>
+#include <unordered_map>
+#include <vector>
+
+#include <folly/AtomicHashMap.h>
+#include <folly/FBVector.h>
+
 #include "graphs/graph.h"
 #include "portability/sys_types.h"
 #include "utility/bitmap.h"
@@ -9,32 +19,11 @@
 #include "utility/io/io_adapter_base.h"
 #include "utility/paritioner/partitioner_base.h"
 #include "utility/thread_pool.h"
-#include <folly/AtomicHashMap.h>
-#include <folly/FBVector.h>
-#include <atomic>
-#include <cstring>
-#include <stdio.h>
-#include <string.h>
-#include <unordered_map>
-#include <vector>
 
 namespace minigraph {
 namespace utility {
 namespace partitioner {
 
-// With an edgecut partition, each vertex is assigned to a fragment.
-// In a fragment, inner vertices are those vertices assigned to it, and the
-// outer vertices are the remaining vertices adjacent to some of the inner
-// vertices. The load strategy defines how to store the adjacency between inner
-// and outer vertices.
-//
-// For example, a graph
-// G = {V, E}
-// V = {v0, v1, v2, v3, v4}
-// E = {(v0, v2), (v0, v3), (v1, v0), (v3, v1), (v3, v4), (v4, v1), (v4, v2)}
-// might be splitted into F0 that consists of  V_F0: {v0, v1, v2}, E_F0: {(v0,
-// v2), (v0, v3), (v1, v0)} and F1 that consists of V_F1: {v3, v4}, E_F1: {(v3,
-// v1), (v3, v4), (v4, v1), (v4, v2)}
 template <typename GRAPH_T>
 class VertexCutPartitioner : public PartitionerBase<GRAPH_T> {
   using GID_T = typename GRAPH_T::gid_t;
@@ -184,7 +173,7 @@ class VertexCutPartitioner : public PartitionerBase<GRAPH_T> {
 
     LOG_INFO("Run: Set global_border_vid_map");
 
-      this->global_border_vid_map_ = new Bitmap(aligned_max_vid);
+    this->global_border_vid_map_ = new Bitmap(aligned_max_vid);
 
     this->global_border_vid_map_->clear();
     for (GID_T i = 0; i < num_partitions; i++) {

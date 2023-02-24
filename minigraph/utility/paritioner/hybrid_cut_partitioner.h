@@ -22,19 +22,6 @@ namespace minigraph {
 namespace utility {
 namespace partitioner {
 
-// With a hybrid partition, each vertex is assigned to a fragment.
-// In a fragment, inner vertices are those vertices assigned to it, and the
-// outer vertices are the remaining vertices adjacent to some of the inner
-// vertices. The load strategy defines how to store the adjacency between inner
-// and outer vertices.
-//
-// For example, a graph
-// G = {V, E}
-// V = {v0, v1, v2, v3, v4}
-// E = {(v0, v2), (v0, v3), (v1, v0), (v3, v1), (v3, v4), (v4, v1), (v4, v2)}
-// might be splitted into F0 that consists of  V_F0: {v0, v1, v2}, E_F0: {(v0,
-// v2), (v0, v3), (v1, v0)} and F1 that consists of V_F1: {v3, v4}, E_F1: {(v3,
-// v1), (v3, v4), (v4, v1), (v4, v2)}
 template <typename GRAPH_T>
 class HybridCutPartitioner : public PartitionerBase<GRAPH_T> {
   using GID_T = typename GRAPH_T::gid_t;
@@ -178,7 +165,7 @@ class HybridCutPartitioner : public PartitionerBase<GRAPH_T> {
 
     auto bucket_id_to_be_splitted = 0;
     auto num_graph_max_vertexes = 0;
-    for (GID_T gid = 0; gid < num_partitions; gid++) {
+    for (GID_T gid = 0; gid < num_partitions ; gid++) {
       LOG_INFO("GID: ", gid,
                " num_vertexes: ", set_graphs[gid]->get_num_vertexes());
       if (num_graph_max_vertexes < set_graphs[gid]->get_num_vertexes()) {
@@ -211,7 +198,6 @@ class HybridCutPartitioner : public PartitionerBase<GRAPH_T> {
 
     auto csr_graph_to_be_splitted =
         (CSR_T*)set_graphs[bucket_id_to_be_splitted];
-    csr_graph_to_be_splitted->ShowGraph();
     for (size_t i = 0; i < csr_graph_to_be_splitted->get_num_vertexes(); i++) {
       auto u = csr_graph_to_be_splitted->GetPVertexByIndex(i);
       VID_T global_id = csr_graph_to_be_splitted->localid2globalid(u->vid);

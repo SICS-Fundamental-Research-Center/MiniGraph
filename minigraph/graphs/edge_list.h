@@ -45,8 +45,8 @@ class EdgeList : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
 
     if (num_vertexes != 0) {
       this->num_vertexes_ = num_vertexes;
-      vdata_ = (VDATA_T*)malloc(sizeof(VDATA_T) * this->get_num_vertexes());
-      memset((char*)vdata_, 0, sizeof(VDATA_T) * this->get_num_vertexes());
+      this->vdata_ = (VDATA_T*)malloc(sizeof(VDATA_T) * this->get_num_vertexes());
+      memset((char*)this->vdata_, 0, sizeof(VDATA_T) * this->get_num_vertexes());
       globalid_by_localid_ =
           (VID_T*)malloc(sizeof(VID_T) * this->get_num_vertexes());
       memset((char*)globalid_by_localid_, 0,
@@ -89,14 +89,14 @@ class EdgeList : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     std::cout << ">>>> vdata_ " << std::endl;
     for (size_t i = 0; i < this->get_num_vertexes(); i++) {
       if (i > count) break;
-      std::cout << "vid: " << i << ", vdata_: " << vdata_[i] << std::endl;
+      std::cout << "vid: " << i << ", vdata_: " << this->vdata_[i] << std::endl;
     }
   }
 
   graphs::VertexInfo<VID_T, VDATA_T, EDATA_T> GetVertexByVid(const VID_T vid) {
     auto iter = vertexes_info_->find(vid);
     if (iter != vertexes_info_->end()) {
-      iter->second->vdata = vdata_ + index_by_vid_[vid];
+      iter->second->vdata = this->vdata_ + index_by_vid_[vid];
       iter->second->state = vertexes_state_ + index_by_vid_[vid];
       return *iter->second;
     } else {
@@ -110,7 +110,7 @@ class EdgeList : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     auto vid = vid_by_index_[index];
     auto iter = vertexes_info_->find(vid);
     if (iter != vertexes_info_->end()) {
-      iter->second->vdata = vdata_ + index;
+      iter->second->vdata = this->vdata_ + index;
       iter->second->state = vertexes_state_ + index;
       return *iter->second;
     } else {
@@ -119,60 +119,6 @@ class EdgeList : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     }
   }
 
-  void InitVdata2AllX(const VDATA_T init_vdata = 0) {
-    if (vdata_ == nullptr) {
-      if (map_globalid2localid_->size() == 0)
-        LOG_ERROR("segmentation fault: vdata is empty");
-      this->num_vertexes_ = map_globalid2localid_->size();
-      vdata_ =
-          (VDATA_T*)malloc(sizeof(VDATA_T) * map_globalid2localid_->size());
-      if (init_vdata != 0)
-        for (size_t i = 0; i < this->get_num_vertexes(); i++)
-          vdata_[i] = init_vdata;
-      else
-        memset(vdata_, 0, sizeof(VDATA_T) * this->get_num_vertexes());
-    } else {
-      memset(vdata_, 0, sizeof(VDATA_T) * this->get_num_vertexes());
-      if (init_vdata != 0)
-        for (size_t i = 0; i < this->get_num_vertexes(); i++)
-          vdata_[i] = init_vdata;
-    }
-  }
-
-  void InitVdataByVid() {
-    if (vdata_ == nullptr) {
-      if (map_globalid2localid_->size() == 0)
-        LOG_ERROR("segmentation fault: vdata is empty");
-      this->num_vertexes_ = map_globalid2localid_->size();
-      vdata_ =
-          (VDATA_T*)malloc(sizeof(VDATA_T) * map_globalid2localid_->size());
-
-      for (auto& iter : *map_globalid2localid_) {
-        vdata_[iter.second] = iter.first;
-      }
-    } else {
-      memset(vdata_, 0, sizeof(VDATA_T) * this->get_num_vertexes());
-      for (auto& iter : *map_globalid2localid_) {
-        vdata_[iter.second] = iter.first;
-      }
-    }
-  }
-
-  void InitVdata2AllMax() {
-    if (vdata_ == nullptr) {
-      if (map_globalid2localid_->size() == 0)
-        LOG_ERROR("segmentation fault: vdata is empty");
-      this->num_vertexes_ = map_globalid2localid_->size();
-      vdata_ =
-          (VDATA_T*)malloc(sizeof(VDATA_T) * map_globalid2localid_->size());
-      for (size_t i = 0; i < this->get_num_vertexes(); i++)
-        vdata_[i] = VDATA_MAX;
-    } else {
-      memset(vdata_, 0, sizeof(VDATA_T) * this->get_num_vertexes());
-      for (size_t i = 0; i < this->get_num_vertexes(); i++)
-        vdata_[i] = VDATA_MAX;
-    }
-  }
 
   VID_T globalid2localid(const VID_T vid) const {
     auto local_id_iter = map_globalid2localid_->find(vid);
@@ -211,8 +157,6 @@ class EdgeList : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
   }
 
  public:
-  // VID_T* buf_graph_ = nullptr;
-  VDATA_T* vdata_ = nullptr;
   size_t* index_by_vid_ = nullptr;
   VID_T* vid_by_index_ = nullptr;
   // Bitmap* bitmap_ = nullptr;

@@ -59,8 +59,10 @@ class DefaultMessageManager : public MessageManagerBase {
     global_border_vid_map_ = out3.second;
     aligned_max_vid_ = ceil((float)max_vid_ / 64) * 64;
     global_border_vdata_ = (VDATA_T*)malloc(aligned_max_vid_ * sizeof(VDATA_T));
+
     for (VID_T vid = 0; vid < aligned_max_vid_; vid++)
-      global_border_vdata_[vid] = VDATA_MAX;
+      global_border_vdata_[vid] = 0;
+
 
     //// Init others.
     historical_state_matrix_ = (char*)malloc(sizeof(char) * num_graphs_);

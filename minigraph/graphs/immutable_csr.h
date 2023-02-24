@@ -80,8 +80,8 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     size_t start_out_edges = start_in_edges + size_in_edges;
     size_t start_localid_by_globalid = start_out_edges + size_out_edges;
 
-    vdata_ = (VDATA_T*)malloc(sizeof(VDATA_T) * num_vertexes);
-    memset(vdata_, 0, sizeof(VDATA_T) * num_vertexes);
+    this->vdata_ = (VDATA_T*)malloc(sizeof(VDATA_T) * num_vertexes);
+    memset(this->vdata_, 0, sizeof(VDATA_T) * num_vertexes);
     this->buf_graph_ = (VID_T*)malloc(total_size);
     memset(this->buf_graph_, 0, total_size);
 
@@ -158,8 +158,8 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
 
     this->num_edges_ = sum_in_edges_ + sum_out_edges_;
     this->gid_ = gid;
-    vdata_ = (VDATA_T*)malloc(sizeof(VDATA_T) * this->get_num_vertexes());
-    memset(vdata_, 0, sizeof(VDATA_T) * this->get_num_vertexes());
+    this->vdata_ = (VDATA_T*)malloc(sizeof(VDATA_T) * this->get_num_vertexes());
+    memset(this->vdata_, 0, sizeof(VDATA_T) * this->get_num_vertexes());
     vertexes_state_ = (char*)malloc(sizeof(char) * this->get_num_vertexes());
     memset(vertexes_state_, VERTEXDISMATCH,
            sizeof(char) * this->get_num_vertexes());
@@ -178,9 +178,9 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       free(this->buf_graph_);
       this->buf_graph_ = nullptr;
     }
-    if (vdata_ != nullptr) {
-      free(vdata_);
-      vdata_ = nullptr;
+    if (this->vdata_ != nullptr) {
+      free(this->vdata_);
+      this->vdata_ = nullptr;
     }
     vid_by_index_ = nullptr;
     // index_by_vid_ = nullptr;
@@ -240,9 +240,9 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       delete vertexes_info_;
       vertexes_info_ = nullptr;
     }
-    if (vdata_ != nullptr) {
-      free(vdata_);
-      vdata_ = nullptr;
+    if (this->vdata_ != nullptr) {
+      free(this->vdata_);
+      this->vdata_ = nullptr;
     }
     vid_by_index_ = nullptr;
     // index_by_vid_ = nullptr;
@@ -289,34 +289,7 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     }
   }
 
-  void InitVdata2AllX(const VDATA_T init_vdata) {
-    assert(vdata_ != nullptr);
-    assert(is_serialized_);
-    if (init_vdata == 0) {
-      memset(vdata_, 0, sizeof(VDATA_T) * this->get_num_vertexes());
-    } else {
-      for (size_t i = 0; i < this->get_num_vertexes(); i++)
-        vdata_[i] = init_vdata;
-    }
-  }
 
-  void InitVdataByVid() {
-    assert(vdata_ != nullptr);
-    assert(is_serialized_);
-    for (size_t i = 0; i < this->get_num_vertexes(); i++) {
-      auto u = GetVertexByIndex(i);
-      u.vdata[0] = localid2globalid(u.vid);
-    }
-  }
-
-  void InitVdata2AllMax() {
-    assert(vdata_ != nullptr);
-    assert(is_serialized_);
-    for (size_t i = 0; i < this->get_num_vertexes(); i++) {
-      auto u = GetVertexByIndex(i);
-      u.vdata[0] = VDATA_MAX;
-    }
-  }
 
   bool Serialize() {
     if (vertexes_info_ == nullptr) return false;
@@ -346,8 +319,8 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     size_t start_out_edges = start_in_edges + size_in_edges;
     size_t start_localid_by_globalid = start_out_edges + size_out_edges;
 
-    vdata_ = (VDATA_T*)malloc(sizeof(VDATA_T) * this->get_num_vertexes());
-    memset(vdata_, 0, sizeof(VDATA_T) * this->get_num_vertexes());
+    this->vdata_ = (VDATA_T*)malloc(sizeof(VDATA_T) * this->get_num_vertexes());
+    memset(this->vdata_, 0, sizeof(VDATA_T) * this->get_num_vertexes());
     this->buf_graph_ = (VID_T*)malloc(total_size);
     memset(this->buf_graph_, 0, total_size);
     size_t i = 0;
@@ -432,13 +405,13 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       vertex_info.indegree = indegree_[index];
       vertex_info.in_edges = (in_edges_ + in_offset_[index]);
       vertex_info.out_edges = (out_edges_ + out_offset_[index]);
-      vertex_info.vdata = (vdata_ + index);
+      vertex_info.vdata = (this->vdata_ + index);
     } else {
       vertex_info.outdegree = outdegree_[index];
       vertex_info.indegree = indegree_[index];
       vertex_info.in_edges = (in_edges_ + in_offset_[index]);
       vertex_info.out_edges = (out_edges_ + out_offset_[index]);
-      vertex_info.vdata = (vdata_ + index);
+      vertex_info.vdata = (this->vdata_ + index);
     }
     vertex_info.state = (vertexes_state_ + index);
     return vertex_info;
@@ -453,13 +426,13 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       vertex_info->indegree = indegree_[index];
       vertex_info->in_edges = (in_edges_ + in_offset_[index]);
       vertex_info->out_edges = (out_edges_ + out_offset_[index]);
-      vertex_info->vdata = (vdata_ + index);
+      vertex_info->vdata = (this->vdata_ + index);
     } else {
       vertex_info->outdegree = outdegree_[index];
       vertex_info->indegree = indegree_[index];
       vertex_info->in_edges = (in_edges_ + in_offset_[index]);
       vertex_info->out_edges = (out_edges_ + out_offset_[index]);
-      vertex_info->vdata = (vdata_ + index);
+      vertex_info->vdata = (this->vdata_ + index);
     }
     vertex_info->state = (vertexes_state_ + index);
     return vertex_info;
@@ -475,13 +448,13 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       vertex_info.indegree = indegree_[index];
       vertex_info.in_edges = (in_edges_ + in_offset_[index]);
       vertex_info.out_edges = (out_edges_ + out_offset_[index]);
-      vertex_info.vdata = (vdata_ + index);
+      vertex_info.vdata = (this->vdata_ + index);
     } else {
       vertex_info.outdegree = outdegree_[index];
       vertex_info.indegree = indegree_[index];
       vertex_info.in_edges = (in_edges_ + in_offset_[index]);
       vertex_info.out_edges = (out_edges_ + out_offset_[index]);
-      vertex_info.vdata = (vdata_ + index);
+      vertex_info.vdata = (this->vdata_ + index);
     }
     vertex_info.state = (vertexes_state_ + index);
     return vertex_info;
@@ -498,13 +471,13 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       vertex_info->indegree = indegree_[index];
       vertex_info->in_edges = (in_edges_ + in_offset_[index]);
       vertex_info->out_edges = (out_edges_ + out_offset_[index]);
-      vertex_info->vdata = (vdata_ + index);
+      vertex_info->vdata = (this->vdata_ + index);
     } else {
       vertex_info->outdegree = outdegree_[index];
       vertex_info->indegree = indegree_[index];
       vertex_info->in_edges = (in_edges_ + in_offset_[index]);
       vertex_info->out_edges = (out_edges_ + out_offset_[index]);
-      vertex_info->vdata = (vdata_ + index);
+      vertex_info->vdata = (this->vdata_ + index);
     }
     vertex_info->state = (vertexes_state_ + index);
     return vertex_info;
@@ -574,7 +547,6 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
   VID_T* out_edges_ = nullptr;
   size_t* indegree_ = nullptr;
   size_t* outdegree_ = nullptr;
-  VDATA_T* vdata_ = nullptr;
   size_t* in_offset_ = nullptr;
   size_t* out_offset_ = nullptr;
 
