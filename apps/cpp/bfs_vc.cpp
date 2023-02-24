@@ -124,7 +124,6 @@ class BFSPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
         this->msg_mngr_->GetGlobalBorderVidMap(),
         this->msg_mngr_->GetGlobalVdata());
 
-    auto a = this->msg_mngr_->GetGlobalVdata();
     delete in_visited;
     delete out_visited;
     return true;
