@@ -202,10 +202,10 @@ void GraphReduceCSVToBin(const std::string input_pt, const std::string dst_pt,
     delete dst;
 
   } else {
-    LOG_INFO("Stream reading.");
     std::string line;
     std::ifstream in(input_pt);
     num_edges = read_num_edges;
+    LOG_INFO("Stream reading.", num_edges);
     src_v = (VID_T*)malloc(sizeof(VID_T) * read_num_edges);
     dst_v = (VID_T*)malloc(sizeof(VID_T) * read_num_edges);
     memset(src_v, 0, sizeof(VID_T) * read_num_edges);
@@ -215,8 +215,8 @@ void GraphReduceCSVToBin(const std::string input_pt, const std::string dst_pt,
       while (getline(in, line)) {
         if (count > num_edges)
           break;
-        line.substr(0, line.length() - 1);
-        line = line.substr(0, line.length() - 1);
+        //LOG_INFO(line);
+        //line = line.substr(0, line.length() - 1);
         auto out = SplitEdge(line, &separator_params);
         src_v[count] = out.first;
         dst_v[count] = out.second;
@@ -228,12 +228,13 @@ void GraphReduceCSVToBin(const std::string input_pt, const std::string dst_pt,
   }
 
   auto graph = new EDGE_LIST_T(0, num_edges, 0);
-  LOG_INFO("Read ", num_edges, " edges");
-  LOG_INFO("Run: get maximum vid");
+  LOG_INFO("Read ", num_edges, " edges #");
 
   VID_T aligned_max_vid =
       ceil((float)max_vid / ALIGNMENT_FACTOR) * ALIGNMENT_FACTOR;
+  LOG_INFO("Run: get maximum vid", aligned_max_vid);
 
+  LOG_INFO("Max vid: ", aligned_max_vid);
   size_t* vid_map = (size_t*)malloc(sizeof(size_t) * aligned_max_vid);
   memset(vid_map, 0, sizeof(size_t) * aligned_max_vid);
   Bitmap* visited = new Bitmap(aligned_max_vid);
