@@ -1,10 +1,9 @@
 #pragma once
 
+#include <condition_variable>
 #include <math.h>
-
 #include <string>
 #include <vector>
-#include <condition_variable>
 
 #include <folly/AtomicHashMap.h>
 
@@ -73,9 +72,9 @@ enum GraphFormat {
 
 template <typename T>
 size_t Hash(T k) {
-  //k *= BIG_CONSTANT(0xff51afd7ed558ccd);
+  // k *= BIG_CONSTANT(0xff51afd7ed558ccd);
   k *= BIG_CONSTANT(0xc4ceb9fe1a85ec53);
-  //k = k >> 1;
+  // k = k >> 1;
   return k;
 }
 
@@ -95,3 +94,17 @@ struct IsSameType<T1, T1> {
 //   a = std::move(b);
 //   b = std::move(temp);
 // }
+
+inline std::pair<vid_t, vid_t> SplitEdge(const std::string& str,
+                                         char* pattern) {
+  char* strc = new char[strlen(str.c_str()) + 1];
+  strcpy(strc, str.c_str());
+  char* tmpStr = strtok(strc, pattern);
+  vid_t out[2];
+  for (size_t i = 0; i < 2; i++) {
+    out[i] = atoi(tmpStr);
+    tmpStr = strtok(NULL, pattern);
+  }
+  delete[] strc;
+  return std::make_pair(out[0], out[1]);
+};

@@ -53,8 +53,6 @@ void GraphPartitionEdgeList2CSR(std::string src_pt, std::string dst_pt,
     edgelist_io_adapter.ParallelRead((GRAPH_BASE_T*)edgelist_graph,
                                      edge_list_csv, separator_params, 0, cores,
                                      src_pt);
-    //edgelist_io_adapter.ParallelReadEdgeListFromCSV(
-    //    (GRAPH_BASE_T*)edgelist_graph, src_pt, separator_params, cores);
   }
 
   partitioner->ParallelPartition(edgelist_graph, num_partitions, cores);
