@@ -1,7 +1,7 @@
-#include <cstring>
 #include <iostream>
 #include <math.h>
 #include <rapidcsv.h>
+#include <string.h>
 #include <string>
 
 #include <gflags/gflags.h>
@@ -21,7 +21,8 @@ using GRAPH_BASE_T = minigraph::graphs::Graph<gid_t, vid_t, vdata_t, edata_t>;
 template <typename VID_T, typename VDATA_T>
 void GraphReduceCSVToCSV(const std::string input_pt,
                          const std::string output_pt, const size_t cores,
-                         char separator_params = ',') {
+                         char separator_params = ',',
+                         const size_t read_edges = 0) {
   LOG_INFO("GraphReduce: CSV2CSV");
   std::mutex mtx;
   std::condition_variable finish_cv;
@@ -140,8 +141,9 @@ void GraphReduceCSVToCSV(const std::string input_pt,
 
 template <typename VID_T, typename VDATA_T>
 void GraphReduceCSVToBin(const std::string input_pt, const std::string dst_pt,
-                         const size_t cores, char separator_params = ',') {
-  LOG_INFO("GraphReduce: CSV2Bin");
+                         const size_t cores, char separator_params = ',',
+                         const size_t read_num_edges = 0) {
+  LOG_INFO("GraphReduce: CSV2Bin, read_edges:", read_num_edges);
   minigraph::utility::io::EdgeListIOAdapter<gid_t, vid_t, vdata_t, edata_t>
       edge_list_io_adapter;
   std::string meta_pt = dst_pt + "minigraph_meta" + ".bin";
@@ -157,46 +159,80 @@ void GraphReduceCSVToBin(const std::string input_pt, const std::string dst_pt,
   std::atomic<size_t> pending_packages(cores);
 
   auto thread_pool = minigraph::utility::CPUThreadPool(cores, 1);
-
-  rapidcsv::Document* doc =
-      new rapidcsv::Document(input_pt, rapidcsv::LabelParams(),
-                             rapidcsv::SeparatorParams(separator_params));
   std::vector<size_t>* src = new std::vector<size_t>();
-  *src = doc->GetColumn<size_t>(0);
   std::vector<size_t>* dst = new std::vector<size_t>();
-  *dst = doc->GetColumn<size_t>(1);
 
-  size_t num_edges = src->size();
-  VID_T* src_v = (VID_T*)malloc(sizeof(VID_T) * num_edges);
-  VID_T* dst_v = (VID_T*)malloc(sizeof(VID_T) * num_edges);
-  memset(src_v, 0, sizeof(VID_T) * num_edges);
-  memset(dst_v, 0, sizeof(VID_T) * num_edges);
-  auto graph = new EDGE_LIST_T(0, num_edges, 0);
-
+  size_t num_edges = 0;
+  VID_T* src_v = nullptr;
+  VID_T* dst_v = nullptr;
   VID_T max_vid = 0;
 
+  const char* s = &separator_params;
+  if (read_num_edges == 0) {
+    rapidcsv::Document* doc =
+        new rapidcsv::Document(input_pt, rapidcsv::LabelParams(),
+                               rapidcsv::SeparatorParams(separator_params));
+    *src = doc->GetColumn<size_t>(0);
+    *dst = doc->GetColumn<size_t>(1);
+    num_edges = src->size();
+    src_v = (VID_T*)malloc(sizeof(VID_T) * num_edges);
+    dst_v = (VID_T*)malloc(sizeof(VID_T) * num_edges);
+    memset(src_v, 0, sizeof(VID_T) * num_edges);
+    memset(dst_v, 0, sizeof(VID_T) * num_edges);
+    delete doc;
+
+    for (size_t i = 0; i < cores; i++) {
+      size_t tid = i;
+      thread_pool.Commit([tid, &cores, &src_v, &dst_v, &src, &dst,
+                          &pending_packages, &finish_cv, &max_vid]() {
+        for (size_t j = tid; j < src->size(); j += cores) {
+          dst_v[j] = dst->at(j);
+          src_v[j] = src->at(j);
+          write_max(&max_vid, dst_v[j]);
+          write_max(&max_vid, src_v[j]);
+        }
+        if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
+        return;
+      });
+    }
+    finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
+    VID_T aligned_max_vid =
+        ceil((float)max_vid / ALIGNMENT_FACTOR) * ALIGNMENT_FACTOR;
+    delete src;
+    delete dst;
+
+  } else {
+    std::string line;
+    std::ifstream in(input_pt);
+    num_edges = read_num_edges;
+    src_v = (VID_T*)malloc(sizeof(VID_T) * read_num_edges);
+    dst_v = (VID_T*)malloc(sizeof(VID_T) * read_num_edges);
+    memset(src_v, 0, sizeof(VID_T) * read_num_edges);
+    memset(dst_v, 0, sizeof(VID_T) * read_num_edges);
+    size_t count = 0;
+    if (in) {
+      while (getline(in, line)) {
+        if (count > num_edges)
+          break;
+        line.substr(0, line.length() - 1);
+        line = line.substr(0, line.length() - 1);
+        auto out = SplitEdge(line, &separator_params);
+        src_v[count] = out.first;
+        dst_v[count] = out.second;
+        write_max(&max_vid, dst_v[count]);
+        write_max(&max_vid, src_v[count]);
+        count++;
+      }
+    }
+  }
+
+  auto graph = new EDGE_LIST_T(0, num_edges, 0);
   LOG_INFO("Read ", num_edges, " edges");
   LOG_INFO("Run: get maximum vid");
-  for (size_t i = 0; i < cores; i++) {
-    size_t tid = i;
-    thread_pool.Commit([tid, &cores, &src_v, &dst_v, &src, &dst,
-                        &pending_packages, &finish_cv, &max_vid]() {
-      for (size_t j = tid; j < src->size(); j += cores) {
-        dst_v[j] = dst->at(j);
-        src_v[j] = src->at(j);
-        write_max(&max_vid, dst_v[j]);
-        write_max(&max_vid, src_v[j]);
-      }
-      if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
-      return;
-    });
-  }
-  finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
+
   VID_T aligned_max_vid =
       ceil((float)max_vid / ALIGNMENT_FACTOR) * ALIGNMENT_FACTOR;
-  delete doc;
-  delete src;
-  delete dst;
+
   size_t* vid_map = (size_t*)malloc(sizeof(size_t) * aligned_max_vid);
   memset(vid_map, 0, sizeof(size_t) * aligned_max_vid);
   Bitmap* visited = new Bitmap(aligned_max_vid);
@@ -537,14 +573,14 @@ int main(int argc, char* argv[]) {
       GraphReduceBinToBin<vid_t, vdata_t>(FLAGS_i, FLAGS_o, cores);
     else
       GraphReduceCSVToBin<vid_t, vdata_t>(FLAGS_i, FLAGS_o, cores,
-                                          *FLAGS_sep.c_str());
+                                          *FLAGS_sep.c_str(), FLAGS_edges);
   } else {
     if (FLAGS_frombin)
       GraphReduceBinToCSV<vid_t, vdata_t>(FLAGS_i, FLAGS_o, cores,
                                           *FLAGS_sep.c_str());
     else
       GraphReduceCSVToCSV<vid_t, vdata_t>(FLAGS_i, FLAGS_o, cores,
-                                          *FLAGS_sep.c_str());
+                                          *FLAGS_sep.c_str(), FLAGS_edges);
   }
   gflags::ShutDownCommandLineFlags();
 }

@@ -64,7 +64,7 @@ DEFINE_string(t, "edgelist", "type");
 DEFINE_string(sep, "seperator", ",");
 DEFINE_uint64(n, 1, "the number of fragments");
 DEFINE_uint64(vertexes, 1, "the number of vertexes");
-DEFINE_uint64(edges, 1, "the number of edges");
+DEFINE_uint64(edges, 0, "the number of edges");
 DEFINE_uint64(power, 1, "the power of 2");
 DEFINE_uint64(lc, 1, "the number of executors in LoadComponent");
 DEFINE_uint64(cc, 1, "the number of executors in ComputingComponent");
