@@ -1,9 +1,9 @@
 #include <iostream>
 #include <math.h>
-#include <rapidcsv.h>
 #include <string.h>
 #include <string>
 
+#include <rapidcsv.h>
 #include <gflags/gflags.h>
 
 #include "graphs/edge_list.h"
@@ -206,20 +206,19 @@ void GraphReduceCSVToBin(const std::string input_pt, const std::string dst_pt,
     std::ifstream in(input_pt);
     num_edges = read_num_edges;
     LOG_INFO("Stream reading.", num_edges);
-    src_v = (VID_T*)malloc(sizeof(VID_T) * read_num_edges);
-    dst_v = (VID_T*)malloc(sizeof(VID_T) * read_num_edges);
-    memset(src_v, 0, sizeof(VID_T) * read_num_edges);
-    memset(dst_v, 0, sizeof(VID_T) * read_num_edges);
+    src_v = (VID_T*)malloc(sizeof(VID_T) * read_num_edges + 1024);
+    dst_v = (VID_T*)malloc(sizeof(VID_T) * read_num_edges + 1024);
+    memset(src_v, 0, sizeof(VID_T) * read_num_edges + 1024);
+    memset(dst_v, 0, sizeof(VID_T) * read_num_edges + 1024);
     size_t count = 0;
     if (in) {
       while (getline(in, line)) {
-        if (count > num_edges)
-          break;
-        //LOG_INFO(line);
-        //line = line.substr(0, line.length() - 1);
+        if (count > num_edges) break;
         auto out = SplitEdge(line, &separator_params);
         src_v[count] = out.first;
         dst_v[count] = out.second;
+        if (max_vid < dst_v[count]) max_vid = dst_v[count];
+        if (max_vid < src_v[count]) max_vid = src_v[count];
         write_max(&max_vid, dst_v[count]);
         write_max(&max_vid, src_v[count]);
         count++;
@@ -231,7 +230,7 @@ void GraphReduceCSVToBin(const std::string input_pt, const std::string dst_pt,
   LOG_INFO("Read ", num_edges, " edges #");
 
   VID_T aligned_max_vid =
-      ceil((float)max_vid / ALIGNMENT_FACTOR) * ALIGNMENT_FACTOR;
+      (ceil((float)max_vid / ALIGNMENT_FACTOR) + 1) * ALIGNMENT_FACTOR;
   LOG_INFO("Run: get maximum vid", aligned_max_vid);
 
   LOG_INFO("Max vid: ", aligned_max_vid);
