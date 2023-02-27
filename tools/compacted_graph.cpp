@@ -217,8 +217,6 @@ void GraphReduceCSVToBin(const std::string input_pt, const std::string dst_pt,
         auto out = SplitEdge(line, &separator_params);
         src_v[count] = out.first;
         dst_v[count] = out.second;
-        if (max_vid < dst_v[count]) max_vid = dst_v[count];
-        if (max_vid < src_v[count]) max_vid = src_v[count];
         write_max(&max_vid, dst_v[count]);
         write_max(&max_vid, src_v[count]);
         count++;

@@ -58,9 +58,7 @@ class HybridCutPartitioner : public PartitionerBase<GRAPH_T> {
         (num_partitions + num_new_buckets));
     for (size_t i = 0; i < num_partitions + num_new_buckets; i++)
       set_graphs[i] = nullptr;
-    VID_T aligned_max_vid =
-        ceil((float)edgelist_graph->max_vid_ / ALIGNMENT_FACTOR) *
-        ALIGNMENT_FACTOR;
+    VID_T aligned_max_vid = edgelist_graph->get_aligned_max_vid();
     this->aligned_max_vid_ = aligned_max_vid;
     size_t* num_in_edges = (size_t*)malloc(sizeof(size_t) * aligned_max_vid);
     size_t* num_out_edges = (size_t*)malloc(sizeof(size_t) * aligned_max_vid);
@@ -95,8 +93,8 @@ class HybridCutPartitioner : public PartitionerBase<GRAPH_T> {
       edges_buckets[i] = (VID_T*)malloc(sizeof(VID_T) * 2 * size_per_bucket[i]);
       memset(edges_buckets[i], 0, sizeof(VID_T) * 2 * size_per_bucket[i]);
     }
-    Bitmap* is_in_bucketX[num_partitions+num_new_buckets];
-    for (size_t i = 0; i < num_partitions+num_new_buckets; i++) {
+    Bitmap* is_in_bucketX[num_partitions + num_new_buckets];
+    for (size_t i = 0; i < num_partitions + num_new_buckets; i++) {
       is_in_bucketX[i] = new Bitmap(aligned_max_vid);
       is_in_bucketX[i]->clear();
     }
@@ -165,7 +163,7 @@ class HybridCutPartitioner : public PartitionerBase<GRAPH_T> {
 
     auto bucket_id_to_be_splitted = 0;
     auto num_graph_max_vertexes = 0;
-    for (GID_T gid = 0; gid < num_partitions ; gid++) {
+    for (GID_T gid = 0; gid < num_partitions; gid++) {
       LOG_INFO("GID: ", gid,
                " num_vertexes: ", set_graphs[gid]->get_num_vertexes());
       if (num_graph_max_vertexes < set_graphs[gid]->get_num_vertexes()) {
@@ -194,7 +192,6 @@ class HybridCutPartitioner : public PartitionerBase<GRAPH_T> {
       for (size_t j = 0; j < this->aligned_max_vid_; j++)
         new_fragments[i][j] = nullptr;
     }
-
 
     auto csr_graph_to_be_splitted =
         (CSR_T*)set_graphs[bucket_id_to_be_splitted];

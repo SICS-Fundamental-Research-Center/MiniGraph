@@ -50,9 +50,6 @@ class VertexCutPartitioner : public PartitionerBase<GRAPH_T> {
     std::unique_lock<std::mutex> lck(mtx);
     std::atomic<size_t> pending_packages(cores);
 
-    LOG_INFO(ceil((float)edgelist_graph->max_vid_ / ALIGNMENT_FACTOR) *
-             ALIGNMENT_FACTOR);
-
     VID_T aligned_max_vid =
         ceil((float)edgelist_graph->max_vid_ / ALIGNMENT_FACTOR) *
         ALIGNMENT_FACTOR;

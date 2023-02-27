@@ -53,7 +53,9 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     sum_in_edges_ = sum_in_edges;
     sum_out_edges_ = sum_out_edges;
     this->max_vid_ = max_vid;
-    this->aligned_max_vid_ = ceil((float)this->get_max_vid() / 64) * 64;
+    this->aligned_max_vid_ =
+        ceil((float)this->get_max_vid() / ALIGNMENT_FACTOR ) *
+        ALIGNMENT_FACTOR;
     this->bitmap_ = new Bitmap(this->get_aligned_max_vid());
     this->bitmap_->clear();
 
@@ -288,8 +290,6 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       vertex_info.ShowVertexAbs(global_id);
     }
   }
-
-
 
   bool Serialize() {
     if (vertexes_info_ == nullptr) return false;
