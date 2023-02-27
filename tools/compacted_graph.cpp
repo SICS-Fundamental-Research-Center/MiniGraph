@@ -202,6 +202,7 @@ void GraphReduceCSVToBin(const std::string input_pt, const std::string dst_pt,
     delete dst;
 
   } else {
+    LOG_INFO("Stream reading.");
     std::string line;
     std::ifstream in(input_pt);
     num_edges = read_num_edges;
