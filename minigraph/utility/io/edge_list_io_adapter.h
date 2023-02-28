@@ -263,7 +263,8 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     meta_file.read((char*)meta_buff, sizeof(size_t) * 2);
     meta_file.read((char*)&edge_list_graph->max_vid_, sizeof(VID_T));
     edge_list_graph->aligned_max_vid_ =
-        ceil((float)edge_list_graph->max_vid_ / 64) * 64;
+        ceil((float)edge_list_graph->max_vid_ / ALIGNMENT_FACTOR) *
+        ALIGNMENT_FACTOR;
 
     edge_list_graph->buf_graph_ =
         (VID_T*)malloc(sizeof(VID_T) * 2 * meta_buff[1]);
