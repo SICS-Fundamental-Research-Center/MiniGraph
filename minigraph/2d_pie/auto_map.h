@@ -44,25 +44,26 @@ class AutoMapBase {
 
   bool ActiveEMap(Bitmap* in_visited, Bitmap* out_visited, GRAPH_T& graph,
                   executors::TaskRunner* task_runner, VID_T* vid_map = nullptr,
-                  Bitmap* visited = nullptr) {
+                  Bitmap* visited = nullptr, StatisticInfo* si = nullptr) {
+    auto iter_start_time = std::chrono::system_clock::now();
     assert(task_runner != nullptr);
     if (in_visited == nullptr || out_visited == nullptr) {
       LOG_INFO("Segmentation fault: ", "visited is nullptr.");
     }
+    LOG_INFO("ActiveEMap");
     out_visited->clear();
     std::vector<std::function<void()>> tasks;
     bool global_visited = false;
-    size_t active_vertices = 0;
+
     for (size_t tid = 0; tid < task_runner->GetParallelism(); ++tid) {
       auto task = std::bind(&AutoMapBase<GRAPH_T, CONTEXT_T>::ActiveEReduce,
                             this, &graph, in_visited, out_visited, tid,
                             task_runner->GetParallelism(), &global_visited,
-                            &active_vertices, vid_map, visited);
+                            vid_map, visited, si);
       tasks.push_back(task);
     }
-    LOG_INFO("AutoMap ActiveEMap Run");
     task_runner->Run(tasks, false);
-    LOG_INFO("# ", active_vertices);
+    LOG_INFO("# ", si->num_vertexes);
     return global_visited;
   };
 
@@ -100,23 +101,31 @@ class AutoMapBase {
                             task_runner->GetParallelism(), args...);
       tasks.push_back(task);
     }
-    LOG_INFO("AutoMap ActiveMap Run");
+    //LOG_INFO("AutoMap ActiveMap Run");
     task_runner->Run(tasks, false);
-    LOG_INFO("# ");
+    //LOG_INFO("# ");
     return;
   };
 
  private:
   void ActiveEReduce(GRAPH_T* graph, Bitmap* in_visited, Bitmap* out_visited,
                      const size_t tid, const size_t step, bool* global_visited,
-                     size_t* active_vertices, VID_T* vid_map = nullptr,
-                     Bitmap* visited = nullptr) {
+                     VID_T* vid_map = nullptr, Bitmap* visited = nullptr,
+                     StatisticInfo* si = nullptr) {
     size_t local_active_vertices = 0;
+    size_t local_sum_border_vertexes = 0;
+    size_t local_sum_out_degree = 0;
     for (size_t index = tid; index < graph->get_num_vertexes(); index += step) {
       if (in_visited->get_bit(index) == 0) continue;
       VertexInfo&& u = graph->GetVertexByIndex(index);
+      //write_add(&si->sum_out_degree, u.outdegree);
+      //write_add(&si->sum_in_degree, u.indegree);
       for (size_t i = 0; i < u.outdegree; ++i) {
-        if (!graph->IsInGraph(u.out_edges[i])) continue;
+        if (!graph->IsInGraph(u.out_edges[i])) {
+          ++local_sum_border_vertexes;
+          continue;
+        }
+        ++local_sum_out_degree;
         VID_T local_id = VID_MAX;
         if (vid_map != nullptr)
           local_id = vid_map[u.out_edges[i]];
@@ -132,7 +141,10 @@ class AutoMapBase {
         }
       }
     }
-    write_add(active_vertices, local_active_vertices);
+    write_add(&si->num_vertexes, local_active_vertices);
+    write_add(&si->sum_visited_out_border_vertexes, local_sum_border_vertexes);
+    write_add(&si->sum_out_degree, local_sum_out_degree);
+    return;
   }
 
   void ActiveVReduce(GRAPH_T* graph, Bitmap* in_visited, Bitmap* out_visited,
@@ -163,6 +175,7 @@ class AutoMapBase {
       }
     }
     write_add(active_vertices, local_active_vertices);
+    return;
   }
 };
 

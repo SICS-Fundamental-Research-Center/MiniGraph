@@ -88,12 +88,34 @@ struct IsSameType<T1, T1> {
   operator bool() { return true; }
 };
 
-// template <typename T>
-// void swap(T& a, T& b) noexcept {
-//   T temp = std::move(a);
-//   a = std::move(b);
-//   b = std::move(temp);
-// }
+struct StatisticInfo {
+  size_t sum_in_degree = 0;
+  size_t sum_out_degree = 0;
+  size_t num_vertexes = 0;
+  size_t num_iters = 0;
+  size_t current_iter = 0;
+  size_t sum_visited_out_border_vertexes = 0;
+  size_t sum_visited_in_border_vertexes = 0;
+  size_t type = 0;
+  // type denotes the level of statistic information in which type = 0
+  // is in Active vertexes level, type = 1 denotes the information is in
+  // fragment level, type 2 means in Graph level.
+  size_t inc_type = 0;
+  // inc_type =0 denotes the statistic information is collected in PEval, while
+  // inc_type = 1 means in IncEval.
+
+  float elapsed_time = 0;
+
+  void ShowInfo() {
+    LOG_INFO(type, ",", current_iter, ",", num_iters, ",", sum_in_degree, ",",
+             sum_out_degree, ",", num_vertexes, ",",
+             sum_visited_in_border_vertexes, ",",
+             sum_visited_out_border_vertexes, ",", elapsed_time);
+    return;
+  };
+
+  StatisticInfo(size_t t) { type = t; };
+};
 
 inline std::pair<vid_t, vid_t> SplitEdge(const std::string& str,
                                          char* pattern) {

@@ -1,12 +1,13 @@
 #ifndef MINIGRAPH_GRAPHS_IMMUTABLECSR_H
 #define MINIGRAPH_GRAPHS_IMMUTABLECSR_H
 
-#include "graphs/edge_list.h"
-#include "graphs/graph.h"
-#include "portability/sys_data_structure.h"
-#include "portability/sys_types.h"
-#include "utility/bitmap.h"
-#include "utility/logging.h"
+#include <fstream>
+#include <iostream>
+#include <malloc.h>
+#include <map>
+#include <memory>
+#include <unordered_map>
+
 #include <folly/AtomicHashArray.h>
 #include <folly/AtomicHashMap.h>
 #include <folly/AtomicUnorderedMap.h>
@@ -19,12 +20,13 @@
 #include <folly/portability/Atomic.h>
 #include <folly/portability/SysTime.h>
 #include <jemalloc/jemalloc.h>
-#include <fstream>
-#include <iostream>
-#include <malloc.h>
-#include <map>
-#include <memory>
-#include <unordered_map>
+
+#include "graphs/edge_list.h"
+#include "graphs/graph.h"
+#include "portability/sys_data_structure.h"
+#include "portability/sys_types.h"
+#include "utility/bitmap.h"
+#include "utility/logging.h"
 
 namespace minigraph {
 namespace graphs {
@@ -54,8 +56,7 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     sum_out_edges_ = sum_out_edges;
     this->max_vid_ = max_vid;
     this->aligned_max_vid_ =
-        ceil((float)this->get_max_vid() / ALIGNMENT_FACTOR ) *
-        ALIGNMENT_FACTOR;
+        ceil((float)this->get_max_vid() / ALIGNMENT_FACTOR) * ALIGNMENT_FACTOR;
     this->bitmap_ = new Bitmap(this->get_aligned_max_vid());
     this->bitmap_->clear();
 
