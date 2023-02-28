@@ -123,7 +123,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     auto vid_map = this->msg_mngr_->GetVidMap();
     auto start_time = std::chrono::system_clock::now();
 
-    StatisticInfo global_si(1);
+    StatisticInfo global_si(0, 1);
     Bitmap* in_visited = new Bitmap(graph.get_num_vertexes());
     Bitmap* out_visited = new Bitmap(graph.get_num_vertexes());
     in_visited->fill();
@@ -135,7 +135,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     size_t count_iters = 0;
     std::vector<StatisticInfo> vec_si;
     while (run) {
-      StatisticInfo si(0);
+      StatisticInfo si(0, 0);
       auto iter_start_time = std::chrono::system_clock::now();
       run = this->auto_map_->ActiveEMap(in_visited, out_visited, graph,
                                         task_runner, vid_map, &visited, &si);
@@ -193,7 +193,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     LOG_INFO("IncEval() - Processing gid: ", graph.gid_);
     auto start_time = std::chrono::system_clock::now();
 
-    StatisticInfo global_si(1);
+    StatisticInfo global_si(1, 1);
     Bitmap visited(graph.get_num_vertexes());
     Bitmap output_visited(graph.get_num_vertexes());
     Bitmap* in_visited = new Bitmap(graph.get_num_vertexes());
@@ -212,7 +212,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     bool run = true;
     size_t count_iters = 0;
     while (run) {
-      StatisticInfo si(0);
+      StatisticInfo si(1, 0);
       auto iter_start_time = std::chrono::system_clock::now();
       run = this->auto_map_->ActiveEMap(in_visited, out_visited, graph,
                                         task_runner, vid_map, &visited, &si);
@@ -247,10 +247,11 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     }
 
     global_si.ShowInfo();
-    //LOG_INFO("Visited: ", visited_num, " / ", graph.get_num_vertexes(), " | ",
-    //         graph.get_num_vertexes() / 10000);
-    //if (visited_num < graph.get_num_vertexes() / 10000) {
-      // return false;
+    // LOG_INFO("Visited: ", visited_num, " / ", graph.get_num_vertexes(), " |
+    // ",
+    //          graph.get_num_vertexes() / 10000);
+    // if (visited_num < graph.get_num_vertexes() / 10000) {
+    //  return false;
     //}
     return !(visited_num == 0);
   }

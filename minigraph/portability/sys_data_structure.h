@@ -96,7 +96,7 @@ struct StatisticInfo {
   size_t current_iter = 0;
   size_t sum_visited_out_border_vertexes = 0;
   size_t sum_visited_in_border_vertexes = 0;
-  size_t type = 0;
+  size_t level = 0;
   // type denotes the level of statistic information in which type = 0
   // is in Active vertexes level, type = 1 denotes the information is in
   // fragment level, type 2 means in Graph level.
@@ -107,14 +107,18 @@ struct StatisticInfo {
   float elapsed_time = 0;
 
   void ShowInfo() {
-    LOG_INFO(type, ",", current_iter, ",", num_iters, ",", sum_in_degree, ",",
-             sum_out_degree, ",", num_vertexes, ",",
-             sum_visited_in_border_vertexes, ",",
-             sum_visited_out_border_vertexes, ",", elapsed_time);
+    LOG_INFO(inc_type, ",", level, ",", current_iter, ",", num_iters, ",",
+             sum_in_degree, ",", sum_out_degree, ",", num_vertexes, ",",
+             // sum_visited_in_border_vertexes, ",",
+             // sum_visited_out_border_vertexes, ",",
+             elapsed_time);
     return;
   };
 
-  StatisticInfo(size_t t) { type = t; };
+  StatisticInfo(size_t l, size_t t) {
+    level = l;
+    inc_type = t;
+  };
 };
 
 inline std::pair<vid_t, vid_t> SplitEdge(const std::string& str,
