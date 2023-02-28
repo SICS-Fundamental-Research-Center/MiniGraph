@@ -115,7 +115,7 @@ struct StatisticInfo {
     return;
   };
 
-  StatisticInfo(size_t l, size_t t) {
+  StatisticInfo(size_t t, size_t l) {
     level = l;
     inc_type = t;
   };
