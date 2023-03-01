@@ -50,7 +50,6 @@ class AutoMapBase {
     if (in_visited == nullptr || out_visited == nullptr) {
       LOG_INFO("Segmentation fault: ", "visited is nullptr.");
     }
-    LOG_INFO("ActiveEMap");
     out_visited->clear();
     std::vector<std::function<void()>> tasks;
     bool global_visited = false;
@@ -62,8 +61,9 @@ class AutoMapBase {
                             vid_map, visited, si);
       tasks.push_back(task);
     }
+    //LOG_INFO("ActiveEMap");
     task_runner->Run(tasks, false);
-    LOG_INFO("# ", si->num_vertexes);
+    //LOG_INFO("# ", si->num_vertexes);
     return global_visited;
   };
 
@@ -85,9 +85,9 @@ class AutoMapBase {
                             &active_vertices, vid_map, visited);
       tasks.push_back(task);
     }
-    LOG_INFO("AutoMap ActiveVMap Run");
+    //LOG_INFO("AutoMap ActiveVMap Run");
     task_runner->Run(tasks, false);
-    LOG_INFO("# ", active_vertices);
+    //LOG_INFO("# ", active_vertices);
     return global_visited;
   };
 

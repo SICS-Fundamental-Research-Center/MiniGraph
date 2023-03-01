@@ -474,7 +474,6 @@ class DataMngr {
   void EraseGraph(const GID_T& gid) {
     pgraph_mtx_->lock();
     if (pgraph_by_gid_->count(gid)) {
-      LOG_INFO("erase: ", gid);
       auto iter = pgraph_by_gid_->find(gid);
       delete (GRAPH_T*)iter->second;
       iter->second = nullptr;

@@ -119,7 +119,6 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   std::unique_ptr<std::mutex> executor_mtx_;
 
   void ProcessGraph(const GID_T& gid, folly::NativeSemaphore& sem) {
-    LOG_INFO("ProcessGraph: ", gid);
     // executor_cv_->wait(*executor_lck_, [&] { return true; });
     GRAPH_T* graph = (GRAPH_T*)data_mngr_->GetGraph(gid);
     executors::TaskRunner* task_runner = scheduled_executor_->RequestTaskRunner(

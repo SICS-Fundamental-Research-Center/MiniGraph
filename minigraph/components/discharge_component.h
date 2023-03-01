@@ -148,7 +148,7 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   }
 
   void WriteAllGraphsBack(const GID_T current_gid) {
-    LOG_INFO("WriteAllGraphsBack triggered by: ", current_gid);
+    //LOG_INFO("WriteAllGraphsBack triggered by: ", current_gid);
     // Snapshot
     for (GID_T tmp_gid = 0; tmp_gid < pt_by_gid_->size(); tmp_gid++) {
       msg_mngr_->SetStateMatrix(tmp_gid,
@@ -191,7 +191,7 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
         this->state_machine_->ShowGraphState(current_gid);
         this->state_machine_->EvokeX(current_gid, RC);
         this->state_machine_->ProcessEvent(current_gid, LOAD);
-        LOG_INFO("DC short: ", current_gid);
+        //LOG_INFO("DC short: ", current_gid);
         while (!task_queue_->write(current_gid))
           ;
         task_queue_cv_->notify_all();
@@ -206,7 +206,7 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       }
     }
 
-    LOG_INFO("Evoke all.");
+    //LOG_INFO("Evoke all.");
     read_trigger_cv_->notify_all();
   }
 
