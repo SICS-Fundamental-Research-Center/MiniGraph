@@ -106,7 +106,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
   bool Init(GRAPH_T& graph,
             minigraph::executors::TaskRunner* task_runner) override {
-    LOG_INFO("Init() - Processing gid: ", graph.gid_);
+    //LOG_INFO("Init() - Processing gid: ", graph.gid_);
     Bitmap* visited = new Bitmap(graph.max_vid_);
     visited->fill();
     this->auto_map_->ActiveMap(graph, task_runner, visited,
@@ -117,8 +117,8 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
   bool PEval(GRAPH_T& graph,
              minigraph::executors::TaskRunner* task_runner) override {
-    LOG_INFO("PEval() - Processing gid: ", graph.gid_,
-             " num_vertexes: ", graph.get_num_vertexes());
+    //LOG_INFO("PEval() - Processing gid: ", graph.gid_,
+    //         " num_vertexes: ", graph.get_num_vertexes());
     if (!graph.IsInGraph(0)) return true;
     auto vid_map = this->msg_mngr_->GetVidMap();
     auto start_time = std::chrono::system_clock::now();
@@ -178,10 +178,6 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     }
 
     global_si.ShowInfo();
-
-    std::cout << "Gid " << graph.gid_ << ":  PEval elapsed time "
-              << global_si.elapsed_time << std::endl;
-
     delete in_visited;
     delete out_visited;
     return true;
@@ -189,7 +185,6 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
   bool IncEval(GRAPH_T& graph,
                minigraph::executors::TaskRunner* task_runner) override {
-    LOG_INFO("IncEval() - Processing gid: ", graph.gid_);
     auto start_time = std::chrono::system_clock::now();
 
     StatisticInfo global_si(1, 1);
