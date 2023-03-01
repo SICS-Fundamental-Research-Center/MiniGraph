@@ -1,17 +1,14 @@
 #pragma once
 
-#include <math.h>
-
-#include <condition_variable>
-#include <string>
-#include <vector>
-
-#include <folly/AtomicHashMap.h>
-
 #include "graphs/graph.h"
 #include "graphs/immutable_csr.h"
 #include "portability/sys_data_structure.h"
 #include "utility/thread_pool.h"
+#include <folly/AtomicHashMap.h>
+#include <condition_variable>
+#include <math.h>
+#include <string>
+#include <vector>
 
 #define BIG_CONSTANT(x) (x##LLU)
 
@@ -118,9 +115,9 @@ struct StatisticInfo {
     //          // sum_visited_in_border_vertexes, ",",
     //          // sum_visited_out_border_vertexes, ",",
     //          elapsed_time);
-    LOG_INFO(inc_type, ",", num_iters, ",", sum_dlv, ",", sum_dgv, ",",
-             sum_dlv_times_dlv, ",", sum_dlv_times_dgv, ",", sum_dgv_times_dgv,
-             ",", elapsed_time);
+    LOG_INFO(inc_type, ",", num_iters, ",", num_vertexes, ",", sum_dlv, ",",
+             sum_dgv, ",", sum_dlv_times_dlv, ",", sum_dlv_times_dgv, ",",
+             sum_dgv_times_dgv, ",", elapsed_time);
     return;
   };
 
