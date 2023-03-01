@@ -141,6 +141,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
                                         task_runner, vid_map, &visited, &global_si);
       auto iter_end_time = std::chrono::system_clock::now();
       //si.current_iter = count_iters++;
+      count_iters++;
       std::swap(in_visited, out_visited);
       //si.elapsed_time = std::chrono::duration_cast<std::chrono::microseconds>(
       //                      iter_end_time - iter_start_time)
@@ -212,6 +213,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
       run = this->auto_map_->ActiveEMap(in_visited, out_visited, graph,
                                         task_runner, vid_map, &visited, &global_si);
       std::swap(in_visited, out_visited);
+      count_iters++;
       //si.current_iter = count_iters++;
       //auto iter_end_time = std::chrono::system_clock::now();
       //si.elapsed_time = std::chrono::duration_cast<std::chrono::microseconds>(
