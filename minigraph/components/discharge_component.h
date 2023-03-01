@@ -188,7 +188,6 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
 
     if (mode_ != "NoShort") {
       if (this->state_machine_->GraphIs(current_gid, RC)) {
-        this->state_machine_->ShowGraphState(current_gid);
         this->state_machine_->EvokeX(current_gid, RC);
         this->state_machine_->ProcessEvent(current_gid, LOAD);
         //LOG_INFO("DC short: ", current_gid);
