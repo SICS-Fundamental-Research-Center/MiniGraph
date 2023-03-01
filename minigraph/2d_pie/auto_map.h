@@ -61,9 +61,9 @@ class AutoMapBase {
                             vid_map, visited, si);
       tasks.push_back(task);
     }
-    //LOG_INFO("ActiveEMap");
+    // LOG_INFO("ActiveEMap");
     task_runner->Run(tasks, false);
-    //LOG_INFO("# ", si->num_vertexes);
+    // LOG_INFO("# ", si->num_vertexes);
     return global_visited;
   };
 
@@ -85,9 +85,9 @@ class AutoMapBase {
                             &active_vertices, vid_map, visited);
       tasks.push_back(task);
     }
-    //LOG_INFO("AutoMap ActiveVMap Run");
+    // LOG_INFO("AutoMap ActiveVMap Run");
     task_runner->Run(tasks, false);
-    //LOG_INFO("# ", active_vertices);
+    // LOG_INFO("# ", active_vertices);
     return global_visited;
   };
 
@@ -101,9 +101,9 @@ class AutoMapBase {
                             task_runner->GetParallelism(), args...);
       tasks.push_back(task);
     }
-    //LOG_INFO("AutoMap ActiveMap Run");
+    // LOG_INFO("AutoMap ActiveMap Run");
     task_runner->Run(tasks, false);
-    //LOG_INFO("# ");
+    // LOG_INFO("# ");
     return;
   };
 
@@ -115,16 +115,24 @@ class AutoMapBase {
     size_t local_active_vertices = 0;
     size_t local_sum_border_vertexes = 0;
     size_t local_sum_out_degree = 0;
+    size_t local_sum_dgv_times_dgv = 0;
+    size_t local_sum_dlv_times_dlv = 0;
+    size_t local_sum_dlv_times_dgv = 0;
+    size_t local_sum_dlv;
+    size_t local_sum_dgv;
     for (size_t index = tid; index < graph->get_num_vertexes(); index += step) {
       if (in_visited->get_bit(index) == 0) continue;
       VertexInfo&& u = graph->GetVertexByIndex(index);
-      //write_add(&si->sum_out_degree, u.outdegree);
-      //write_add(&si->sum_in_degree, u.indegree);
+      size_t dlv = 0;
+      size_t dgv = u.outdegree;
+      // write_add(&si->sum_out_degree, u.outdegree);
+      // write_add(&si->sum_in_degree, u.indegree);
       for (size_t i = 0; i < u.outdegree; ++i) {
         if (!graph->IsInGraph(u.out_edges[i])) {
           ++local_sum_border_vertexes;
           continue;
         }
+        ++dlv;
         ++local_sum_out_degree;
         VID_T local_id = VID_MAX;
         if (vid_map != nullptr)
@@ -140,10 +148,21 @@ class AutoMapBase {
           ++local_active_vertices;
         }
       }
+      local_sum_dlv_times_dgv += dlv * dgv;
+      local_sum_dlv_times_dlv += dlv * dlv;
+      local_sum_dgv_times_dgv += dgv * dgv;
+      local_sum_dgv += dgv;
+      local_sum_dlv += dlv;
     }
     write_add(&si->num_vertexes, local_active_vertices);
     write_add(&si->sum_visited_out_border_vertexes, local_sum_border_vertexes);
     write_add(&si->sum_out_degree, local_sum_out_degree);
+    write_add(&si->sum_dlv_times_dgv, local_sum_dlv_times_dgv);
+    write_add(&si->sum_dlv_times_dlv, local_sum_dlv_times_dlv);
+    write_add(&si->sum_dgv_times_dgv, local_sum_dgv_times_dgv);
+    write_add(&si->sum_dlv, local_sum_dlv);
+    write_add(&si->sum_dgv, local_sum_dgv);
+
     return;
   }
 
