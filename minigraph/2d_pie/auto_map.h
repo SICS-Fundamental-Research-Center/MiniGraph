@@ -118,8 +118,8 @@ class AutoMapBase {
     size_t local_sum_dgv_times_dgv = 0;
     size_t local_sum_dlv_times_dlv = 0;
     size_t local_sum_dlv_times_dgv = 0;
-    size_t local_sum_dlv;
-    size_t local_sum_dgv;
+    size_t local_sum_dlv = 0;
+    size_t local_sum_dgv = 0;
     for (size_t index = tid; index < graph->get_num_vertexes(); index += step) {
       if (in_visited->get_bit(index) == 0) continue;
       VertexInfo&& u = graph->GetVertexByIndex(index);
@@ -154,8 +154,7 @@ class AutoMapBase {
       local_sum_dgv += dgv;
       local_sum_dlv += dlv;
     }
-    write_add(&si->num_vertexes, local_active_vertices);
-    write_add(&si->sum_visited_out_border_vertexes, local_sum_border_vertexes);
+    write_add(&si->num_active_vertexes, local_active_vertices);
     write_add(&si->sum_out_degree, local_sum_out_degree);
     write_add(&si->sum_dlv_times_dgv, local_sum_dlv_times_dgv);
     write_add(&si->sum_dlv_times_dlv, local_sum_dlv_times_dlv);
