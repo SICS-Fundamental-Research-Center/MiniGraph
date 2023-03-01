@@ -25,14 +25,6 @@ class PartitionerBase {
           new std::vector<graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>*>;
   }
 
- // virtual bool ParallelPartitionFromBin(const std::string& pt,
- //                                       const size_t num_partitions,
- //                                       const size_t cores) = 0;
- // virtual bool ParallelPartitionFromCSV(const std::string& pt,
- //                                       char separator_params = ',',
- //                                       const size_t num_partitions = 1,
- //                                       const size_t cores = 1) = 0;
-
   virtual bool ParallelPartition(EDGE_LIST_T* edgelist_graph = nullptr,
                          const size_t num_partitions = 1,
                          const size_t cores = 1) = 0;
