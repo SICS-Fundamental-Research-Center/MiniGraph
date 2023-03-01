@@ -186,7 +186,7 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
     finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
 
     VID_T local_id_for_each_bucket[num_partitions] = {0};
-
+    delete edgelist_graph;
 
     size_t* offset_fragments =
         (size_t*)malloc(sizeof(size_t) * num_partitions);

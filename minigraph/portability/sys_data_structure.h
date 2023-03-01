@@ -1,7 +1,8 @@
 #pragma once
 
-#include <condition_variable>
 #include <math.h>
+
+#include <condition_variable>
 #include <string>
 #include <vector>
 
@@ -96,6 +97,11 @@ struct StatisticInfo {
   size_t current_iter = 0;
   size_t sum_visited_out_border_vertexes = 0;
   size_t sum_visited_in_border_vertexes = 0;
+  size_t sum_dlv_times_dgv = 0;
+  size_t sum_dlv_times_dlv = 0;
+  size_t sum_dgv_times_dgv = 0;
+  size_t sum_dlv = 0;
+  size_t sum_dgv = 0;
   size_t level = 0;
   // type denotes the level of statistic information in which type = 0
   // is in Active vertexes level, type = 1 denotes the information is in
@@ -107,11 +113,14 @@ struct StatisticInfo {
   float elapsed_time = 0;
 
   void ShowInfo() {
-    LOG_INFO(inc_type, ",", level, ",", current_iter, ",", num_iters, ",",
-             sum_in_degree, ",", sum_out_degree, ",", num_vertexes, ",",
-             // sum_visited_in_border_vertexes, ",",
-             // sum_visited_out_border_vertexes, ",",
-             elapsed_time);
+    // LOG_INFO(inc_type, ",", level, ",", current_iter, ",", num_iters, ",",
+    //          sum_in_degree, ",", sum_out_degree, ",", num_vertexes, ",",
+    //          // sum_visited_in_border_vertexes, ",",
+    //          // sum_visited_out_border_vertexes, ",",
+    //          elapsed_time);
+    LOG_INFO(inc_type, ",", num_iters, ",", sum_dlv, ",", sum_dgv, ",",
+             sum_dlv_times_dlv, ",", sum_dlv_times_dgv, ",", sum_dgv_times_dgv,
+             ",", elapsed_time);
     return;
   };
 

@@ -84,7 +84,7 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
         que_gid.pop();
         if (mode_ != "NoShort") CheckRTRule(gid);
         if (this->TrySync()) {
-          this->state_machine_->ShowAllState();
+          //this->state_machine_->ShowAllState();
           if (this->state_machine_->IsTerminated() ||
               this->get_global_superstep() > num_iter_) {
             auto out_rts = this->state_machine_->EvokeAllX(RTS);

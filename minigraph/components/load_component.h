@@ -135,7 +135,7 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       }
       sem.post();
     } else {
-      LOG_INFO("LC ShortCut", gid);
+      //LOG_INFO("LC ShortCut", gid);
       this->add_superstep_via_gid(gid);
       partial_result_queue_->push(gid);
       this->state_machine_->ProcessEvent(gid, SHORTCUTREAD);

@@ -1,8 +1,7 @@
+#include <gflags/gflags.h>
 #include <sys/stat.h>
 #include <iostream>
 #include <string>
-
-#include <gflags/gflags.h>
 
 #include "graphs/edge_list.h"
 #include "graphs/immutable_csr.h"
@@ -25,6 +24,8 @@ void GraphPartitionEdgeList2CSR(std::string src_pt, std::string dst_pt,
                                 char separator_params = ',',
                                 const bool frombin = false,
                                 const std::string t_partitioner = "edgecut") {
+  assert(t_partitioner == "edgecut" || t_partitioner == "vertexcut" ||
+         t_partitioner == "hybridcut");
   minigraph::utility::io::DataMngr<CSR_T> data_mngr;
   minigraph::utility::io::EdgeListIOAdapter<gid_t, vid_t, vdata_t, edata_t>
       edgelist_io_adapter;

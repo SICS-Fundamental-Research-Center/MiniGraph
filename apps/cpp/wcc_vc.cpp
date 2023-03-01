@@ -135,18 +135,18 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     size_t count_iters = 0;
     std::vector<StatisticInfo> vec_si;
     while (run) {
-      StatisticInfo si(0, 0);
+      //StatisticInfo si(0, 0);
       auto iter_start_time = std::chrono::system_clock::now();
       run = this->auto_map_->ActiveEMap(in_visited, out_visited, graph,
-                                        task_runner, vid_map, &visited, &si);
+                                        task_runner, vid_map, &visited, &global_si);
       auto iter_end_time = std::chrono::system_clock::now();
-      si.current_iter = count_iters++;
+      //si.current_iter = count_iters++;
       std::swap(in_visited, out_visited);
-      si.elapsed_time = std::chrono::duration_cast<std::chrono::microseconds>(
-                            iter_end_time - iter_start_time)
-                            .count() /
-                        (double)CLOCKS_PER_SEC;
-      vec_si.push_back(si);
+      //si.elapsed_time = std::chrono::duration_cast<std::chrono::microseconds>(
+      //                      iter_end_time - iter_start_time)
+      //                      .count() /
+      //                  (double)CLOCKS_PER_SEC;
+      //vec_si.push_back(si);
     }
 
     for (size_t i = 0; i < vec_si.size(); i++) {
@@ -207,18 +207,18 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     size_t count_iters = 0;
     std::vector<StatisticInfo> vec_si;
     while (run) {
-      StatisticInfo si(1, 0);
-      auto iter_start_time = std::chrono::system_clock::now();
+      //StatisticInfo si(1, 0);
+      //auto iter_start_time = std::chrono::system_clock::now();
       run = this->auto_map_->ActiveEMap(in_visited, out_visited, graph,
-                                        task_runner, vid_map, &visited, &si);
+                                        task_runner, vid_map, &visited, &global_si);
       std::swap(in_visited, out_visited);
-      si.current_iter = count_iters++;
-      auto iter_end_time = std::chrono::system_clock::now();
-      si.elapsed_time = std::chrono::duration_cast<std::chrono::microseconds>(
-          iter_end_time - iter_start_time)
-                            .count() /
-                        (double)CLOCKS_PER_SEC;
-      vec_si.push_back(si);
+      //si.current_iter = count_iters++;
+      //auto iter_end_time = std::chrono::system_clock::now();
+      //si.elapsed_time = std::chrono::duration_cast<std::chrono::microseconds>(
+      //    iter_end_time - iter_start_time)
+      //                      .count() /
+      //                  (double)CLOCKS_PER_SEC;
+      //vec_si.push_back(si);
     }
 
     for (size_t i = 0; i < vec_si.size(); i++) {
