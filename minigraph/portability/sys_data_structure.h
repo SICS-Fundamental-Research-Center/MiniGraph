@@ -1,14 +1,16 @@
 #pragma once
 
+#include <math.h>
+#include <string>
+#include <vector>
+#include <condition_variable>
+
+#include <folly/AtomicHashMap.h>
+
 #include "graphs/graph.h"
 #include "graphs/immutable_csr.h"
 #include "portability/sys_data_structure.h"
 #include "utility/thread_pool.h"
-#include <folly/AtomicHashMap.h>
-#include <condition_variable>
-#include <math.h>
-#include <string>
-#include <vector>
 
 #define BIG_CONSTANT(x) (x##LLU)
 
@@ -87,13 +89,17 @@ struct IsSameType<T1, T1> {
 };
 
 struct StatisticInfo {
+  size_t num_edges = 0;
+  size_t num_vertexes = 0;
+  size_t num_active_vertexes = 0;
   size_t sum_in_degree = 0;
   size_t sum_out_degree = 0;
-  size_t num_vertexes = 0;
   size_t num_iters = 0;
   size_t current_iter = 0;
-  size_t sum_visited_out_border_vertexes = 0;
-  size_t sum_visited_in_border_vertexes = 0;
+  size_t sum_active_out_border_vertexes = 0;
+  size_t sum_active_in_border_vertexes = 0;
+  size_t sum_out_border_vertexes = 0;
+  size_t sum_in_border_vertexes = 0;
   size_t sum_dlv_times_dgv = 0;
   size_t sum_dlv_times_dlv = 0;
   size_t sum_dgv_times_dgv = 0;
@@ -115,9 +121,11 @@ struct StatisticInfo {
     //          // sum_visited_in_border_vertexes, ",",
     //          // sum_visited_out_border_vertexes, ",",
     //          elapsed_time);
-    LOG_INFO(inc_type, ",", num_iters, ",", num_vertexes, ",", sum_dlv, ",",
+    LOG_INFO(inc_type, ",", num_iters, ",", num_active_vertexes, ",", sum_dlv, ",",
              sum_dgv, ",", sum_dlv_times_dlv, ",", sum_dlv_times_dgv, ",",
-             sum_dgv_times_dgv, ",", elapsed_time);
+             sum_dgv_times_dgv, ",", sum_in_border_vertexes, ",",
+             sum_out_border_vertexes, ",", num_edges, ",", num_vertexes,
+             ",", elapsed_time);
     return;
   };
 

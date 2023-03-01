@@ -45,7 +45,7 @@ class MiniGraphSys {
                const size_t num_workers_cc = 1, const size_t num_workers_dc = 1,
                const size_t num_cores = 1, const size_t buffer_size = 0,
                APP_WRAPPER* app_wrapper = nullptr, std::string mode = "Default",
-               const size_t num_iter = 20) {
+               const size_t num_iter = 30) {
     assert(num_workers_dc > 0 && num_workers_cc > 0 && num_workers_dc > 0 &&
            num_cores / num_workers_cc >= 1);
 

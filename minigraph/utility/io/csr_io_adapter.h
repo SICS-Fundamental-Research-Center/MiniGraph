@@ -341,6 +341,7 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       graph->num_vertexes_ = buf_meta[0];
       graph->sum_in_edges_ = buf_meta[1];
       graph->sum_out_edges_ = buf_meta[2];
+      graph->num_edges_ = buf_meta[1] + buf_meta[2];
 
       // read bitmap
       meta_file.read((char*)&graph->max_vid_, sizeof(VID_T));
