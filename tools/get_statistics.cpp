@@ -1,17 +1,16 @@
+#include "graphs/edge_list.h"
+#include "portability/sys_types.h"
+#include "utility/atomic.h"
+#include "utility/bitmap.h"
+#include "utility/io/edge_list_io_adapter.h"
+#include "utility/logging.h"
+#include "utility/thread_pool.h"
+#include <gflags/gflags.h>
 #include <cstring>
 #include <iostream>
 #include <math.h>
 #include <rapidcsv.h>
 #include <string>
-
-#include <gflags/gflags.h>
-
-#include "graphs/edge_list.h"
-#include "portability/sys_types.h"
-#include "utility/atomic.h"
-#include "utility/io/edge_list_io_adapter.h"
-#include "utility/logging.h"
-#include "utility/thread_pool.h"
 
 using EDGE_LIST_T = minigraph::graphs::EdgeList<gid_t, vid_t, vdata_t, edata_t>;
 using GRAPH_BASE_T = minigraph::graphs::Graph<gid_t, vid_t, vdata_t, edata_t>;
@@ -68,10 +67,33 @@ void GetGraphStatisticFromCSV(const std::string input_pt,
 
   auto aligned_max_vid =
       ceil((float)max_vid / ALIGNMENT_FACTOR) * ALIGNMENT_FACTOR;
+
+  Bitmap visited(aligned_max_vid);
+  visited.clear();
+  pending_packages.store(cores);
+  for (size_t i = 0; i < cores; i++) {
+    size_t tid = i;
+    thread_pool.Commit([tid, &cores, &src_v, &dst_v, &num_edges, &visited,
+                        &pending_packages, &finish_cv, &max_vid]() {
+      for (size_t j = tid; j < num_edges; j += cores) {
+        visited.set_bit(dst_v[j]);
+        visited.set_bit(src_v[j]);
+        write_max(&max_vid, dst_v[j]);
+        write_max(&max_vid, src_v[j]);
+      }
+      if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
+      return;
+    });
+  }
+  finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
+
+  size_t num_vertexes = visited.get_num_bit();
   size_t* outdegree = (size_t*)malloc(sizeof(size_t) * aligned_max_vid);
   size_t* indegree = (size_t*)malloc(sizeof(size_t) * aligned_max_vid);
   memset(outdegree, 0, sizeof(size_t) * aligned_max_vid);
   memset(indegree, 0, sizeof(size_t) * aligned_max_vid);
+  size_t sum_outdegree = 0;
+  size_t sum_indegree = 0;
 
   LOG_INFO("Aggregate indegree and outdegree");
   pending_packages.store(cores);
@@ -94,12 +116,15 @@ void GetGraphStatisticFromCSV(const std::string input_pt,
   for (size_t i = 0; i < cores; i++) {
     size_t tid = i;
     thread_pool.Commit([tid, &cores, &indegree, &outdegree, &pending_packages,
-                        &finish_cv, &aligned_max_vid, &max_indegree,
-                        &max_outdegree, &max_degree]() {
+                        &sum_indegree, &sum_outdegree, &finish_cv,
+                        &aligned_max_vid, &max_indegree, &max_outdegree,
+                        &max_degree]() {
       for (size_t j = tid; j < aligned_max_vid; j += cores) {
         write_max(&max_outdegree, outdegree[j]);
         write_max(&max_indegree, indegree[j]);
         write_max(&max_degree, indegree[j] + outdegree[j]);
+        write_add(&sum_indegree, indegree[j]);
+        write_add(&sum_outdegree, outdegree[j]);
       }
       if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
       return;
@@ -114,13 +139,24 @@ void GetGraphStatisticFromCSV(const std::string input_pt,
   LOG_INFO("#maximum indegree: ", max_indegree);
   LOG_INFO("#maximum outdegree: ", max_outdegree);
   LOG_INFO("#maximum degree: ", max_degree);
+  LOG_INFO("#sum outdegree: ", sum_outdegree);
+  LOG_INFO("#sum indegree: ", sum_indegree);
+  LOG_INFO("#avg outdegree: ", sum_outdegree / num_vertexes);
+  LOG_INFO("#avg indegree: ", sum_indegree / num_vertexes);
   LOG_INFO("#num_edges: ", num_edges);
+  LOG_INFO("#num_vertexes: ", num_vertexes);
 
   ofs << "#maximum vid: " << max_vid << std::endl;
   ofs << "#maximum indegree: " << max_indegree << std::endl;
   ofs << "#maximum outdegree: " << max_outdegree << std::endl;
   ofs << "#maximum degree: " << max_degree << std::endl;
+  ofs << "#maximum degree: " << max_degree << std::endl;
+  ofs << "#sum indegree: " << sum_indegree << std::endl;
+  ofs << "#sum outdegree: " << sum_outdegree << std::endl;
+  ofs << "#avg_in_degree: " << sum_indegree / num_vertexes << std::endl;
+  ofs << "#avg_out_degree: " << sum_outdegree / num_vertexes << std::endl;
   ofs << "#num_edges:" << num_edges << std::endl;
+  ofs << "#num_vertexes:" << num_vertexes << std::endl;
 
   ofs.close();
   return;
@@ -181,7 +217,29 @@ void GetGraphStatisticFromBin(const std::string input_pt,
   size_t* indegree = (size_t*)malloc(sizeof(size_t) * aligned_max_vid);
   memset(outdegree, 0, sizeof(size_t) * aligned_max_vid);
   memset(indegree, 0, sizeof(size_t) * aligned_max_vid);
+  size_t sum_outdegree = 0;
+  size_t sum_indegree = 0;
 
+  Bitmap visited(aligned_max_vid);
+  visited.clear();
+  pending_packages.store(cores);
+  for (size_t i = 0; i < cores; i++) {
+    size_t tid = i;
+    thread_pool.Commit([tid, &cores, &src_v, &dst_v, &num_edges, &visited,
+                        &pending_packages, &finish_cv, &max_vid]() {
+      for (size_t j = tid; j < num_edges; j += cores) {
+        visited.set_bit(dst_v[j]);
+        visited.set_bit(src_v[j]);
+        write_max(&max_vid, dst_v[j]);
+        write_max(&max_vid, src_v[j]);
+      }
+      if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
+      return;
+    });
+  }
+  finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
+
+  size_t num_vertexes = visited.get_num_bit();
   LOG_INFO("Aggregate indegree and outdegree");
   pending_packages.store(cores);
   for (size_t i = 0; i < cores; i++) {
@@ -203,10 +261,13 @@ void GetGraphStatisticFromBin(const std::string input_pt,
     size_t tid = i;
     thread_pool.Commit([tid, &cores, &indegree, &outdegree, &pending_packages,
                         &finish_cv, &aligned_max_vid, &max_indegree,
-                        &max_outdegree, &max_degree]() {
+                        &sum_outdegree, &sum_indegree, &max_outdegree,
+                        &max_degree]() {
       for (size_t j = tid; j < aligned_max_vid; j += cores) {
         write_max(&max_indegree, indegree[j]);
         write_max(&max_outdegree, outdegree[j]);
+        write_add(&sum_indegree, outdegree[j]);
+        write_add(&sum_outdegree, indegree[j]);
         write_max(&max_degree, indegree[j] + outdegree[j]);
       }
       if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
@@ -222,13 +283,22 @@ void GetGraphStatisticFromBin(const std::string input_pt,
   LOG_INFO("#maximum indegree: ", max_indegree);
   LOG_INFO("#maximum outdegree: ", max_outdegree);
   LOG_INFO("#maximum degree: ", max_degree);
+  LOG_INFO("#sum outdegree: ", sum_outdegree);
+  LOG_INFO("#sum indegree: ", sum_indegree);
   LOG_INFO("#num_edges: ", num_edges);
+  LOG_INFO("#num_vertexes: ", num_vertexes);
 
   ofs << "#maximum vid: " << max_vid << std::endl;
   ofs << "#maximum indegree: " << max_indegree << std::endl;
   ofs << "#maximum outdegree: " << max_outdegree << std::endl;
   ofs << "#maximum degree: " << max_degree << std::endl;
-  ofs << "#num_edges:" << num_edges << std::endl;
+  ofs << "#maximum degree: " << max_degree << std::endl;
+  ofs << "#sum indegree: " << sum_indegree << std::endl;
+  ofs << "#sum outdegree: " << sum_outdegree << std::endl;
+  ofs << "#num_edges: " << num_edges << std::endl;
+  ofs << "#num_vertexes: " << num_vertexes << std::endl;
+  ofs << "#avg_in_degree: " << sum_indegree / num_vertexes << std::endl;
+  ofs << "#avg_out_degree: " << sum_outdegree / num_vertexes << std::endl;
 
   ofs.close();
   return;
