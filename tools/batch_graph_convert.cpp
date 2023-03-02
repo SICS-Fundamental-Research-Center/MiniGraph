@@ -1,7 +1,8 @@
-#include <gflags/gflags.h>
 #include <sys/stat.h>
 #include <iostream>
 #include <string>
+
+#include <gflags/gflags.h>
 
 #include "graphs/edge_list.h"
 #include "graphs/immutable_csr.h"
@@ -29,8 +30,7 @@ void BatchEdgeList2EdgeList(std::string src_pt, std::string dst_pt,
   LOG_INFO("Write: ", vdata_pt);
   edge_list_io_adapter.BatchParallelRead((GRAPH_BASE_T*)graph, edge_list_csv,
                                          separator_params, 0, cores, src_pt);
-  edge_list_io_adapter.Write(*graph, edge_list_bin, false, meta_pt, data_pt,
-                             vdata_pt);
+  edge_list_io_adapter.Write(*graph, edge_list_bin, meta_pt, data_pt, vdata_pt);
 }
 
 void EdgeListCSV2EdgeListBin(std::string src_pt, std::string dst_pt,
@@ -48,8 +48,7 @@ void EdgeListCSV2EdgeListBin(std::string src_pt, std::string dst_pt,
   LOG_INFO("Write: ", vdata_pt);
   edge_list_io_adapter.Read((GRAPH_BASE_T*)graph, edge_list_csv,
                             separator_params, 0, src_pt);
-  edge_list_io_adapter.Write(*graph, edge_list_bin, false, meta_pt, data_pt,
-                             vdata_pt);
+  edge_list_io_adapter.Write(*graph, edge_list_bin, meta_pt, data_pt, vdata_pt);
 }
 
 int main(int argc, char* argv[]) {

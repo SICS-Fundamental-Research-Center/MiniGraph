@@ -236,7 +236,7 @@ class RWPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
 struct Context {
   vdata_t walks_per_source = 1;
-  size_t inner_niters = 3;
+  size_t inner_niters = 10;
 };
 
 using CSR_T = minigraph::graphs::ImmutableCSR<gid_t, vid_t, vdata_t, edata_t>;

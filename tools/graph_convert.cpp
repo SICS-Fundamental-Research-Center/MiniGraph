@@ -134,13 +134,12 @@ void EdgeListCSV2EdgeListBin(std::string src_pt, std::string dst_pt,
   std::string meta_pt = dst_pt + "minigraph_meta" + ".bin";
   std::string data_pt = dst_pt + "minigraph_data" + ".bin";
   std::string vdata_pt = dst_pt + "minigraph_vdata" + ".bin";
-  edge_list_io_adapter.ParallelReadEdgeListFromCSV(
-      (GRAPH_BASE_T*)graph, src_pt, 0, separator_params, cores);
+  edge_list_io_adapter.ParallelReadEdgeListFromCSV((GRAPH_BASE_T*)graph, src_pt,
+                                                   0, separator_params, cores);
   LOG_INFO("Write: ", meta_pt);
   LOG_INFO("Write: ", data_pt);
   LOG_INFO("Write: ", vdata_pt);
-  edge_list_io_adapter.Write(*graph, edge_list_bin, false, meta_pt, data_pt,
-                             vdata_pt);
+  edge_list_io_adapter.Write(*graph, edge_list_bin, meta_pt, data_pt, vdata_pt);
 }
 
 int main(int argc, char* argv[]) {

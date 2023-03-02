@@ -3,8 +3,9 @@
 #include <string.h>
 #include <string>
 
-#include <gflags/gflags.h>
 #include <rapidcsv.h>
+
+#include <gflags/gflags.h>
 
 #include "graphs/edge_list.h"
 #include "portability/sys_data_structure.h"
@@ -295,8 +296,7 @@ void GraphReduceCSVToBin(const std::string input_pt, const std::string dst_pt,
   free(src_v);
   free(dst_v);
   graph->ShowGraph(10);
-  edge_list_io_adapter.Write(*graph, edge_list_bin, false, meta_pt, data_pt,
-                             vdata_pt);
+  edge_list_io_adapter.Write(*graph, edge_list_bin, meta_pt, data_pt, vdata_pt);
   std::cout << "Save at " << dst_pt << std::endl;
   return;
 }
@@ -420,8 +420,8 @@ void GraphReduceBinToBin(const std::string input_pt, const std::string dst_pt,
   graph->aligned_max_vid_ =
       ceil((float)graph->max_vid_ / ALIGNMENT_FACTOR) * ALIGNMENT_FACTOR;
 
-  edgelist_io_adapter.Write(*graph, edge_list_bin, false, dst_meta_pt,
-                            dst_data_pt, dst_vdata_pt);
+  edgelist_io_adapter.Write(*graph, edge_list_bin, dst_meta_pt, dst_data_pt,
+                            dst_vdata_pt);
   graph->ShowGraph(10);
   std::cout << "Save at " << dst_pt << std::endl;
   return;
