@@ -112,14 +112,8 @@ class VertexCutPartitioner : public PartitionerBase<GRAPH_T> {
           auto dst_vid = edgelist_graph->buf_graph_[j * 2 + 1];
           auto bucket_id = Hash(src_vid) % num_partitions;
 
-          if (max_vid_per_bucket[bucket_id] < src_vid)
-            __sync_bool_compare_and_swap(&max_vid_per_bucket[bucket_id],
-                                         max_vid_per_bucket[bucket_id],
-                                         src_vid);
-          if (max_vid_per_bucket[bucket_id] < dst_vid)
-            __sync_bool_compare_and_swap(&max_vid_per_bucket[bucket_id],
-                                         max_vid_per_bucket[bucket_id],
-                                         dst_vid);
+          write_max(max_vid_per_bucket + bucket_id, src_vid);
+          write_max(max_vid_per_bucket + bucket_id, dst_vid);
 
           auto offset = __sync_fetch_and_add(buckets_offset + bucket_id, 1);
           edges_buckets[bucket_id][offset * 2] = src_vid;
@@ -140,6 +134,7 @@ class VertexCutPartitioner : public PartitionerBase<GRAPH_T> {
     }
     finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
 
+    delete edgelist_graph;
     minigraph::utility::io::CSRIOAdapter<GID_T, VID_T, VDATA_T, EDATA_T>
         csr_io_adapter;
 
@@ -152,6 +147,7 @@ class VertexCutPartitioner : public PartitionerBase<GRAPH_T> {
           max_vid_per_bucket[gid], edges_buckets[gid]);
       auto csr_graph = csr_io_adapter.EdgeList2CSR(gid, edgelist_graph, cores);
       delete edgelist_graph;
+      free(edges_buckets[gid]);
       this->fragments_->push_back(csr_graph);
     }
 

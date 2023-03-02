@@ -142,7 +142,7 @@ inline std::pair<vid_t, vid_t> SplitEdge(const std::string& str,
   char* tmpStr = strtok(strc, pattern);
   vid_t out[2];
   for (size_t i = 0; i < 2; i++) {
-    out[i] = atoi(tmpStr);
+    out[i] = atoll(tmpStr);
     tmpStr = strtok(NULL, pattern);
   }
   delete[] strc;

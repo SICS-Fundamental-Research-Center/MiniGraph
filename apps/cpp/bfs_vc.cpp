@@ -23,11 +23,7 @@ class BFSAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
 
   bool F(const VertexInfo& u, VertexInfo& v,
          GRAPH_T* graph = nullptr) override {
-    if (v.vdata[0] == 0) {
-      v.vdata[0] = 1;
-      return true;
-    } else
-      return false;
+    return write_max(v.vdata, (VDATA_T)1);
   }
 
   bool F(VertexInfo& u, GRAPH_T* graph = nullptr,
@@ -104,18 +100,21 @@ class BFSPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     auto start_time = std::chrono::system_clock::now();
     Bitmap* in_visited = new Bitmap(graph.get_num_vertexes());
     Bitmap* out_visited = new Bitmap(graph.get_num_vertexes());
-    auto u = graph.GetVertexByVid(vid_map[this->context_.root_id]);
+    LOG_INFO(vid_map[this->context_.root_id]);
+    auto u = graph.GetVertexByIndex(vid_map[this->context_.root_id]);
     u.vdata[0] = 1;
     in_visited->clear();
     out_visited->clear();
     in_visited->set_bit(vid_map[this->context_.root_id]);
     Bitmap visited(graph.get_num_vertexes());
     visited.clear();
+    StatisticInfo si(0);
     visited.set_bit(this->context_.root_id);
     while (in_visited->get_num_bit()) {
       this->auto_map_->ActiveEMap(in_visited, out_visited, graph, task_runner,
-                                  vid_map, &visited);
+                                  vid_map, &visited, &si);
       std::swap(in_visited, out_visited);
+      out_visited->clear();
     }
 
     this->auto_map_->ActiveMap(
@@ -147,11 +146,13 @@ class BFSPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
         this->msg_mngr_->GetGlobalBorderVidMap(),
         this->msg_mngr_->GetGlobalVdata());
 
+    StatisticInfo si(0);
     bool run = true;
     while (run) {
       run = this->auto_map_->ActiveEMap(in_visited, out_visited, graph,
-                                        task_runner, vid_map, &visited);
+                                        task_runner, vid_map, &visited, &si);
       std::swap(in_visited, out_visited);
+      out_visited->clear();
     }
 
     this->auto_map_->ActiveMap(
@@ -195,9 +196,9 @@ int main(int argc, char* argv[]) {
 
   minigraph::MiniGraphSys<CSR_T, BFSPIE_T> minigraph_sys(
       work_space, num_workers_lc, num_workers_cc, num_workers_dc, num_cores,
-      buffer_size, app_wrapper, FLAGS_mode);
+      buffer_size, app_wrapper, FLAGS_mode, FLAGS_niters);
   minigraph_sys.RunSys();
-  minigraph_sys.ShowResult(33);
+  //minigraph_sys.ShowResult(33);
   gflags::ShutDownCommandLineFlags();
   exit(0);
 }

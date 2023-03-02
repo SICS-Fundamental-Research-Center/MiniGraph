@@ -1,10 +1,11 @@
 #pragma once
 
-#include <gflags/gflags.h>
 #include <sys/types.h>
 
+#include <gflags/gflags.h>
+
 using gid_t = unsigned;
-using vid_t = unsigned;
+using vid_t = size_t;
 using vdata_t = float;
 using edata_t = size_t;
 
@@ -13,7 +14,7 @@ using edata_t = size_t;
 #define GID_MAX 0XFFFFFFF
 #define MINIGRAPH_GID_MAX (((unsigned)(-1)) >> 1)
 #define ALIGNMENT_FACTOR 1024
-#define NUM_NEW_BUCKETS 1
+#define NUM_NEW_BUCKETS 3
 
 
 #ifndef HAVE_MODE_T
