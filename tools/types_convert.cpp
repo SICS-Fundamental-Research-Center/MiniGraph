@@ -106,6 +106,7 @@ void TypeConvert(std::string src_pt, std::string dst_pt, std::size_t cores,
   std::string dst_vdata_pt = dst_pt + "minigraph_vdata" + ".bin";
   auto out_edgelist_graph = VID_T2unsigned(edgelist_graph, cores);
 
+  out_edgelist_graph->ShowGraph();
   std::ofstream meta_file(dst_meta_pt, std::ios::binary | std::ios::app);
   std::ofstream data_file(dst_data_pt, std::ios::binary | std::ios::app);
   std::ofstream vdata_file(dst_vdata_pt, std::ios::binary | std::ios::app);
@@ -113,7 +114,6 @@ void TypeConvert(std::string src_pt, std::string dst_pt, std::size_t cores,
   size_t* meta_buff = (size_t*)malloc(sizeof(size_t) * 2);
   meta_buff[0] = out_edgelist_graph->num_vertexes_;
   meta_buff[1] = out_edgelist_graph->num_edges_;
-
   meta_file.write((char*)meta_buff, 2 * sizeof(size_t));
   meta_file.write((char*)&out_edgelist_graph->max_vid_, sizeof(unsigned));
 
