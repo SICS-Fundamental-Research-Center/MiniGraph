@@ -93,6 +93,8 @@ class HybridCutPartitioner : public PartitionerBase<GRAPH_T> {
       edges_buckets[i] = (VID_T*)malloc(sizeof(VID_T) * 2 * size_per_bucket[i]);
       memset(edges_buckets[i], 0, sizeof(VID_T) * 2 * size_per_bucket[i]);
     }
+
+
     Bitmap* is_in_bucketX[num_partitions + num_new_buckets];
     for (size_t i = 0; i < num_partitions + num_new_buckets; i++) {
       is_in_bucketX[i] = new Bitmap(aligned_max_vid);
@@ -147,6 +149,8 @@ class HybridCutPartitioner : public PartitionerBase<GRAPH_T> {
 
     minigraph::utility::io::CSRIOAdapter<GID_T, VID_T, VDATA_T, EDATA_T>
         csr_io_adapter;
+
+    delete edgelist_graph;
 
     LOG_INFO("Run: Construct sub-graphs");
     if (this->fragments_ != nullptr) this->fragments_->clear();

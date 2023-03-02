@@ -54,6 +54,7 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
                          const size_t num_partitions = 1,
                          const size_t cores = 1) override {
     LOG_INFO("ParallelPartition(): EdgeCut");
+    edgelist_graph->ShowGraph(10);
     auto thread_pool = CPUThreadPool(cores, 1);
     std::mutex mtx;
     std::condition_variable finish_cv;
@@ -62,12 +63,10 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
 
     auto max_vid = edgelist_graph->get_max_vid();
     this->max_vid_ = edgelist_graph->get_max_vid();
-    auto aligned_max_vid =
-        ceil((float)edgelist_graph->get_aligned_max_vid() / ALIGNMENT_FACTOR) *
-        ALIGNMENT_FACTOR;
     this->aligned_max_vid_ =
         ceil((float)edgelist_graph->get_aligned_max_vid() / ALIGNMENT_FACTOR) *
         ALIGNMENT_FACTOR;
+    auto aligned_max_vid = this->aligned_max_vid_;
     auto num_vertexes = edgelist_graph->get_num_vertexes();
     this->num_vertexes_ = edgelist_graph->get_num_vertexes();
     auto num_edges = edgelist_graph->get_num_edges();
@@ -123,8 +122,7 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
         sizeof(graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>*) *
         edgelist_graph->get_aligned_max_vid());
 
-    for (size_t i = 0; i < edgelist_graph->get_aligned_max_vid(); i++)
-      vertexes[i] = nullptr;
+    for (size_t i = 0; i < aligned_max_vid; i++) vertexes[i] = nullptr;
 
     LOG_INFO("Run: Pre join edges");
     pending_packages.store(cores);
@@ -154,14 +152,15 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
 
     free(num_in_edges);
     free(num_out_edges);
+    num_in_edges = nullptr;
+    num_out_edges = nullptr;
 
     LOG_INFO("Run: Join edges");
-    size_t* offset_in_edges =
-        (size_t*)malloc(sizeof(size_t) * this->aligned_max_vid_);
+    size_t* offset_in_edges = (size_t*)malloc(sizeof(size_t) * aligned_max_vid);
     size_t* offset_out_edges =
-        (size_t*)malloc(sizeof(size_t) * this->aligned_max_vid_);
-    memset(offset_in_edges, 0, sizeof(size_t) * this->aligned_max_vid_);
-    memset(offset_out_edges, 0, sizeof(size_t) * this->aligned_max_vid_);
+        (size_t*)malloc(sizeof(size_t) * aligned_max_vid);
+    memset(offset_in_edges, 0, sizeof(size_t) * aligned_max_vid);
+    memset(offset_out_edges, 0, sizeof(size_t) * aligned_max_vid);
 
     pending_packages.store(cores);
     for (size_t tid = 0; tid < cores; tid++) {
@@ -216,7 +215,7 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
     VID_T max_vid_per_bucket[num_partitions] = {0};
     Bitmap* is_in_bucketX[num_partitions + num_new_buckets];
     for (size_t i = 0; i < num_partitions + num_new_buckets; i++) {
-      is_in_bucketX[i] = new Bitmap(this->aligned_max_vid_);
+      is_in_bucketX[i] = new Bitmap(aligned_max_vid);
       is_in_bucketX[i]->clear();
     }
     auto set_graphs = (graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>**)malloc(
@@ -230,20 +229,20 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
     GID_T gid = 0;
     pending_packages.store(cores);
     for (size_t tid = 0; tid < cores; tid++) {
-      thread_pool.Commit([tid, &cores, &is_in_bucketX, &aligned_max_vid,
+      thread_pool.Commit([tid, &cores, &is_in_bucketX, aligned_max_vid,
                           &vertexes, &fragments, &max_vid_per_bucket,
                           &num_partitions, &local_id_for_each_bucket,
                           &sum_in_edges_by_fragments,
                           &sum_out_edges_by_fragments, &vertex_indicator,
                           &num_vertexes_per_bucket, &vid_map, &num_vertexes,
                           &pending_packages, &finish_cv]() {
-        if (tid > aligned_max_vid) return;
         for (VID_T global_vid = tid; global_vid < aligned_max_vid;
              global_vid += cores) {
           if (!vertex_indicator->get_bit(global_vid)) continue;
           auto u = vertexes[global_vid];
 
           GID_T gid = (Hash(global_vid) % num_partitions);
+          //LOG_INFO(gid);
           fragments[gid][global_vid] = u;
           if (max_vid_per_bucket[gid] < global_vid)
             max_vid_per_bucket[gid] = global_vid;
@@ -307,12 +306,12 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
       pending_packages.store(cores);
       for (size_t tid = 0; tid < cores; tid++) {
         thread_pool.Commit(
-            [tid, &cores, &is_in_bucketX, &aligned_max_vid, &num_new_buckets,
-             &new_fragments, &fragments, &bucket_id_to_be_splitted,
-             &num_partitions, &vertex_indicator, &local_id_for_each_bucket,
-             &sum_in_edges_by_new_fragments, &sum_out_edges_by_new_fragments,
-             &num_vertexes_per_new_bucket, &num_vertexes_per_bucket,
-             &pending_packages, &finish_cv]() {
+            [tid, &cores, &is_in_bucketX, &aligned_max_vid,
+             &num_new_buckets, &new_fragments, &fragments,
+             &bucket_id_to_be_splitted, &num_partitions, &vertex_indicator,
+             &local_id_for_each_bucket, &sum_in_edges_by_new_fragments,
+             &sum_out_edges_by_new_fragments, &num_vertexes_per_new_bucket,
+             &num_vertexes_per_bucket, &pending_packages, &finish_cv]() {
               for (VID_T global_vid = tid; global_vid < aligned_max_vid;
                    global_vid += cores) {
                 if (fragments[bucket_id_to_be_splitted][global_vid] == nullptr)
@@ -377,8 +376,6 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
               gid, fragments[gid], num_vertexes_per_bucket[gid],
               sum_in_edges_by_fragments[gid], sum_out_edges_by_fragments[gid],
               max_vid_per_bucket[gid], vid_map);
-          LOG_INFO(gid, " ", max_vid_per_bucket[gid], " ",
-                   num_vertexes_per_bucket[gid]);
           set_graphs[gid] =
               (graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>*)graph;
         }
