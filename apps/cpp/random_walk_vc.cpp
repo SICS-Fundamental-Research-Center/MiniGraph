@@ -20,7 +20,7 @@ class RWAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
  public:
   RWAutoMap() : minigraph::AutoMapBase<GRAPH_T, CONTEXT_T>() {}
 
-  static inline size_t walks_per_source() { return 100; }
+  // static inline size_t walks_per_source() { return 100; }
   static inline bool is_source(VID_T vid) { return (Hash(vid) % 50 == 0); }
 
   bool F(const VertexInfo& u, VertexInfo& v,
@@ -61,11 +61,12 @@ class RWAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
                             const size_t step, Bitmap* in_visited,
                             Bitmap* out_visited, Bitmap* global_border_vid_map,
                             VDATA_T* global_border_vdata,
-                            const size_t current_step) {
+                            const size_t current_step,
+                            const size_t walks_per_source) {
     for (size_t i = tid; i < graph->get_num_vertexes(); i += step) {
       if (in_visited->get_bit(i) == 0) continue;
       auto u = graph->GetVertexByIndex(i);
-      for (size_t k = 0; k < walks_per_source(); k++) {
+      for (size_t k = 0; k < walks_per_source; k++) {
         auto global_nbr_id = u.get_random_out_edge();
         if (global_nbr_id == VID_MAX) continue;
         if (graph->IsInGraph(global_nbr_id)) {
@@ -155,7 +156,8 @@ class RWPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
                                  RWAutoMap<GRAPH_T, CONTEXT_T>::kernel_update,
                                  in_visited, out_visited,
                                  this->msg_mngr_->GetGlobalBorderVidMap(),
-                                 this->msg_mngr_->GetGlobalVdata(), step);
+                                 this->msg_mngr_->GetGlobalVdata(), step,
+                                 this->context_.walks_per_source);
       std::swap(in_visited, out_visited);
       out_visited->clear();
     }
@@ -202,11 +204,12 @@ class RWPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
       // reaching a pre-defined niters.
       for (auto inner_step = step; inner_step < this->context_.inner_niters;
            inner_step++) {
-        this->auto_map_->ActiveMap(
-            graph, task_runner, visited,
-            RWAutoMap<GRAPH_T, CONTEXT_T>::kernel_update, in_visited,
-            out_visited, this->msg_mngr_->GetGlobalBorderVidMap(),
-            this->msg_mngr_->GetGlobalVdata(), inner_step);
+        this->auto_map_->ActiveMap(graph, task_runner, visited,
+                                   RWAutoMap<GRAPH_T, CONTEXT_T>::kernel_update,
+                                   in_visited, out_visited,
+                                   this->msg_mngr_->GetGlobalBorderVidMap(),
+                                   this->msg_mngr_->GetGlobalVdata(),
+                                   inner_step, this->context_.walks_per_source);
         std::swap(in_visited, out_visited);
         out_visited->clear();
       }
@@ -232,7 +235,7 @@ class RWPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 };
 
 struct Context {
-  vdata_t walks_per_source = 10;
+  vdata_t walks_per_source = 1;
   size_t inner_niters = 3;
 };
 
@@ -250,6 +253,7 @@ int main(int argc, char* argv[]) {
 
   Context context;
   context.inner_niters = FLAGS_inner_niters;
+  context.walks_per_source = FLAGS_walks_per_source;
   auto rw_auto_map = new RWAutoMap<CSR_T, Context>();
   auto rw_pie = new RWPIE<CSR_T, Context>(rw_auto_map, context);
   auto app_wrapper =

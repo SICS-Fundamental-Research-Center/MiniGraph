@@ -3,8 +3,8 @@
 #include <string.h>
 #include <string>
 
-#include <rapidcsv.h>
 #include <gflags/gflags.h>
+#include <rapidcsv.h>
 
 #include "graphs/edge_list.h"
 #include "portability/sys_data_structure.h"
@@ -228,7 +228,7 @@ void GraphReduceCSVToBin(const std::string input_pt, const std::string dst_pt,
   LOG_INFO("Read ", num_edges, " edges #");
 
   VID_T aligned_max_vid =
-      (ceil((float)max_vid / ALIGNMENT_FACTOR) + 1) * ALIGNMENT_FACTOR;
+      (ceil((float)max_vid / ALIGNMENT_FACTOR)) * ALIGNMENT_FACTOR;
   LOG_INFO("Run: get maximum vid", aligned_max_vid);
 
   LOG_INFO("Max vid: ", aligned_max_vid);
