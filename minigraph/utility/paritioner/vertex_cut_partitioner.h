@@ -147,6 +147,7 @@ class VertexCutPartitioner : public PartitionerBase<GRAPH_T> {
           max_vid_per_bucket[gid], edges_buckets[gid]);
       auto csr_graph = csr_io_adapter.EdgeList2CSR(gid, edgelist_graph, cores);
       delete edgelist_graph;
+      free(edges_buckets[gid]);
       this->fragments_->push_back(csr_graph);
     }
 

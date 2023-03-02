@@ -282,7 +282,6 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     edge_list_graph->num_edges_ = meta_buff[1];
 
     if (edge_list_graph->max_vid_ == 0) {
-      std::atomic<VID_T> max_vid_atom(0);
       VID_T max_vid = 0;
       for (size_t j = 0; j < edge_list_graph->num_edges_; j++) {
         auto src_vid = edge_list_graph->buf_graph_[j * 2];
