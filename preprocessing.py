@@ -47,4 +47,4 @@ def mergeWebsk(outpath='./websk.csv', mode=1):
   
 if __name__ == '__main__':
   # getWebsk(mode=1)
-  mergeWebsk('./websk_1_nor.csv', mode=1)
+  mergeWebsk('./websk_3_nor.csv', mode=3)

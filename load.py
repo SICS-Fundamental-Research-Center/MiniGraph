@@ -42,8 +42,8 @@ def getDataLoader(mode=1):
   test_dataset = torch.utils.data.TensorDataset(X_test,Y_test)
   # print(test_dataset)
 
-  train_loader = torch.utils.data.DataLoader(dataset =train_dataset ,batch_size = 4, shuffle =True)  # 设置每次训练的数据的数目：batch_size =400
-  test_loader = torch.utils.data.DataLoader(dataset =test_dataset ,batch_size = 4, shuffle =True)
+  train_loader = torch.utils.data.DataLoader(dataset =train_dataset ,batch_size = 32, shuffle =True)  # 设置每次训练的数据的数目：batch_size =400
+  test_loader = torch.utils.data.DataLoader(dataset =test_dataset ,batch_size = 32, shuffle =True)
   # print(train_loader)
   return train_loader
 
