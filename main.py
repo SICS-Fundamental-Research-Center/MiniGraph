@@ -92,9 +92,9 @@ class poly_model_less(nn.Module):
 class Net(nn.Module):
     def __init__(self):
         super(Net,self).__init__()
-        self.l1 = nn.Linear(6, 20)
+        self.l1 = nn.Linear(6, 4)
         self.l2 = nn.ReLU()
-        self.l3 = nn.Linear(20, 1)
+        self.l3 = nn.Linear(4, 1)
         # self.l4 = nn.ReLU()
         # self.l5 = nn.Linear(10, 1)
 
@@ -118,8 +118,10 @@ elif args.mode == 2:
 else:
     model = Net()
 
-
+# websk
 train_loader, test_loader = getDataLoader(args.mode)
+# clueweb
+#
     
 criterion = nn.MSELoss()
 optimizer = torch.optim.SGD(model.parameters(), lr=1e-3)

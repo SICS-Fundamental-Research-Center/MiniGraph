@@ -7,6 +7,7 @@ def preprocess(filepath, mode=1):
   cr = csv.reader(f1)
   flag = True
   file = filepath.split('/')[-1].split('_')[-1]
+  # cpu
   cpu = str(int(40 / int(file)))
   res = []
   for row in cr:

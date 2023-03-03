@@ -9,7 +9,7 @@ from sklearn.model_selection import train_test_split
 
 
 
-def getDataLoader(mode=1):
+def getDataLoader(mode=1, size=0.2):
   # 读取csv 格式文件
   if mode == 1:
     dt = pd.read_csv("./websk_1_nor.csv")
@@ -26,7 +26,7 @@ def getDataLoader(mode=1):
   Y = data_set[:,-1:].astype(float) # Y 是输出输出结果，取出最后一列的值 [-1:]
   # print(Y)
 
-  X_train ,X_test,Y_train,Y_test =train_test_split(X,Y,test_size= 0.2,shuffle=True)  # 设置测试集百分比
+  X_train ,X_test,Y_train,Y_test =train_test_split(X,Y,test_size= size,shuffle=True)  # 设置测试集百分比
   X_train, Y_train = torch.FloatTensor(X_train),torch.FloatTensor(Y_train)     #训练集的输入： tensor浮点数 训练集的输出： tensor 整数
   X_test,  Y_test= torch.FloatTensor(X_test),torch.FloatTensor(Y_test)         #测试集的输入： tensor浮点数 测试集的输出： tensor 整数
 
