@@ -8,6 +8,13 @@ import argparse
 import numpy as np
 import random
 
+parser = argparse.ArgumentParser(description='cost model')
+parser.add_argument('-m', '--mode', type=int, default=1)
+parser.add_argument('-n', '--epoch', type=int, default=1000)
+parser.add_argument('-s', '--seed', type=int, default=100)
+
+args = parser.parse_args()
+
 def setup_seed(seed):
      torch.manual_seed(seed)
      torch.cuda.manual_seed_all(seed)
@@ -15,7 +22,7 @@ def setup_seed(seed):
      random.seed(seed)
      torch.backends.cudnn.deterministic = True
 # 设置随机数种子
-setup_seed(100)
+setup_seed(args.seed)
 
 # class TimeSeriesDataSet(Dataset):
 #   """
@@ -100,11 +107,7 @@ class Net(nn.Module):
         return out3
 
 
-parser = argparse.ArgumentParser(description='cost model')
-parser.add_argument('--mode', type=int, default=1)
-parser.add_argument('--epoch', type=int, default=100)
 
-args = parser.parse_args()
 # print(args)
 # exit(0)
 
