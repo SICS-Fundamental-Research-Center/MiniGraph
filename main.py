@@ -46,7 +46,7 @@ class TimeSeriesDataSet(Dataset):
 
 def make_features(x):
     x = x.unsqueeze(1)
-    return torch.cat([x ** i for i in range(1, POLY_DEGREE+1)], 1)
+    return torch.cat([x ** i for i in range(1, 3+1)], 1)
   
 W_target = torch.FloatTensor([3,6,2]).unsqueeze(1)
 b_target = torch.FloatTensor([8])
@@ -139,41 +139,54 @@ else:
     model = Net()
 
 
-loader = getDataLoader(args.mode)
+train_loader, test_loader = getDataLoader(args.mode)
     
 criterion = nn.MSELoss()
 optimizer = torch.optim.SGD(model.parameters(), lr=1e-3)
-  
-epoch = 0
+
+model.train()
+epoch = 1000
 # while True:
-n_iter = 1000
-for i in range(n_iter):
-    for batch_x, batch_y in loader:
+for i in range(epoch):
+    loss_sum = 0
+    for batch_x, batch_y in train_loader:
         output = model(batch_x)
         loss = criterion(output, batch_y)
-        print_loss = loss.data
+        loss_sum += loss.data
+        # print_loss = loss.data
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        print('Loss: {:.6f} after {} batches'.format(loss, epoch))
+        # print('Loss: {:.6f} after {} batches'.format(loss, epoch))
         # print('==> Learned function:\t' + poly_desc(model.poly.weight.view(-1), model.poly.bias))
+    print('Loss: {:.9f} after {} epoch'.format(loss_sum / len(train_loader), i))
     # epoch += 1
-        if print_loss < 1e-3:
-            break
-    if print_loss < 1e-3:
-        print()
-        print("==========End of Training==========")
-        break
+    #     if print_loss < 1e-3:
+    #         break
+    # if print_loss < 1e-3:
+    #     print()
+    #     print("==========End of Training==========")
+    #     break
 
 if args.mode == 1:
-    print('Loss: {:.6f} after {} batches'.format(loss, epoch))
     print('weight y1', model.y1.weight, model.y1.bias)
     print('weight y2', model.y2.weight, model.y2.bias)
 elif args.mode == 2:
-    print('Loss: {:.6f} after {} batches'.format(loss, epoch))
     print('weight y1', model.y1.weight, model.y1.bias)
     print('weight y2', model.y2.weight, model.y2.bias) 
 else:
-    print('Loss: {:.6f} after {} batches'.format(loss, epoch))
     print('weight y1', model.l1.weight, model.l1.bias)
     print('weight y2', model.l3.weight, model.l3.bias)
+    
+print('=========eval==========')
+model.eval()
+cnt = 0
+MSEloss = 0
+for eval_x, eval_y in test_loader:
+    cnt += 1
+    out = model(eval_x)
+    loss = criterion(out, eval_y)
+    MSEloss += loss.data
+    print(loss)
+    
+print('MSE loss of eval is:', MSEloss / cnt)

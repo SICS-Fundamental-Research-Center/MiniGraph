@@ -43,9 +43,9 @@ def getDataLoader(mode=1):
   # print(test_dataset)
 
   train_loader = torch.utils.data.DataLoader(dataset =train_dataset ,batch_size = 32, shuffle =True)  # 设置每次训练的数据的数目：batch_size =400
-  test_loader = torch.utils.data.DataLoader(dataset =test_dataset ,batch_size = 32, shuffle =True)
+  test_loader = torch.utils.data.DataLoader(dataset =test_dataset ,batch_size = 1, shuffle =True)
   # print(train_loader)
-  return train_loader
+  return train_loader, test_loader
 
 
 if __name__ == '__main__':
