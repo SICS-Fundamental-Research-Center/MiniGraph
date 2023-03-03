@@ -174,6 +174,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     }
 
     global_si.num_vertexes = graph.get_num_vertexes();
+    global_si.num_active_vertexes = visited.get_num_bit();
     global_si.num_edges = graph.get_num_edges();
     global_si.ShowInfo();
     delete in_visited;
@@ -185,6 +186,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
                minigraph::executors::TaskRunner* task_runner) override {
     auto start_time = std::chrono::system_clock::now();
 
+    graph.ShowGraph();
     StatisticInfo global_si(1, 1);
     Bitmap visited(graph.get_num_vertexes());
     Bitmap output_visited(graph.get_num_vertexes());
@@ -237,8 +239,8 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     delete out_visited;
     auto end_time = std::chrono::system_clock::now();
     global_si.num_vertexes = graph.get_num_vertexes();
+    global_si.num_active_vertexes = visited.get_num_bit();
     global_si.num_edges = graph.get_num_edges();
-    LOG_INFO(graph.get_num_edges());
     global_si.num_iters = count_iters;
     global_si.elapsed_time =
         std::chrono::duration_cast<std::chrono::microseconds>(end_time -
