@@ -93,7 +93,7 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
 
   template <class... Args>
   bool Write(const EDGE_LIST_T& graph, const GraphFormat& graph_format,
-             bool vdata_only, Args&&... args) {
+             Args&&... args) {
     std::string pt[] = {(args)...};
     bool tag = false;
     switch (graph_format) {
@@ -293,6 +293,7 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       edge_list_graph->aligned_max_vid_ =
           ceil((float)max_vid / ALIGNMENT_FACTOR) * ALIGNMENT_FACTOR;
     }
+
     LOG_INFO("Read ", data_pt, " successful", ", num vertexes: ", meta_buff[0],
              " num edges: ", meta_buff[1],
              " max_vid: ", edge_list_graph->get_max_vid(),

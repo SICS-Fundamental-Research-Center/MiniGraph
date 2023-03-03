@@ -3,9 +3,10 @@
 
 #include <atomic>
 #include <cstring>
-#include <stdio.h>
 #include <unordered_map>
 #include <vector>
+
+#include <stdio.h>
 
 #include <folly/AtomicHashMap.h>
 #include <folly/FBVector.h>
@@ -242,7 +243,7 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
           auto u = vertexes[global_vid];
 
           GID_T gid = (Hash(global_vid) % num_partitions);
-          //LOG_INFO(gid);
+          // LOG_INFO(gid);
           fragments[gid][global_vid] = u;
           if (max_vid_per_bucket[gid] < global_vid)
             max_vid_per_bucket[gid] = global_vid;
@@ -306,12 +307,12 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
       pending_packages.store(cores);
       for (size_t tid = 0; tid < cores; tid++) {
         thread_pool.Commit(
-            [tid, &cores, &is_in_bucketX, &aligned_max_vid,
-             &num_new_buckets, &new_fragments, &fragments,
-             &bucket_id_to_be_splitted, &num_partitions, &vertex_indicator,
-             &local_id_for_each_bucket, &sum_in_edges_by_new_fragments,
-             &sum_out_edges_by_new_fragments, &num_vertexes_per_new_bucket,
-             &num_vertexes_per_bucket, &pending_packages, &finish_cv]() {
+            [tid, &cores, &is_in_bucketX, &aligned_max_vid, &num_new_buckets,
+             &new_fragments, &fragments, &bucket_id_to_be_splitted,
+             &num_partitions, &vertex_indicator, &local_id_for_each_bucket,
+             &sum_in_edges_by_new_fragments, &sum_out_edges_by_new_fragments,
+             &num_vertexes_per_new_bucket, &num_vertexes_per_bucket,
+             &pending_packages, &finish_cv]() {
               for (VID_T global_vid = tid; global_vid < aligned_max_vid;
                    global_vid += cores) {
                 if (fragments[bucket_id_to_be_splitted][global_vid] == nullptr)
@@ -371,11 +372,16 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
                           &bucket_id_to_be_splitted, &num_vertexes_per_bucket,
                           &vid_map, &pending_packages, &finish_cv]() {
         for (size_t gid = tid; gid < num_partitions; gid += cores) {
+          LOG_INFO(gid);
           if (gid == bucket_id_to_be_splitted) continue;
           auto graph = new graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>(
               gid, fragments[gid], num_vertexes_per_bucket[gid],
               sum_in_edges_by_fragments[gid], sum_out_edges_by_fragments[gid],
               max_vid_per_bucket[gid], vid_map);
+          for (size_t i = 0; i < max_vid_per_bucket[gid]; i++) {
+            delete fragments[gid][i];
+          }
+          free(fragments[gid]);
           set_graphs[gid] =
               (graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>*)graph;
         }

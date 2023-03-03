@@ -174,6 +174,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     }
 
     global_si.num_vertexes = graph.get_num_vertexes();
+    global_si.num_active_vertexes = visited.get_num_bit();
     global_si.num_edges = graph.get_num_edges();
     global_si.ShowInfo();
     delete in_visited;
@@ -192,6 +193,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     Bitmap* out_visited = new Bitmap(graph.get_num_vertexes());
     output_visited.clear();
     visited.clear();
+    in_visited->clear();
 
     auto vid_map = this->msg_mngr_->GetVidMap();
 
@@ -200,6 +202,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
         WCCAutoMap<GRAPH_T, CONTEXT_T>::kernel_pull_border_vertexes, in_visited,
         this->msg_mngr_->GetGlobalBorderVidMap(),
         this->msg_mngr_->GetGlobalVdata(), &global_si);
+
 
     bool run = true;
     size_t count_iters = 0;
@@ -237,8 +240,8 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     delete out_visited;
     auto end_time = std::chrono::system_clock::now();
     global_si.num_vertexes = graph.get_num_vertexes();
+    global_si.num_active_vertexes = visited.get_num_bit();
     global_si.num_edges = graph.get_num_edges();
-    LOG_INFO(graph.get_num_edges());
     global_si.num_iters = count_iters;
     global_si.elapsed_time =
         std::chrono::duration_cast<std::chrono::microseconds>(end_time -
