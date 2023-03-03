@@ -193,6 +193,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     Bitmap* out_visited = new Bitmap(graph.get_num_vertexes());
     output_visited.clear();
     visited.clear();
+    in_visited->clear();
 
     auto vid_map = this->msg_mngr_->GetVidMap();
 
@@ -201,6 +202,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
         WCCAutoMap<GRAPH_T, CONTEXT_T>::kernel_pull_border_vertexes, in_visited,
         this->msg_mngr_->GetGlobalBorderVidMap(),
         this->msg_mngr_->GetGlobalVdata(), &global_si);
+
 
     bool run = true;
     size_t count_iters = 0;
