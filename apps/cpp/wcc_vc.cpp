@@ -186,7 +186,6 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
                minigraph::executors::TaskRunner* task_runner) override {
     auto start_time = std::chrono::system_clock::now();
 
-    graph.ShowGraph();
     StatisticInfo global_si(1, 1);
     Bitmap visited(graph.get_num_vertexes());
     Bitmap output_visited(graph.get_num_vertexes());
