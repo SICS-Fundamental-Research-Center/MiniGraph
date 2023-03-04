@@ -11,11 +11,11 @@
 
 #include "components/component_base.h"
 #include "portability/sys_data_structure.h"
+#include "scheduler/subgraph_scheduler_base.h"
 #include "utility/io/csr_io_adapter.h"
 #include "utility/io/data_mngr.h"
 #include "utility/state_machine.h"
 #include "utility/thread_pool.h"
-
 
 namespace minigraph {
 namespace components {
@@ -32,8 +32,7 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
 
  public:
   LoadComponent(
-      const size_t num_workers,
-      utility::EDFThreadPool* thread_pool,
+      const size_t num_workers, utility::EDFThreadPool* thread_pool,
       std::unordered_map<GID_T, std::atomic<size_t>*>* superstep_by_gid,
       std::atomic<size_t>* global_superstep,
       utility::StateMachine<GID_T>* state_machine,
@@ -62,6 +61,9 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
     partial_result_cv_ = partial_result_cv;
     mode_ = mode;
 
+    minigraph::scheduler::SubGraphsSchedulerBase<GID_T, VID_T, VDATA_T, EDATA_T>
+        scheduler;
+
     XLOG(INFO, "Init LoadComponent: Finish.");
   }
 
@@ -71,17 +73,39 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
     while (switch_) {
       GID_T gid = MINIGRAPH_GID_MAX;
       read_trigger_cv_->wait(*read_trigger_lck_,
-                             [&] { return !read_trigger_->empty(); });
+                             //[&] { LOG_INFO(read_trigger_->size(), " ", pt_by_gid_->size());
+                              // return read_trigger_->size() ; });
+      [&] { return !read_trigger_->empty(); });
       if (!switch_) return;
 
+
+      std::queue<GID_T> que_gid;
+      std::vector<GID_T> vec_gid;
       while (!read_trigger_->empty()) {
         gid = read_trigger_->front();
+
+        LOG_INFO("push:", gid);
+        que_gid.push(gid);
+        vec_gid.push_back(gid);
         read_trigger_->pop();
-        sem.try_wait();
-        auto task = std::bind(&components::LoadComponent<GRAPH_T>::ProcessGraph,
-                              this, gid, sem, mode_);
-        this->thread_pool_->Commit(task);
       }
+
+
+      while (!vec_gid.empty()) {
+        //gid = que_gid.front();
+        //que_gid.pop();
+        //vec_gid.push_back(gid);
+        size_t i = rand()%vec_gid.size();
+        gid = vec_gid.at(i);
+            vec_gid.erase(vec_gid.begin() + i);
+        sem.try_wait();
+       // auto task = std::bind(&components::LoadComponent<GRAPH_T>::ProcessGraph,
+       //                       this, gid, sem, mode_);
+       // this->thread_pool_->Commit(task);
+        ProcessGraph(gid,sem,mode_);
+      }
+
+
     }
   }
 
@@ -135,7 +159,7 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       }
       sem.post();
     } else {
-      //LOG_INFO("LC ShortCut", gid);
+      // LOG_INFO("LC ShortCut", gid);
       this->add_superstep_via_gid(gid);
       partial_result_queue_->push(gid);
       this->state_machine_->ProcessEvent(gid, SHORTCUTREAD);

@@ -1,6 +1,11 @@
 #ifndef MINIGRAPH_COMPUTING_COMPONENT_H
 #define MINIGRAPH_COMPUTING_COMPONENT_H
 
+#include <condition_variable>
+#include <memory>
+
+#include <folly/ProducerConsumerQueue.h>
+
 #include "components/component_base.h"
 #include "executors/scheduled_executor.h"
 #include "executors/scheduler.h"
@@ -8,9 +13,6 @@
 #include "graphs/immutable_csr.h"
 #include "utility/io/data_mngr.h"
 #include "utility/thread_pool.h"
-#include <folly/ProducerConsumerQueue.h>
-#include <condition_variable>
-#include <memory>
 
 namespace minigraph {
 namespace components {

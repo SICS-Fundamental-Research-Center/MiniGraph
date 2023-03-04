@@ -116,11 +116,6 @@ struct StatisticInfo {
   float elapsed_time = 0;
 
   void ShowInfo() {
-    // LOG_INFO(inc_type, ",", level, ",", current_iter, ",", num_iters, ",",
-    //          sum_in_degree, ",", sum_out_degree, ",", num_vertexes, ",",
-    //          // sum_visited_in_border_vertexes, ",",
-    //          // sum_visited_out_border_vertexes, ",",
-    //          elapsed_time);
     LOG_INFO(inc_type, ",", num_iters, ",", num_active_vertexes, ",", sum_dlv, ",",
              sum_dgv, ",", sum_dlv_times_dlv, ",", sum_dlv_times_dgv, ",",
              sum_dgv_times_dgv, ",", sum_in_border_vertexes, ",",
