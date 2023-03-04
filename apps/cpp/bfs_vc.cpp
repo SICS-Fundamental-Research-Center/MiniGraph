@@ -96,23 +96,22 @@ class BFSPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
              minigraph::executors::TaskRunner* task_runner) override {
     LOG_INFO("PEval() - Processing gid: ", graph.gid_);
     if (!graph.IsInGraph(this->context_.root_id)) return false;
-    auto vid_map = this->msg_mngr_->GetVidMap();
+    auto local_root_id = graph.globalid2localid(this->context_.root_id);
     auto start_time = std::chrono::system_clock::now();
     Bitmap* in_visited = new Bitmap(graph.get_num_vertexes());
     Bitmap* out_visited = new Bitmap(graph.get_num_vertexes());
-    LOG_INFO(vid_map[this->context_.root_id]);
-    auto u = graph.GetVertexByIndex(vid_map[this->context_.root_id]);
+    auto u = graph.GetVertexByIndex(local_root_id);
     u.vdata[0] = 1;
     in_visited->clear();
     out_visited->clear();
-    in_visited->set_bit(vid_map[this->context_.root_id]);
+    in_visited->set_bit(local_root_id);
     Bitmap visited(graph.get_num_vertexes());
     visited.clear();
     StatisticInfo si(0);
-    visited.set_bit(this->context_.root_id);
+    visited.set_bit(local_root_id);
     while (in_visited->get_num_bit()) {
       this->auto_map_->ActiveEMap(in_visited, out_visited, graph, task_runner,
-                                  vid_map, &visited, &si);
+                                  nullptr, &visited, &si);
       std::swap(in_visited, out_visited);
       out_visited->clear();
     }

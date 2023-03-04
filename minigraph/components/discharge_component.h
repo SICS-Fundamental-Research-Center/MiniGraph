@@ -8,7 +8,6 @@
 #include "utility/io/csr_io_adapter.h"
 #include "utility/thread_pool.h"
 
-
 namespace minigraph {
 namespace components {
 
@@ -84,7 +83,7 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
         que_gid.pop();
         if (mode_ != "NoShort") CheckRTRule(gid);
         if (this->TrySync()) {
-          //this->state_machine_->ShowAllState();
+          this->state_machine_->ShowAllState();
           if (this->state_machine_->IsTerminated() ||
               this->get_global_superstep() > num_iter_) {
             auto out_rts = this->state_machine_->EvokeAllX(RTS);
@@ -92,7 +91,6 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
               CSRPt& csr_pt = pt_by_gid_->find(iter)->second;
               data_mngr_->WriteGraph(gid, csr_pt, csr_bin, true);
             }
-
             system_switch_cv_->wait(*system_switch_lck_,
                                     [&] { return system_switch_->load(); });
             system_switch_->store(false);
@@ -148,20 +146,26 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   }
 
   void WriteAllGraphsBack(const GID_T current_gid) {
-    //LOG_INFO("WriteAllGraphsBack triggered by: ", current_gid);
     // Snapshot
     for (GID_T tmp_gid = 0; tmp_gid < pt_by_gid_->size(); tmp_gid++) {
       msg_mngr_->SetStateMatrix(tmp_gid,
                                 this->state_machine_->GetState(tmp_gid));
     }
 
+    if (mode_ != "NoShort") {
+      if (this->state_machine_->GraphIs(current_gid, RC)) {
+        this->state_machine_->EvokeX(current_gid, RC);
+        this->state_machine_->ProcessEvent(current_gid, LOAD);
+        while (!task_queue_->write(current_gid))
+          ;
+        task_queue_cv_->notify_all();
+      }
+    }
+
     auto out_rc_ = this->state_machine_->GetAllinStateX(RC);
     auto out_rt_ = this->state_machine_->GetAllinStateX(RT);
     auto out_rts_ = this->state_machine_->GetAllinStateX(RTS);
-
     for (auto& iter : out_rc_) {
-      if (mode_ != "NoShort")
-        if (current_gid == iter) continue;
       this->state_machine_->EvokeX(iter, RC);
       GID_T gid = iter;
       CSRPt& csr_pt = pt_by_gid_->find(gid)->second;
@@ -170,42 +174,17 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       read_trigger_->push(gid);
     }
     for (auto& iter : out_rt_) {
-      if (mode_ != "NoShort")
-        if (current_gid == iter) continue;
       GID_T gid = iter;
       this->state_machine_->EvokeX(iter, RT);
       data_mngr_->EraseGraph(gid);
       read_trigger_->push(gid);
     }
     for (auto& iter : out_rts_) {
-      if (mode_ != "NoShort")
-        if (current_gid == iter) continue;
       GID_T gid = iter;
       this->state_machine_->EvokeX(iter, RTS);
       data_mngr_->EraseGraph(gid);
       read_trigger_->push(gid);
     }
-
-    if (mode_ != "NoShort") {
-      if (this->state_machine_->GraphIs(current_gid, RC)) {
-        this->state_machine_->EvokeX(current_gid, RC);
-        this->state_machine_->ProcessEvent(current_gid, LOAD);
-        //LOG_INFO("DC short: ", current_gid);
-        while (!task_queue_->write(current_gid))
-          ;
-        task_queue_cv_->notify_all();
-      } else if (this->state_machine_->GraphIs(current_gid, RTS)) {
-        this->state_machine_->EvokeX(current_gid, RTS);
-        data_mngr_->EraseGraph(current_gid);
-        read_trigger_->push(current_gid);
-      } else if (this->state_machine_->GraphIs(current_gid, RT)) {
-        this->state_machine_->EvokeX(current_gid, RT);
-        data_mngr_->EraseGraph(current_gid);
-        read_trigger_->push(current_gid);
-      }
-    }
-
-    //LOG_INFO("Evoke all.");
     read_trigger_cv_->notify_all();
   }
 
@@ -214,14 +193,13 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
     if (this->state_machine_->GraphIs(gid, RC)) {
       bool tag = true;
       for (size_t j = 0; j < num_graphs; j++) {
-        if (*(communication_matrix_ + j * num_graphs + gid) == 1) {
+        if (*(communication_matrix_ + gid * num_graphs + j) == 1) {
           tag = false;
           break;
         }
       }
-      if (tag) {
+      if (tag == true) {
         this->state_machine_->ProcessEvent(gid, SHORTCUT);
-        LOG_INFO("Shortcut: ", gid);
       }
     }
     return false;
