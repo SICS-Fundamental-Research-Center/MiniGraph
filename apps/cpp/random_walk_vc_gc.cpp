@@ -81,7 +81,8 @@ class RWAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
                       (VDATA_T)-current_step);
           }
         } else {
-          write_min(global_border_vdata + global_nbr_id, (VDATA_T)-current_step);
+          write_min(global_border_vdata + global_nbr_id,
+                    (VDATA_T)-current_step);
         }
       }
     }
@@ -96,16 +97,21 @@ class RWAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
       if (in_visited->get_bit(i) == 0) continue;
       auto u = graph->GetVertexByIndex(i);
 
-      for (size_t j = 0; j < u.indegree; j++) {
-        auto in_nbr_id = u.in_edges[j];
-        if (!global_border_vid_map->get_bit(in_nbr_id)) continue;
-        //if (global_border_vdata[in_nbr_id] != current_step - 1) continue;
-        //auto origin = u.vdata[0];
-        if (write_min(u.vdata, global_border_vdata[in_nbr_id] - 1)) {
-          visited->set_bit(u.vid);
-          out_visited->set_bit(u.vid);
-        }
+      if (write_min(u.vdata, global_border_vdata[graph->localid2globalid(u.vid)])) {
+        visited->set_bit(u.vid);
+        out_visited->set_bit(u.vid);
       }
+
+      // for (size_t j = 0; j < u.indegree; j++) {
+      //   auto in_nbr_id = u.in_edges[j];
+      //   if (!global_border_vid_map->get_bit(in_nbr_id)) continue;
+      //   //if (global_border_vdata[in_nbr_id] != current_step - 1) continue;
+      //   //auto origin = u.vdata[0];
+      //   if (write_min(u.vdata, global_border_vdata[in_nbr_id] - 1)) {
+      //     visited->set_bit(u.vid);
+      //     out_visited->set_bit(u.vid);
+      //   }
+      // }
     }
     return true;
   }
@@ -136,9 +142,6 @@ class RWPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
              " num_vertexes: ", graph.get_num_vertexes());
     auto start_time = std::chrono::system_clock::now();
 
-
-
-
     Bitmap* in_visited = new Bitmap(graph.get_num_vertexes());
     Bitmap* out_visited = new Bitmap(graph.get_num_vertexes());
     Bitmap* visited = new Bitmap(graph.get_num_vertexes());
@@ -146,12 +149,10 @@ class RWPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     in_visited->fill();
     out_visited->clear();
 
-    size_t num_source = graph.get_num_vertexes()/50;
-    for(size_t i =0; i < num_source; i++){
-      rand()%graph.get_num_vertexes();
+    size_t num_source = graph.get_num_vertexes() / 50;
+    for (size_t i = 0; i < num_source; i++) {
+      rand() % graph.get_num_vertexes();
     }
-
-
 
     this->auto_map_->ActiveMap(
         graph, task_runner, visited,
