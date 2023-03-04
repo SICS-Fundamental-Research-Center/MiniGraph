@@ -18,6 +18,3 @@
 	path = third_party/yaml-cpp
 	url = git@github.com:jbeder/yaml-cpp.git
 	branch = main
-[submodule "eigen"]
-	path = eigen
-	url = git@github.com:libigl/eigen.git
