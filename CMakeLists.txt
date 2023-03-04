@@ -72,6 +72,11 @@ include_directories(${THIRD_PARTY_ROOT}/sml/include)
 # rapidcsv
 include_directories(${THIRD_PARTY_ROOT}/rapidcsv/src)
 
+# Eigen
+include_directories(${THIRD_PARTY_ROOT}/eigen/)
+
+# Yaml
+include_directories(${THIRD_PARTY_ROOT}/yaml-cpp/src)
 
 #######################
 # Artifacts
