@@ -89,16 +89,12 @@ class PRAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
       float next = 0;
       size_t count = 0;
       for (size_t j = 0; j < u.indegree; j++) {
-        if (!graph->IsInGraph(u.in_edges[j]) &&
-            global_vdata[u.in_edges[j]] != VDATA_MAX) {
+        if (!graph->IsInGraph(u.in_edges[j])) {
           next += global_vdata[u.in_edges[j]];
           count++;
         } else if (graph->IsInGraph(u.in_edges[j])) {
           VID_T local_nbr_id = VID_MAX;
-          if (vid_map != nullptr)
-            local_nbr_id = vid_map[u.in_edges[i]];
-          else
-            local_nbr_id = graph->globalid2localid(u.in_edges[i]);
+          local_nbr_id = graph->globalid2localid(u.in_edges[i]);
           assert(local_nbr_id != VID_MAX);
           VertexInfo&& v = graph->GetVertexByVid(local_nbr_id);
           next += v.vdata[0];
@@ -133,10 +129,10 @@ class PRAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
           count++;
         } else {
           VID_T local_nbr_id = VID_MAX;
-          if (vid_map != nullptr)
-            local_nbr_id = vid_map[u.in_edges[i]];
-          else
-            local_nbr_id = graph->globalid2localid(u.in_edges[i]);
+          // if (vid_map != nullptr)
+          //   local_nbr_id = vid_map[u.in_edges[i]];
+          // else
+          local_nbr_id = graph->globalid2localid(u.in_edges[i]);
           assert(local_nbr_id != VID_MAX);
           VertexInfo&& v = graph->GetVertexByVid(local_nbr_id);
           next += v.vdata[0];
@@ -230,16 +226,16 @@ class PRPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
                minigraph::executors::TaskRunner* task_runner) override {
     LOG_INFO("IncEval() - Processing gid: ", graph.gid_);
     auto start_time = std::chrono::system_clock::now();
-    Bitmap visited(graph.get_num_vertexes());
-    visited.clear();
+    Bitmap* visited = new Bitmap(graph.get_num_vertexes());
     Bitmap* in_visited = new Bitmap(graph.get_num_vertexes());
     Bitmap* out_visited = new Bitmap(graph.get_num_vertexes());
+    visited->clear();
     in_visited->fill();
     out_visited->clear();
     auto vid_map = this->msg_mngr_->GetVidMap();
 
     this->auto_map_->ActiveMap(
-        graph, task_runner, &visited,
+        graph, task_runner, visited,
         PRAutoMap<GRAPH_T, CONTEXT_T>::kernel_pull_border_vertexes, in_visited,
         this->msg_mngr_->GetGlobalBorderVidMap(),
         this->msg_mngr_->GetGlobalVdata(), vid_map, this->context_.gamma,
@@ -248,19 +244,18 @@ class PRPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     size_t num_iter = 0;
     while (num_iter++ < this->context_.num_iter && !in_visited->empty()) {
       LOG_INFO("iter:", num_iter);
-      this->auto_map_->ActiveMap(graph, task_runner, &visited,
+      this->auto_map_->ActiveMap(graph, task_runner, visited,
                                  PRAutoMap<GRAPH_T, CONTEXT_T>::kernel_relax,
                                  in_visited, out_visited,
                                  this->msg_mngr_->GetGlobalBorderVidMap(),
                                  this->msg_mngr_->GetGlobalVdata(), vid_map,
                                  this->context_.gamma, this->context_.epsilon);
-
       std::swap(in_visited, out_visited);
       out_visited->clear();
     }
 
     this->auto_map_->ActiveMap(
-        graph, task_runner, &visited,
+        graph, task_runner, visited,
         PRAutoMap<GRAPH_T, CONTEXT_T>::kernel_push_border_vertexes,
         this->msg_mngr_->GetGlobalBorderVidMap(),
         this->msg_mngr_->GetGlobalVdata());
@@ -274,7 +269,7 @@ class PRPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
               << std::endl;
     delete in_visited;
     delete out_visited;
-    return !visited.empty();
+    return !visited->empty();
   }
 
   bool Aggregate(void* a, void* b,
