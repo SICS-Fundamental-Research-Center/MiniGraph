@@ -17,4 +17,3 @@
 [submodule "third_party/yaml-cpp"]
 	path = third_party/yaml-cpp
 	url = git@github.com:jbeder/yaml-cpp.git
-	branch = main
