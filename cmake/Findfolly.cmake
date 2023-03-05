@@ -1,28 +1,26 @@
-# This file is used to find jemalloc library in CMake script, modifeid from the
+# This file is used to find folly alibrary in CMake script, modifeid from the
 # code from
 #
 #   https://github.com/BVLC/caffe/blob/master/cmake/Modules/FindGlog.cmake
 #
 # which is licensed under the 2-Clause BSD License.
 #
-# - Try to find Jemalloc
+# - Try to find folly
 #
 # The following variables are optionally searched for defaults
-#  JEMALLOC_ROOT_DIR:            Base directory where all JEMALLOC components are found
+#  FOLLY_ROOT_DIR:            Base directory where all JEMALLOC components are found
 #
 # The following are set after configuration is done:
-#  JEMALLOC_FOUND
-#  JEMALLOC_INCLUDE_DIRS
-#  JEMALLOC_LIBRARIES
-#  JEMALLOC_LIBRARY_DIRS
+#  FOLLY_FOUND
+#  FOLLY_INCLUDE_DIRS
+#  FOLLY_LIBRARIES
 
 include(FindPackageHandleStandardArgs)
 
-set(FOLLY_ROOT_DIR "/root/env/folly/folly" CACHE PATH "Folder contains libjemalloc")
+set(FOLLY_ROOT_DIR "" CACHE PATH "Folder contains libfolly")
 
 # We are testing only a couple of files in the include directories
 find_path(FOLLY_INCLUDE_DIR folly PATHS ${FOLLY_ROOT_DIR}/include)
-
 find_library(FOLLY_LIBRARY folly PATHS  ${FOLLY_ROOT_DIR}/lib)
 
 find_package_handle_standard_args(FOLLY DEFAULT_MSG FOLLY_INCLUDE_DIR FOLLY_LIBRARY)

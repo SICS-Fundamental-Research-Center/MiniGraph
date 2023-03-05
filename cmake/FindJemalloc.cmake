@@ -17,16 +17,12 @@
 #  JEMALLOC_LIBRARY_DIRS
 
 include(FindPackageHandleStandardArgs)
-
 set(JEMALLOC_ROOT_DIR "" CACHE PATH "Folder contains libjemalloc")
-
 # We are testing only a couple of files in the include directories
 find_path(JEMALLOC_INCLUDE_DIR jemalloc PATHS ${JEMALLOC_ROOT_DIR}/include)
-
 find_library(JEMALLOC_LIBRARY jemalloc PATHS  ${JEMALLOC_ROOT_DIR}/lib)
 
 find_package_handle_standard_args(JEMALLOC DEFAULT_MSG JEMALLOC_INCLUDE_DIR JEMALLOC_LIBRARY)
-
 
 if(JEMALLOC_FOUND)
     set(JEMALLOC_INCLUDE_DIRS ${JEMALLOC_INCLUDE_DIR})

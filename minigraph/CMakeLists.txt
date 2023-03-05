@@ -15,15 +15,12 @@ include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-# Folly
+# folly
 find_package(folly REQUIRED)
 if (NOT TARGET Folly::folly)
   include("${FOLLY_CMAKE_DIR}/folly-targets.cmake")
 endif()
 set(FOLLY_LIBRARIES Folly::folly)
-if (NOT folly_FIND_QUIETLY)
-  message(STATUS "Found folly: ${PACKAGE_PREFIX_DIR}")
-endif()
 
 # jemalloc
 if (USE_JEMALLOC)
@@ -35,6 +32,14 @@ if (USE_JEMALLOC)
     include_directories(SYSTEM ${JEMALLOC_INCLUDE_DIRS})
   endif ()
 endif ()
+
+# yaml-cpp
+find_package(yaml-cpp REQUIRED)
+include("${CMAKE_CURRENT_SOURCE_DIR}/../cmake/Findyaml-cpp.cmake" OPTIONAL)
+if (NOT YAML_CPP_FOUND)
+    message(STATUS "yaml-cpp not found, build without yaml-cpp")
+endif ()
+
 
 # find Threads
 set(CMAKE_THREAD_PREFER_PTHREAD ON)
@@ -54,8 +59,6 @@ include_directories(${THIRD_PARTY_ROOT}/rapidcsv/src)
 # Children CMakeLists
 #######################
 
-#include_directories ("third_party/")
-#add_subdirectory("tests")
 
 
 #######################
@@ -88,4 +91,7 @@ endif()
 add_library (minigraph ${MINIGRAPH_SOURCES})
 
 target_link_libraries(minigraph
-        ${FOLLY_LIBRARIES} )
+        ${FOLLY_LIBRARIES}
+        ${YAML_CPP_LIBRARIES}
+        ${JEMALLOC_LIBRARIES}
+        )

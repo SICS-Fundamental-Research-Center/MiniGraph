@@ -37,18 +37,6 @@ endif ()
 #######################
 # Libraries
 #######################
-
-# Folly
-find_package(folly REQUIRED)
-if (NOT TARGET Folly::folly)
-    include("${FOLLY_CMAKE_DIR}/folly-targets.cmake")
-endif ()
-set(FOLLY_LIBRARIES Folly::folly)
-if (NOT folly_FIND_QUIETLY)
-    message(STATUS "Found folly: ${PACKAGE_PREFIX_DIR}")
-endif ()
-
-# jemalloc
 if (USE_JEMALLOC)
     include("cmake/FindJemalloc.cmake" OPTIONAL)
     if (NOT JEMALLOC_FOUND)
@@ -75,9 +63,6 @@ include_directories(${THIRD_PARTY_ROOT}/rapidcsv/src)
 # Eigen
 include_directories(${THIRD_PARTY_ROOT}/eigen/)
 
-# Yaml
-include_directories(${THIRD_PARTY_ROOT}/yaml-cpp/src)
-
 #######################
 # Artifacts
 #######################
@@ -85,9 +70,6 @@ add_subdirectory(minigraph)
 include_directories(
         ${CMAKE_CURRENT_SOURCE_DIR}/minigraph
 )
-
-#add_executable(preprocess_exec tools/preprocess.cpp)
-#target_link_libraries(preprocess_exec minigraph)
 
 
 file(GLOB tools "${CMAKE_CURRENT_SOURCE_DIR}/tools/*.cpp")
@@ -98,7 +80,6 @@ foreach (appfile ${tools})
     add_executable("${app}_exec" ${appfile})
     target_link_libraries("${app}_exec" minigraph)
 endforeach ()
-
 
 file(GLOB appfiles "${CMAKE_CURRENT_SOURCE_DIR}/apps/cpp/*.cpp")
 foreach (appfile ${appfiles})
