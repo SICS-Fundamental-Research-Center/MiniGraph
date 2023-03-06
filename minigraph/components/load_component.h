@@ -1,21 +1,20 @@
 #ifndef MINIGRAPH_LOAD_COMPONENT_H
 #define MINIGRAPH_LOAD_COMPONENT_H
 
-#include <condition_variable>
-#include <memory>
-#include <queue>
-#include <string>
-
-#include <folly/ProducerConsumerQueue.h>
-#include <folly/synchronization/NativeSemaphore.h>
-
 #include "components/component_base.h"
 #include "portability/sys_data_structure.h"
 #include "scheduler/subgraph_scheduler_base.h"
+#include "scheduler/hash_scheduler.h"
 #include "utility/io/csr_io_adapter.h"
 #include "utility/io/data_mngr.h"
 #include "utility/state_machine.h"
 #include "utility/thread_pool.h"
+#include <folly/ProducerConsumerQueue.h>
+#include <folly/synchronization/NativeSemaphore.h>
+#include <condition_variable>
+#include <memory>
+#include <queue>
+#include <string>
 
 namespace minigraph {
 namespace components {
@@ -61,8 +60,7 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
     partial_result_cv_ = partial_result_cv;
     mode_ = mode;
 
-    minigraph::scheduler::SubGraphsSchedulerBase<GID_T, VID_T, VDATA_T, EDATA_T>
-        scheduler;
+    scheduler_ = new scheduler::HashScheduler<GID_T>();
 
     XLOG(INFO, "Init LoadComponent: Finish.");
   }
@@ -72,12 +70,12 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
     folly::NativeSemaphore sem(num_workers_);
     while (switch_) {
       GID_T gid = MINIGRAPH_GID_MAX;
-      read_trigger_cv_->wait(*read_trigger_lck_,
-                             //[&] { LOG_INFO(read_trigger_->size(), " ", pt_by_gid_->size());
-                              // return read_trigger_->size() ; });
-      [&] { return !read_trigger_->empty(); });
+      read_trigger_cv_->wait(
+          *read_trigger_lck_,
+          //[&] { LOG_INFO(read_trigger_->size(), " ", pt_by_gid_->size());
+          // return read_trigger_->size() ; });
+          [&] { return !read_trigger_->empty(); });
       if (!switch_) return;
-
 
       std::queue<GID_T> que_gid;
       std::vector<GID_T> vec_gid;
@@ -90,22 +88,14 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
         read_trigger_->pop();
       }
 
-
       while (!vec_gid.empty()) {
-        //gid = que_gid.front();
-        //que_gid.pop();
-        //vec_gid.push_back(gid);
-        size_t i = rand()%vec_gid.size();
-        gid = vec_gid.at(i);
-            vec_gid.erase(vec_gid.begin() + i);
+        gid = scheduler_->ChooseOne(vec_gid);
+        LOG_INFO(gid);
         sem.try_wait();
-       // auto task = std::bind(&components::LoadComponent<GRAPH_T>::ProcessGraph,
-       //                       this, gid, sem, mode_);
-       // this->thread_pool_->Commit(task);
-        ProcessGraph(gid,sem,mode_);
+        auto task = std::bind(&components::LoadComponent<GRAPH_T>::ProcessGraph,
+                              this, gid, sem, mode_);
+        this->thread_pool_->Commit(task);
       }
-
-
     }
   }
 
@@ -126,6 +116,8 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   std::condition_variable* partial_result_cv_ = nullptr;
 
   std::string mode_ = "default";
+
+  minigraph::scheduler::SubGraphsSchedulerBase<GID_T> *scheduler_= nullptr;
 
   void ProcessGraph(GID_T gid, folly::NativeSemaphore& sem,
                     std::string mode = "default") {

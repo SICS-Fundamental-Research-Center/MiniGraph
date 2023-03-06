@@ -4,6 +4,7 @@
 #include <memory>
 
 #include <folly/AtomicHashMap.h>
+#include "yaml-cpp/yaml.h"
 
 #include "utility/io/csr_io_adapter.h"
 #include "utility/io/edge_list_io_adapter.h"
@@ -461,6 +462,48 @@ class DataMngr {
     vid_map_file.read((char*)vid_map, sizeof(VID_T) * max_vid);
     vid_map_file.close();
     return std::make_pair(max_vid, vid_map);
+  }
+
+  bool WriteStatisticInfo(StatisticInfo& si, const std::string& out_pt) {
+    std::ofstream fout(out_pt);
+    YAML::Node si_node;
+    assert(si_node.IsNull());
+    si_node["num_vertexes"] = si.num_vertexes;
+    si_node["num_edges"] = si.num_edges;
+    si_node["num_active_vertexes"] = si.num_active_vertexes;
+    si_node["sum_out_border_vertexes"] = si.sum_out_border_vertexes;
+    si_node["sum_dlv"] = si.sum_dlv;
+    si_node["sum_dgv"] = si.sum_dgv;
+    si_node["sum_dlv_times_dlv"] = si.sum_dlv_times_dlv;
+    si_node["sum_dlv_times_dgv"] = si.sum_dlv_times_dgv;
+    si_node["sum_dgv_times_dgv"] = si.sum_dgv_times_dgv;
+    fout << si_node << std::endl;
+    return true;
+  }
+
+  StatisticInfo ReadStatisticInfo(const std::string& in_pt) {
+    YAML::Node si_node;
+    LOG_INFO(" ReadStatisticInfo", in_pt);
+    try {
+      si_node = YAML::LoadFile(in_pt);
+    } catch (YAML::BadFile& e) {
+      LOG_INFO("Read", in_pt, " error.");
+      return -1;
+    }
+
+    StatisticInfo si;
+    si.num_vertexes = si_node["num_vertexes"].as<size_t>();
+    si.num_edges = si_node["num_edges"].as<size_t>();
+    si.num_active_vertexes = si_node["num_active_vertexes"].as<size_t>();
+    si.sum_out_border_vertexes =
+        si_node["sum_out_border_vertexes"].as<size_t>();
+    si.sum_dlv = si_node["sum_dlv"].as<size_t>();
+    si.sum_dgv = si_node["sum_dgv"].as<size_t>();
+    si.sum_dlv_times_dlv = si_node["sum_dlv_times_dlv"].as<size_t>();
+    si.sum_dlv_times_dgv = si_node["sum_dlv_times_dgv"].as<size_t>();
+    si.sum_dgv_times_dgv = si_node["sum_dgv_times_dgv"].as<size_t>();
+    LOG_INFO("RETURN");
+    return si;
   }
 
   GRAPH_BASE_T* GetGraph(const GID_T& gid) {
