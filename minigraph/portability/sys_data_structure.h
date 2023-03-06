@@ -1,16 +1,14 @@
 #pragma once
 
-#include <math.h>
-#include <string>
-#include <vector>
-#include <condition_variable>
-
-#include <folly/AtomicHashMap.h>
-
 #include "graphs/graph.h"
 #include "graphs/immutable_csr.h"
 #include "portability/sys_data_structure.h"
 #include "utility/thread_pool.h"
+#include <folly/AtomicHashMap.h>
+#include <condition_variable>
+#include <math.h>
+#include <string>
+#include <vector>
 
 #define BIG_CONSTANT(x) (x##LLU)
 
@@ -116,18 +114,19 @@ struct StatisticInfo {
   float elapsed_time = 0;
 
   void ShowInfo() {
-    LOG_INFO(inc_type, ",", num_iters, ",", num_active_vertexes, ",", sum_dlv, ",",
-             sum_dgv, ",", sum_dlv_times_dlv, ",", sum_dlv_times_dgv, ",",
+    LOG_INFO(inc_type, ",", num_iters, ",", num_active_vertexes, ",", sum_dlv,
+             ",", sum_dgv, ",", sum_dlv_times_dlv, ",", sum_dlv_times_dgv, ",",
              sum_dgv_times_dgv, ",", sum_in_border_vertexes, ",",
-             sum_out_border_vertexes, ",", num_edges, ",", num_vertexes,
-             ",", elapsed_time);
+             sum_out_border_vertexes, ",", num_edges, ",", num_vertexes, ",",
+             elapsed_time);
     return;
   };
 
-  StatisticInfo(size_t t=0, size_t l = 0) {
+  StatisticInfo(size_t t = 0, size_t l = 0) {
     level = l;
     inc_type = t;
   };
+
 };
 
 inline std::pair<vid_t, vid_t> SplitEdge(const std::string& str,

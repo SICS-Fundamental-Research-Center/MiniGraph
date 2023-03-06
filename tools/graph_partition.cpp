@@ -1,8 +1,9 @@
 #include <gflags/gflags.h>
 #include <sys/stat.h>
-
 #include <iostream>
 #include <string>
+
+#include "yaml-cpp/yaml.h"
 
 #include "graphs/edge_list.h"
 #include "graphs/immutable_csr.h"
@@ -14,11 +15,75 @@
 #include "utility/paritioner/hybrid_cut_partitioner.h"
 #include "utility/paritioner/partitioner_base.h"
 #include "utility/paritioner/vertex_cut_partitioner.h"
+#include "utility/thread_pool.h"
 
 using CSR_T = minigraph::graphs::ImmutableCSR<gid_t, vid_t, vdata_t, edata_t>;
 using GRAPH_BASE_T = minigraph::graphs::Graph<gid_t, vid_t, vdata_t, edata_t>;
 using EDGE_LIST_T = minigraph::graphs::EdgeList<gid_t, vid_t, vdata_t, edata_t>;
 using VID_T = vid_t;
+using VertexInfo = minigraph::graphs::VertexInfo<vid_t, vdata_t, edata_t>;
+
+StatisticInfo ParallelSetStatisticInfo(CSR_T& csr_graph, const size_t cores) {
+  auto thread_pool = minigraph::utility::EDFThreadPool(cores);
+  std::mutex mtx;
+  std::condition_variable finish_cv;
+  std::unique_lock<std::mutex> lck(mtx);
+  std::atomic<size_t> pending_packages(cores);
+
+  StatisticInfo si;
+  si.num_active_vertexes = csr_graph.get_num_vertexes();
+  si.num_vertexes = csr_graph.get_num_vertexes();
+  si.num_edges = csr_graph.get_num_edges();
+
+  size_t pending_package = cores;
+  pending_packages.store(cores);
+  for (size_t tid = 0; tid < cores; tid++) {
+    thread_pool.Commit(
+        [tid, &cores, &csr_graph, &si, &pending_package, &finish_cv]() {
+          size_t local_sum_border_vertexes = 0;
+          size_t local_sum_out_degree = 0;
+          size_t local_sum_dgv_times_dgv = 0;
+          size_t local_sum_dlv_times_dlv = 0;
+          size_t local_sum_dlv_times_dgv = 0;
+          size_t local_sum_dlv = 0;
+          size_t local_sum_dgv = 0;
+          for (size_t i = tid; i < csr_graph.get_num_vertexes(); i += cores) {
+            VertexInfo&& u = csr_graph.GetVertexByIndex(i);
+            size_t dlv = 0;
+            size_t dgv = u.outdegree;
+            for (size_t out_nbr_i = 0; out_nbr_i < u.outdegree; ++out_nbr_i) {
+              if (!csr_graph.IsInGraph(u.out_edges[out_nbr_i])) {
+                ++local_sum_border_vertexes;
+                continue;
+              }
+              ++dlv;
+              ++local_sum_out_degree;
+            }
+            local_sum_dlv_times_dgv += dlv * dgv;
+            local_sum_dlv_times_dlv += dlv * dlv;
+            local_sum_dgv_times_dgv += dgv * dgv;
+            local_sum_dgv += dgv;
+            local_sum_dlv += dlv;
+          }
+
+          write_add(&si.sum_out_degree, local_sum_out_degree);
+          write_add(&si.sum_dlv_times_dgv, local_sum_dlv_times_dgv);
+          write_add(&si.sum_dlv_times_dlv, local_sum_dlv_times_dlv);
+          write_add(&si.sum_dgv_times_dgv, local_sum_dgv_times_dgv);
+          write_add(&si.sum_out_border_vertexes, local_sum_border_vertexes);
+          write_add(&si.sum_dlv, local_sum_dlv);
+          write_add(&si.sum_dgv, local_sum_dgv);
+          if (__sync_fetch_and_sub(&pending_package, 1) == 1)
+            finish_cv.notify_all();
+
+          return;
+        });
+  }
+  finish_cv.wait(lck, [&] { return pending_package == 0; });
+
+  // si.ShowInfo();
+  return si;
+}
 
 void GraphPartitionEdgeList2CSR(std::string src_pt, std::string dst_pt,
                                 std::size_t cores, std::size_t num_partitions,
@@ -89,27 +154,17 @@ void GraphPartitionEdgeList2CSR(std::string src_pt, std::string dst_pt,
     remove((dst_pt + "minigraph_message/").c_str());
     data_mngr.MakeDirectory(dst_pt + "minigraph_message/");
   }
-
   if (!data_mngr.IsExist(dst_pt + "minigraph_message/")) {
     data_mngr.MakeDirectory(dst_pt + "minigraph_message/");
   } else {
     remove((dst_pt + "minigraph_message/").c_str());
     data_mngr.MakeDirectory(dst_pt + "minigraph_message/");
   }
-
-  auto fragments = partitioner->GetFragments();
-  size_t count = 0;
-  for (auto& iter_fragments : *fragments) {
-    auto fragment = (CSR_T*)iter_fragments;
-    std::string meta_pt =
-        dst_pt + "minigraph_meta/" + std::to_string(count) + ".bin";
-    std::string data_pt =
-        dst_pt + "minigraph_data/" + std::to_string(count) + ".bin";
-    std::string vdata_pt =
-        dst_pt + "minigraph_vdata/" + std::to_string(count) + ".bin";
-    data_mngr.csr_io_adapter_->Write(*fragment, csr_bin, false, meta_pt,
-                                     data_pt, vdata_pt);
-    count++;
+  if (!data_mngr.IsExist(dst_pt + "minigraph_si/")) {
+    data_mngr.MakeDirectory(dst_pt + "minigraph_si/");
+  } else {
+    remove((dst_pt + "minigraph_si/").c_str());
+    data_mngr.MakeDirectory(dst_pt + "minigraph_si/");
   }
 
   LOG_INFO("WriteCommunicationMatrix.");
@@ -132,6 +187,26 @@ void GraphPartitionEdgeList2CSR(std::string src_pt, std::string dst_pt,
                         dst_pt + "minigraph_message/vid_map.bin");
   data_mngr.WriteBitmap(global_border_vid_map,
                         dst_pt + "minigraph_message/global_border_vid_map.bin");
+
+  auto fragments = partitioner->GetFragments();
+  delete partitioner;
+  size_t count = 0;
+  for (auto& iter_fragments : *fragments) {
+    auto fragment = (CSR_T*)iter_fragments;
+    std::string meta_pt =
+        dst_pt + "minigraph_meta/" + std::to_string(count) + ".bin";
+    std::string data_pt =
+        dst_pt + "minigraph_data/" + std::to_string(count) + ".bin";
+    std::string vdata_pt =
+        dst_pt + "minigraph_vdata/" + std::to_string(count) + ".bin";
+    data_mngr.csr_io_adapter_->Write(*fragment, csr_bin, false, meta_pt,
+                                     data_pt, vdata_pt);
+    StatisticInfo&& si = ParallelSetStatisticInfo(*fragment, cores);
+    std::string si_pt =
+        dst_pt + "minigraph_si/" + std::to_string(count) + ".yaml";
+    data_mngr.WriteStatisticInfo(si, si_pt);
+    count++;
+  }
 
   LOG_INFO("End graph partition#");
 }

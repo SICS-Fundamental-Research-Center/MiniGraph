@@ -534,6 +534,7 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     return;
   }
 
+
  public:
   size_t sum_in_edges_ = 0;
   size_t sum_out_edges_ = 0;

@@ -1,6 +1,7 @@
 #ifndef MINIGRAPH_DEFAULT_MESSAGE_MANAGER_H
 #define MINIGRAPH_DEFAULT_MESSAGE_MANAGER_H
 
+#include <fstream>
 #include <unordered_map>
 #include <vector>
 
@@ -64,7 +65,16 @@ class DefaultMessageManager : public MessageManagerBase {
     for (VID_T vid = 0; vid < aligned_max_vid_; vid++)
       global_border_vdata_[vid] = VDATA_MAX;
 
-    //// Init others.
+    // Init StatisticInfo
+    si_ = new StatisticInfo[num_graphs_];
+    for (size_t i = 0; i < num_graphs_; i++) {
+      std::string si_pt =
+          work_space + "minigraph_si/" + std::to_string(i) + ".yaml";
+      si_[i] = data_mngr_->ReadStatisticInfo(si_pt);
+      si_[i].ShowInfo();
+    }
+
+    // Init others.
     historical_state_matrix_ = (char*)malloc(sizeof(char) * num_graphs_);
     memset(historical_state_matrix_, 0, sizeof(char) * num_graphs_);
     for (size_t i = 0; i < num_graphs_; i++) {
@@ -119,6 +129,16 @@ class DefaultMessageManager : public MessageManagerBase {
 
   char GetStateMatrix(size_t gid) { return *(historical_state_matrix_ + gid); }
 
+  StatisticInfo* GetStatisticInfo(const GID_T gid) { return si_[gid]; }
+
+  bool WriteStatisticInfo(const std::string pt) {
+    this->MakeDirectory(pt);
+    for (size_t i = 0; i < num_graphs_; i++) {
+      std::string out_pt = pt + std::to_string(i) + ".yaml";
+      std::ofstream fout(out_pt);
+    }
+  }
+
   bool CheckDependenes(const GID_T x, const GID_T y) {
     return *(communication_matrix_ + x * num_graphs_ + y) == 1;
   }
@@ -136,6 +156,7 @@ class DefaultMessageManager : public MessageManagerBase {
   bool* communication_matrix_ = nullptr;
   char* historical_state_matrix_ = nullptr;
   void** msg_bucket = nullptr;
+  StatisticInfo* si_ = nullptr;
   std::atomic<size_t> offset_bucket = 0;
 };
 
