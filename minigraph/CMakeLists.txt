@@ -34,8 +34,10 @@ if (USE_JEMALLOC)
 endif ()
 
 # yaml-cpp
-find_package(yaml-cpp REQUIRED)
+#find_package(yaml-cpp REQUIRED)
 include("${CMAKE_CURRENT_SOURCE_DIR}/../cmake/Findyaml-cpp.cmake" OPTIONAL)
+include_directories(${THIRD_PARTY_ROOT}/yaml-cpp/include)
+message(${THIRD_PARTY_ROOT}/yaml-cpp/include/)
 if (NOT YAML_CPP_FOUND)
     message(STATUS "yaml-cpp not found, build without yaml-cpp")
 endif ()
