@@ -1,20 +1,24 @@
 #ifndef MINIGRAPH_LOAD_COMPONENT_H
 #define MINIGRAPH_LOAD_COMPONENT_H
 
-#include "components/component_base.h"
-#include "portability/sys_data_structure.h"
-#include "scheduler/subgraph_scheduler_base.h"
-#include "scheduler/hash_scheduler.h"
-#include "utility/io/csr_io_adapter.h"
-#include "utility/io/data_mngr.h"
-#include "utility/state_machine.h"
-#include "utility/thread_pool.h"
-#include <folly/ProducerConsumerQueue.h>
-#include <folly/synchronization/NativeSemaphore.h>
 #include <condition_variable>
 #include <memory>
 #include <queue>
 #include <string>
+
+#include <folly/ProducerConsumerQueue.h>
+#include <folly/synchronization/NativeSemaphore.h>
+
+#include "components/component_base.h"
+#include "portability/sys_data_structure.h"
+#include "scheduler/fifo_scheduler.h"
+#include "scheduler/hash_scheduler.h"
+#include "scheduler/learned_scheduler.h"
+#include "scheduler/subgraph_scheduler_base.h"
+#include "utility/io/csr_io_adapter.h"
+#include "utility/io/data_mngr.h"
+#include "utility/state_machine.h"
+#include "utility/thread_pool.h"
 
 namespace minigraph {
 namespace components {
@@ -44,7 +48,8 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       std::unique_lock<std::mutex>* read_trigger_lck,
       std::condition_variable* read_trigger_cv,
       std::condition_variable* task_queue_cv,
-      std::condition_variable* partial_result_cv, std::string mode = "Default")
+      std::condition_variable* partial_result_cv, std::string mode = "Default",
+      std::string scheduler = "FIFO")
       : ComponentBase<GID_T>(thread_pool, superstep_by_gid, global_superstep,
                              state_machine) {
     num_workers_ = num_workers;
@@ -60,7 +65,16 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
     partial_result_cv_ = partial_result_cv;
     mode_ = mode;
 
-    scheduler_ = new scheduler::HashScheduler<GID_T>();
+    if (scheduler == "FIFO") {
+      scheduler_ = new scheduler::FIFOScheduler<GID_T>();
+    } else if (scheduler == "learned_model") {
+      scheduler_ =
+          new scheduler::LearnedScheduler<GID_T>(msg_mngr_->GetStatisticInfo());
+    } else if (scheduler == "hash") {
+      scheduler_ = new scheduler::HashScheduler<GID_T>();
+    } else {
+      scheduler_ = new scheduler::FIFOScheduler<GID_T>();
+    }
 
     XLOG(INFO, "Init LoadComponent: Finish.");
   }
@@ -70,11 +84,8 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
     folly::NativeSemaphore sem(num_workers_);
     while (switch_) {
       GID_T gid = MINIGRAPH_GID_MAX;
-      read_trigger_cv_->wait(
-          *read_trigger_lck_,
-          //[&] { LOG_INFO(read_trigger_->size(), " ", pt_by_gid_->size());
-          // return read_trigger_->size() ; });
-          [&] { return !read_trigger_->empty(); });
+      read_trigger_cv_->wait(*read_trigger_lck_,
+                             [&] { return !read_trigger_->empty(); });
       if (!switch_) return;
 
       std::queue<GID_T> que_gid;
@@ -90,7 +101,7 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
 
       while (!vec_gid.empty()) {
         gid = scheduler_->ChooseOne(vec_gid);
-        LOG_INFO(gid);
+        LOG_INFO("load ", gid);
         sem.try_wait();
         auto task = std::bind(&components::LoadComponent<GRAPH_T>::ProcessGraph,
                               this, gid, sem, mode_);
@@ -117,7 +128,7 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
 
   std::string mode_ = "default";
 
-  minigraph::scheduler::SubGraphsSchedulerBase<GID_T> *scheduler_= nullptr;
+  minigraph::scheduler::SubGraphsSchedulerBase<GID_T>* scheduler_ = nullptr;
 
   void ProcessGraph(GID_T gid, folly::NativeSemaphore& sem,
                     std::string mode = "default") {

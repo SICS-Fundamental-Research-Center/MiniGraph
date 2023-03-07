@@ -79,6 +79,8 @@ DEFINE_string(init_model, "val", "init model for vdata of all vertexes");
 DEFINE_string(mode, "default", "MiniGraph with entire optimization");
 DEFINE_string(partitioner, "edgecut",
               "graph partition solutions include vertexcut, edgecut");
+DEFINE_string(scheduler, "FIFO",
+              "subgraphs scheduler include FIFO, hash, learned_model");
 DEFINE_uint64(init_val, 0, "init value for vdata of all vertexes");
 DEFINE_uint64(walsk_per_source, 1, "walks per vertex for random walks application.");
 DEFINE_uint64(root, 0, "the id of root vertex");

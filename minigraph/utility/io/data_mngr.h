@@ -468,6 +468,7 @@ class DataMngr {
     std::ofstream fout(out_pt);
     YAML::Node si_node;
     assert(si_node.IsNull());
+
     si_node["num_vertexes"] = si.num_vertexes;
     si_node["num_edges"] = si.num_edges;
     si_node["num_active_vertexes"] = si.num_active_vertexes;
@@ -478,12 +479,12 @@ class DataMngr {
     si_node["sum_dlv_times_dgv"] = si.sum_dlv_times_dgv;
     si_node["sum_dgv_times_dgv"] = si.sum_dgv_times_dgv;
     fout << si_node << std::endl;
+
     return true;
   }
 
   StatisticInfo ReadStatisticInfo(const std::string& in_pt) {
     YAML::Node si_node;
-    LOG_INFO(" ReadStatisticInfo", in_pt);
     try {
       si_node = YAML::LoadFile(in_pt);
     } catch (YAML::BadFile& e) {
@@ -502,7 +503,6 @@ class DataMngr {
     si.sum_dlv_times_dlv = si_node["sum_dlv_times_dlv"].as<size_t>();
     si.sum_dlv_times_dgv = si_node["sum_dlv_times_dgv"].as<size_t>();
     si.sum_dgv_times_dgv = si_node["sum_dgv_times_dgv"].as<size_t>();
-    LOG_INFO("RETURN");
     return si;
   }
 

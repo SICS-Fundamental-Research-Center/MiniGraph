@@ -203,7 +203,6 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
         this->msg_mngr_->GetGlobalBorderVidMap(),
         this->msg_mngr_->GetGlobalVdata(), &global_si);
 
-
     bool run = true;
     size_t count_iters = 0;
     std::vector<StatisticInfo> vec_si;
@@ -263,7 +262,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     // if (visited_num < graph.get_num_vertexes() / 10000) {
     //  return false;
     //}
-    return !(global_si.num_active_vertexes == 0);
+    return !(global_si.num_active_vertexes < graph.get_num_vertexes() / 10000);
   }
 
   bool Aggregate(void* a, void* b,
@@ -294,7 +293,7 @@ int main(int argc, char* argv[]) {
 
   minigraph::MiniGraphSys<CSR_T, WCCPIE_T> minigraph_sys(
       work_space, num_workers_lc, num_workers_cc, num_workers_dc, num_cores,
-      buffer_size, app_wrapper, FLAGS_mode);
+      buffer_size, app_wrapper, FLAGS_mode, FLAGS_niters, FLAGS_scheduler);
   minigraph_sys.RunSys();
   gflags::ShutDownCommandLineFlags();
   exit(0);

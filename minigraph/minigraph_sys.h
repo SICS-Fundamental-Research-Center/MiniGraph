@@ -45,7 +45,7 @@ class MiniGraphSys {
                const size_t num_workers_cc = 1, const size_t num_workers_dc = 1,
                const size_t num_cores = 1, const size_t buffer_size = 0,
                APP_WRAPPER* app_wrapper = nullptr, std::string mode = "Default",
-               const size_t num_iter = 30) {
+               const size_t num_iter = 30, std::string scheduler = "FIFO") {
     assert(num_workers_dc > 0 && num_workers_cc > 0 && num_workers_dc > 0 &&
            num_cores / num_workers_cc >= 1);
 
@@ -138,7 +138,7 @@ class MiniGraphSys {
         task_queue_.get(), partial_result_queue_.get(), pt_by_gid_,
         data_mngr_.get(), msg_mngr_.get(), read_trigger_lck_.get(),
         read_trigger_cv_.get(), task_queue_cv_.get(), partial_result_cv_.get(),
-        mode);
+        mode, scheduler);
     computing_component_ =
         std::make_unique<components::ComputingComponent<GRAPH_T, AUTOAPP_T>>(
             num_workers_cc, num_cores, cc_thread_pool_.get(), superstep_by_gid_,
