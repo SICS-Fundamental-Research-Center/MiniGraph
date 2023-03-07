@@ -23,9 +23,9 @@ class WCCAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
   bool F(const VertexInfo& u, VertexInfo& v,
          GRAPH_T* graph = nullptr) override {
     auto tag = false;
-    if(v.vdata[0] < u.vdata[0]){
+    if (v.vdata[0] < u.vdata[0]) {
       write_min(v.vdata, u.vdata[0]);
-      tag =true;
+      tag = true;
     }
     return tag;
   }
