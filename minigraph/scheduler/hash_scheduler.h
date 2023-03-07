@@ -11,7 +11,9 @@ template <typename GID_T>
 class HashScheduler : public SubGraphsSchedulerBase<GID_T> {
  public:
  public:
-  HashScheduler() = default;
+  HashScheduler() {
+      LOG_INFO("Init hash scheduler.");
+  };
   ~HashScheduler() = default;
 
   size_t ChooseOne(std::vector<GID_T>& vec_gid) {
