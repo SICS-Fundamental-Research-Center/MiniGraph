@@ -1,10 +1,3 @@
-#include <gflags/gflags.h>
-#include <sys/stat.h>
-#include <iostream>
-#include <string>
-
-#include "yaml-cpp/yaml.h"
-
 #include "graphs/edge_list.h"
 #include "graphs/immutable_csr.h"
 #include "portability/sys_data_structure.h"
@@ -16,6 +9,11 @@
 #include "utility/paritioner/partitioner_base.h"
 #include "utility/paritioner/vertex_cut_partitioner.h"
 #include "utility/thread_pool.h"
+#include "yaml-cpp/yaml.h"
+#include <gflags/gflags.h>
+#include <sys/stat.h>
+#include <iostream>
+#include <string>
 
 using CSR_T = minigraph::graphs::ImmutableCSR<gid_t, vid_t, vdata_t, edata_t>;
 using GRAPH_BASE_T = minigraph::graphs::Graph<gid_t, vid_t, vdata_t, edata_t>;
@@ -227,11 +225,9 @@ int main(int argc, char* argv[]) {
               << " init_model: " << FLAGS_init_model
               << " cores: " << FLAGS_cores << std::endl;
 
-    if (graph_type == "csr_bin") {
-      GraphPartitionEdgeList2CSR(src_pt, dst_pt, cores, num_partitions,
-                                 *FLAGS_sep.c_str(), FLAGS_frombin,
-                                 FLAGS_partitioner);
-    }
+    GraphPartitionEdgeList2CSR(src_pt, dst_pt, cores, num_partitions,
+                               *FLAGS_sep.c_str(), FLAGS_frombin,
+                               FLAGS_partitioner);
   }
 
   gflags::ShutDownCommandLineFlags();

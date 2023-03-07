@@ -2,8 +2,7 @@
 #ifndef MINIGRAPH_SUBGRAPH_SCHEDULER_BASE_H
 #define MINIGRAPH_SUBGRAPH_SCHEDULER_BASE_H
 
-#include "Eigen/Core"
-#include "Eigen/Dense"
+#include <vector>
 
 namespace minigraph {
 namespace scheduler {
@@ -11,9 +10,8 @@ namespace scheduler {
 template <typename GID_T>
 class SubGraphsSchedulerBase {
  public:
-
  public:
-  SubGraphsSchedulerBase() { Eigen::MatrixXf a(10, 15); };
+  SubGraphsSchedulerBase() = default;
   ~SubGraphsSchedulerBase() = default;
 
   virtual size_t ChooseOne(std::vector<GID_T>& vec_gid) = 0;

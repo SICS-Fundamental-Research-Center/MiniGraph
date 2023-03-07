@@ -317,9 +317,7 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
                    global_vid += cores) {
                 if (fragments[bucket_id_to_be_splitted][global_vid] == nullptr)
                   continue;
-
                 auto u = fragments[bucket_id_to_be_splitted][global_vid];
-
                 GID_T gid = (Hash(global_vid) % num_new_buckets);
                 is_in_bucketX[gid + num_partitions]->set_bit(global_vid);
                 new_fragments[gid][u->vid] = u;
@@ -336,6 +334,10 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
       }
       finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
 
+
+      for(size_t i = 0; i< num_new_buckets; i++){
+        LOG_INFO(num_vertexes_per_new_bucket[i]);
+      }
       LOG_INFO("Run: Construct splitted sub-graphs");
       pending_packages.store(cores);
       for (size_t tid = 0; tid < cores; tid++) {
@@ -372,7 +374,6 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
                           &bucket_id_to_be_splitted, &num_vertexes_per_bucket,
                           &vid_map, &pending_packages, &finish_cv]() {
         for (size_t gid = tid; gid < num_partitions; gid += cores) {
-          LOG_INFO(gid);
           if (gid == bucket_id_to_be_splitted) continue;
           auto graph = new graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>(
               gid, fragments[gid], num_vertexes_per_bucket[gid],
@@ -424,7 +425,6 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
     GID_T local_gid = 0;
     for (auto& iter_fragments : *this->fragments_) {
       auto fragment = (CSR_T*)iter_fragments;
-      LOG_INFO("gid: ", fragment->get_gid(), "->", local_gid);
       fragment->gid_ = local_gid++;
     }
 

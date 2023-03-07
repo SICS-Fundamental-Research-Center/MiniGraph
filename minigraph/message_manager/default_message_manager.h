@@ -129,7 +129,9 @@ class DefaultMessageManager : public MessageManagerBase {
 
   char GetStateMatrix(size_t gid) { return *(historical_state_matrix_ + gid); }
 
-  StatisticInfo* GetStatisticInfo(const GID_T gid) { return si_[gid]; }
+  StatisticInfo GetStatisticInfo(const GID_T gid) { return si_[gid]; }
+
+  StatisticInfo* GetStatisticInfo() { return si_; }
 
   bool WriteStatisticInfo(const std::string pt) {
     this->MakeDirectory(pt);
