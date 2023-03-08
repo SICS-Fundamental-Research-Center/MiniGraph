@@ -13,7 +13,9 @@
 #include "portability/sys_data_structure.h"
 #include "scheduler/fifo_scheduler.h"
 #include "scheduler/hash_scheduler.h"
+#include "scheduler/large_first_scheduler.h"
 #include "scheduler/learned_scheduler.h"
+#include "scheduler/small_first_scheduler.h"
 #include "scheduler/subgraph_scheduler_base.h"
 #include "utility/io/csr_io_adapter.h"
 #include "utility/io/data_mngr.h"
@@ -72,6 +74,12 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
           new scheduler::LearnedScheduler<GID_T>(msg_mngr_->GetStatisticInfo());
     } else if (scheduler == "hash") {
       scheduler_ = new scheduler::HashScheduler<GID_T>();
+    } else if (scheduler == "large_first") {
+      scheduler_ = new scheduler::LargeFirstScheduler<GID_T>(
+          msg_mngr_->GetStatisticInfo());
+    } else if (scheduler == "small_first") {
+      scheduler_ = new scheduler::SmallFirstScheduler<GID_T>(
+          msg_mngr_->GetStatisticInfo());
     } else {
       scheduler_ = new scheduler::FIFOScheduler<GID_T>();
     }

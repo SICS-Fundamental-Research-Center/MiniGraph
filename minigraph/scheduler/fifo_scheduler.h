@@ -11,7 +11,10 @@ template <typename GID_T>
 class FIFOScheduler : public SubGraphsSchedulerBase<GID_T> {
  public:
  public:
-   FIFOScheduler() = default;
+   FIFOScheduler() {
+      LOG_INFO("Init FIFO.");
+  };
+
   ~FIFOScheduler() = default;
 
   size_t ChooseOne(std::vector<GID_T>& vec_gid) {
