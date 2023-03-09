@@ -2,12 +2,13 @@
 #ifndef MINIGRAPH_SUBGRAPH_LEARNED_SCHEDULER_H
 #define MINIGRAPH_SUBGRAPH_LEARNED_SCHEDULER_H
 
-#include "vector"
-
-#include "yaml-cpp/yaml.h"
+#include <float.h>
+#include <vector>
 
 #include "Eigen/Core"
 #include "Eigen/Dense"
+#include "yaml-cpp/yaml.h"
+
 #include "portability/sys_data_structure.h"
 #include "scheduler/subgraph_scheduler_base.h"
 #include "utility/atomic.h"
@@ -30,21 +31,21 @@ class LearnedScheduler : public SubGraphsSchedulerBase<GID_T> {
     GID_T gid = GID_MAX;
 
     double rank_max = 0;
-    double rank_min = 99999999;
+    double rank_min = DBL_MAX;
     size_t index = 0;
     for (size_t i = 0; i < vec_gid.size(); ++i) {
       auto si = si_[i];
 
-      //auto rank =
-      //    model_a(si_[i].sum_dlv, si_[i].sum_dgv, si_[i].sum_dlv_times_dlv,
-      //            si_[i].sum_dlv_times_dgv, si_[i].sum_dgv_times_dgv);
+      // auto rank =
+      //     model_a(si_[i].sum_dlv, si_[i].sum_dgv, si_[i].sum_dlv_times_dlv,
+      //             si_[i].sum_dlv_times_dgv, si_[i].sum_dgv_times_dgv);
       // auto rank = model_b(si_[i].sum_dlv, si_[i].sum_dlv_times_dlv);
-       auto rank =
+      auto rank =
           model_c(si_[i].sum_dlv, si_[i].sum_dgv, si_[i].sum_dlv_times_dlv,
                   si_[i].sum_dlv_times_dgv, si_[i].sum_dgv_times_dgv, 5);
 
       // if (write_max(&rank_max, rank(0, 0))) {
-      if (write_max(&rank_max, rank(0, 0))) {
+      if (write_min(&rank_min, rank(0, 0))) {
         index = i;
         gid = vec_gid.at(i);
       }
@@ -70,6 +71,7 @@ class LearnedScheduler : public SubGraphsSchedulerBase<GID_T> {
   Eigen::MatrixXd model_a(size_t sum_dlv, size_t sum_dgv,
                           size_t sum_dlv_times_dlv, size_t sum_dlv_times_dgv,
                           size_t sum_dgv_times_dgv) {
+    LOG_INFO("model_a");
     Eigen::MatrixXd x(1, 5);
     Eigen::MatrixXd w1(5, 1);
     Eigen::MatrixXd w2(5, 1);
@@ -99,6 +101,7 @@ class LearnedScheduler : public SubGraphsSchedulerBase<GID_T> {
   }
 
   Eigen::MatrixXd model_b(size_t sum_dlv, size_t sum_dlv_times_dlv) {
+    LOG_INFO("model_b");
     Eigen::MatrixXd x(1, 2);
     Eigen::MatrixXd w1(2, 1);
     Eigen::MatrixXd w2(2, 1);
@@ -128,6 +131,7 @@ class LearnedScheduler : public SubGraphsSchedulerBase<GID_T> {
   Eigen::MatrixXd model_c(size_t sum_dlv, size_t sum_dgv,
                           size_t sum_dlv_times_dlv, size_t sum_dlv_times_dgv,
                           size_t sum_dgv_times_dgv, size_t cores) {
+    LOG_INFO("model_c");
     Eigen::MatrixXd x(1, 6);
     Eigen::MatrixXd w1(6, 5);
     Eigen::MatrixXd b1(1, 5);
