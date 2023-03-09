@@ -49,6 +49,11 @@ class PRPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
                                                    typename GRAPH_T::vdata_t,
                                                    typename GRAPH_T::edata_t>;
 
+  using GID_T = typename GRAPH_T::gid_t;
+  using VID_T = typename GRAPH_T::vid_t;
+  using VDATA_T = typename GRAPH_T::vdata_t;
+  using EDATA_T = typename GRAPH_T::edata_t;
+
  public:
 
   PRPIE(minigraph::AutoMapBase<GRAPH_T, CONTEXT_T>* auto_map,
@@ -98,8 +103,8 @@ class PRPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
           if ((u.vdata[0] - next) * (u.vdata[0] - next) >
               this->context_.epsilon) {
             if (global_border_vid_map->get_bit(graph.localid2globalid(u.vid)))
-              write_min(global_vdata + graph.localid2globalid(u.vid), next);
-            write_min(u.vdata, next);
+              write_min(global_vdata + graph.localid2globalid(u.vid), (VDATA_T)next);
+            write_min(u.vdata, (VDATA_T)next);
             out_visited->set_bit(u.vid);
             for (size_t j = 0; j < u.outdegree; j++) {
               if (graph.IsInGraph(u.out_edges[j]))
@@ -164,8 +169,8 @@ class PRPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
         if ((u.vdata[0] - next) * (u.vdata[0] - next) >
             this->context_.epsilon) {
           if (global_border_vid_map->get_bit(graph.localid2globalid(u.vid)))
-            write_min(global_vdata + graph.localid2globalid(u.vid), next);
-          write_min(u.vdata, next);
+            write_min(global_vdata + graph.localid2globalid(u.vid), (VDATA_T)next);
+          write_min(u.vdata, (VDATA_T)next);
           out_visited->set_bit(u.vid);
           visited.set_bit(u.vid);
           for (size_t j = 0; j < u.outdegree; j++) {

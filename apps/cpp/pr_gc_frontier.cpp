@@ -49,6 +49,11 @@ class PRPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
                                                    typename GRAPH_T::vdata_t,
                                                    typename GRAPH_T::edata_t>;
 
+  using GID_T = typename GRAPH_T::gid_t;
+  using VID_T = typename GRAPH_T::vid_t;
+  using VDATA_T = typename GRAPH_T::vdata_t;
+  using EDATA_T = typename GRAPH_T::edata_t;
+
  public:
   PRPIE(minigraph::AutoMapBase<GRAPH_T, CONTEXT_T>* auto_map,
         const CONTEXT_T& context)
@@ -58,7 +63,7 @@ class PRPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
   bool Init(GRAPH_T& graph,
             minigraph::executors::TaskRunner* task_runner) override {
-    //LOG_INFO("Init() - Processing gid: ", graph.gid_);
+    // LOG_INFO("Init() - Processing gid: ", graph.gid_);
     Bitmap* visited = new Bitmap(graph.max_vid_);
     visited->fill();
     this->auto_map_->ActiveMap(graph, task_runner, visited,
@@ -97,8 +102,9 @@ class PRPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
           if ((u.vdata[0] - next) * (u.vdata[0] - next) >
               this->context_.epsilon) {
             if (global_border_vid_map->get_bit(graph.localid2globalid(u.vid)))
-              write_min(global_vdata + graph.localid2globalid(u.vid), next);
-            write_min(u.vdata, next);
+              write_min(global_vdata + graph.localid2globalid(u.vid),
+                        (VDATA_T)next);
+            write_min(u.vdata, (VDATA_T)next);
             out_visited->set_bit(u.vid);
 
             for (size_t j = 0; j < u.outdegree; j++) {
@@ -128,7 +134,7 @@ class PRPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
   bool IncEval(GRAPH_T& graph,
                minigraph::executors::TaskRunner* task_runner) override {
-    //LOG_INFO("IncEval() - Processing gid: ", graph.gid_);
+    // LOG_INFO("IncEval() - Processing gid: ", graph.gid_);
 
     Bitmap* in_visited = new Bitmap(graph.get_num_vertexes());
     Bitmap* out_visited = new Bitmap(graph.get_num_vertexes());
@@ -164,9 +170,10 @@ class PRPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
         if ((u.vdata[0] - next) * (u.vdata[0] - next) >
             this->context_.epsilon) {
           if (global_border_vid_map->get_bit(graph.localid2globalid(u.vid)))
-            write_min(global_vdata + graph.localid2globalid(u.vid), next);
+            write_min(global_vdata + graph.localid2globalid(u.vid),
+                      (VDATA_T)next);
 
-          write_min(u.vdata, next);
+          write_min(u.vdata, (VDATA_T)next);
           out_visited->set_bit(u.vid);
           visited.set_bit(u.vid);
           for (size_t j = 0; j < u.outdegree; j++) {
@@ -218,7 +225,7 @@ int main(int argc, char* argv[]) {
       work_space, num_workers_lc, num_workers_cc, num_workers_dc, num_cores,
       buffer_size, app_wrapper, FLAGS_mode, FLAGS_niters);
   minigraph_sys.RunSys();
-  //minigraph_sys.ShowResult(30);
+  // minigraph_sys.ShowResult(30);
   gflags::ShutDownCommandLineFlags();
   exit(0);
 }

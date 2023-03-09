@@ -92,11 +92,6 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
                                                    typename GRAPH_T::edata_t>;
 
  public:
-  //SSSPPIE(minigraph::VMapBase<GRAPH_T, CONTEXT_T>* vmap,
-  //        minigraph::EMapBase<GRAPH_T, CONTEXT_T>* emap,
-  //        const CONTEXT_T& context)
-  //    : minigraph::AutoAppBase<GRAPH_T, CONTEXT_T>(vmap, emap, context) {}
-
   SSSPPIE(minigraph::AutoMapBase<GRAPH_T, CONTEXT_T>* auto_map,
           const CONTEXT_T& context)
       : minigraph::AutoAppBase<GRAPH_T, CONTEXT_T>(auto_map, context) {}

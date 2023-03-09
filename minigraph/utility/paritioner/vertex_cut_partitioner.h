@@ -174,13 +174,14 @@ class VertexCutPartitioner : public PartitionerBase<GRAPH_T> {
           ->SetGlobalBorderVidMap(this->global_border_vid_map_, is_in_bucketX,
                                   num_partitions);
     }
+    LOG_INFO("X");
 
-    for (size_t i = 0; i < num_partitions; i++) {
-      delete is_in_bucketX[i];
-    }
-    for (GID_T gid = 0; gid < num_partitions; gid++) {
-      free(edges_buckets[gid]);
-    }
+    //for (size_t i = 0; i < num_partitions; i++) {
+    //  delete is_in_bucketX[i];
+    //}
+    //for (GID_T gid = 0; gid < num_partitions; gid++) {
+    //  free(edges_buckets[gid]);
+    //}
     free(num_vertexes_per_bucket);
     free(max_vid_per_bucket);
     free(size_per_bucket);

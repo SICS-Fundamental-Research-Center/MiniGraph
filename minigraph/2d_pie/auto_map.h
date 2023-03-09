@@ -143,6 +143,7 @@ class AutoMapBase {
         VertexInfo&& v = graph->GetVertexByVid(local_id);
         if (F(u, v)) {
           out_visited->set_bit(local_id);
+          //LOG_INFO("num_bit: ", out_visited->get_num_bit());
           visited->set_bit(local_id);
           *global_visited == true ? 0 : *global_visited = true;
           ++local_active_vertices;
