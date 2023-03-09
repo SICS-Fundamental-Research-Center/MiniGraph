@@ -228,7 +228,6 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     bool run = true;
     size_t count_iters = 0;
     std::vector<StatisticInfo> vec_si;
-    LOG_INFO(in_visited->get_num_bit());
     while (run) {
       // StatisticInfo si(1, 0);
       // auto iter_start_time = std::chrono::system_clock::now();
