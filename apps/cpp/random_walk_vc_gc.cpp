@@ -76,10 +76,6 @@ class RWAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
             visited->set_bit(local_nbr_id);
             out_visited->set_bit(local_nbr_id);
           }
-          if (global_border_vid_map->get_bit(global_nbr_id)) {
-            write_min(global_border_vdata + global_nbr_id,
-                      (VDATA_T)-current_step);
-          }
         } else {
           write_min(global_border_vdata + global_nbr_id,
                     (VDATA_T)-current_step);
@@ -151,16 +147,17 @@ class RWPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
     size_t num_source = graph.get_num_vertexes() / 50;
     for (size_t i = 0; i < num_source; i++) {
-      rand() % graph.get_num_vertexes();
+      auto vid = rand()%graph.get_num_vertexes();
+      graph.vdata_[i] = 0;
     }
 
-    this->auto_map_->ActiveMap(
-        graph, task_runner, visited,
-        RWAutoMap<GRAPH_T, CONTEXT_T>::kernel_init_source, in_visited,
-        out_visited, this->msg_mngr_->GetGlobalBorderVidMap(),
-        this->msg_mngr_->GetGlobalVdata());
-    std::swap(in_visited, out_visited);
-    out_visited->clear();
+    //this->auto_map_->ActiveMap(
+    //    graph, task_runner, visited,
+    //    RWAutoMap<GRAPH_T, CONTEXT_T>::kernel_init_source, in_visited,
+    //    out_visited, this->msg_mngr_->GetGlobalBorderVidMap(),
+    //    this->msg_mngr_->GetGlobalVdata());
+    //std::swap(in_visited, out_visited);
+    //out_visited->clear();
 
     for (auto step = 1; step <= this->context_.inner_niters; step++) {
       this->auto_map_->ActiveMap(graph, task_runner, visited,

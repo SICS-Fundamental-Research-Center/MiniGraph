@@ -24,10 +24,10 @@ class WCCAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
          GRAPH_T* graph = nullptr) override {
     auto tag = false;
     auto origin = v.vdata[0];
-    if (v.vdata[0] < u.vdata[0]) {
-      if(write_min(v.vdata, u.vdata[0])){
-      //  LOG_INFO(origin, "<-", u.vdata[0]);
+    if (v.vdata[0] > u.vdata[0]) {
+      if (write_min(v.vdata, u.vdata[0])) {
         tag = true;
+        //LOG_INFO(origin, "<-", u.vdata[0], " ", tag);
       }
     }
     return tag;
@@ -61,9 +61,11 @@ class WCCAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
       ++local_sum_out_border_vertex;
       auto global_id = graph->localid2globalid(u.vid);
       if (*(global_border_vdata + global_id) > u.vdata[0]) {
-        //LOG_INFO(*(global_border_vdata + global_id), "<-", u.vdata[0]);
-        write_min((global_border_vdata + global_id), u.vdata[0]);
-      }else {
+        // LOG_INFO(*(global_border_vdata + global_id), "<-", u.vdata[0]);
+        if(write_min((global_border_vdata + global_id), u.vdata[0])){
+          visited->set_bit(u.vid);
+        }
+      } else {
       }
     }
     write_add(&si->sum_out_border_vertexes, local_sum_out_border_vertex);
@@ -80,8 +82,9 @@ class WCCAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
     if (global_border_vid_map->size_ == 0) return true;
     for (size_t i = tid; i < graph->get_num_vertexes(); i += step) {
       auto u = graph->GetVertexByIndex(i);
-      if (u.vdata[0] < global_border_vdata[graph->localid2globalid(u.vid)]) {
-        if(write_min(u.vdata, global_border_vdata[graph->localid2globalid(u.vid)])){
+      if (u.vdata[0] > global_border_vdata[graph->localid2globalid(u.vid)]) {
+        if (write_min(u.vdata,
+                      global_border_vdata[graph->localid2globalid(u.vid)])) {
           in_visited->set_bit(u.vid);
         }
       }
@@ -92,10 +95,10 @@ class WCCAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
       for (size_t nbr_i = 0; nbr_i < u.indegree; nbr_i++) {
         if (global_border_vid_map->get_bit(u.in_edges[nbr_i]) == 0) continue;
         ++local_num_border_vertexes;
-        if (u.vdata[0] < global_border_vdata[u.in_edges[nbr_i]]) {
-          if(write_min(u.vdata, global_border_vdata[u.in_edges[nbr_i]])){
+        if (u.vdata[0] > global_border_vdata[u.in_edges[nbr_i]]) {
+          auto origin = u.vdata[0];
+          if (write_min(u.vdata, global_border_vdata[u.in_edges[nbr_i]])) {
             in_visited->set_bit(u.vid);
-
           }
         }
       }
@@ -131,7 +134,8 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
              minigraph::executors::TaskRunner* task_runner) override {
     // LOG_INFO("PEval() - Processing gid: ", graph.gid_,
     //          " num_vertexes: ", graph.get_num_vertexes());
-    if (!graph.IsInGraph(0)) return true;
+    //graph.ShowGraph();
+    //if (!graph.IsInGraph(0)) return true;
     auto vid_map = this->msg_mngr_->GetVidMap();
     auto start_time = std::chrono::system_clock::now();
 
@@ -224,6 +228,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     bool run = true;
     size_t count_iters = 0;
     std::vector<StatisticInfo> vec_si;
+    LOG_INFO(in_visited->get_num_bit());
     while (run) {
       // StatisticInfo si(1, 0);
       // auto iter_start_time = std::chrono::system_clock::now();
@@ -248,7 +253,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     }
 
     this->auto_map_->ActiveMap(
-        graph, task_runner, &visited,
+        graph, task_runner, &output_visited,
         WCCAutoMap<GRAPH_T, CONTEXT_T>::kernel_push_border_vertexes,
         this->msg_mngr_->GetGlobalBorderVidMap(),
         this->msg_mngr_->GetGlobalVdata(), &global_si);
@@ -257,7 +262,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     delete out_visited;
     auto end_time = std::chrono::system_clock::now();
     global_si.num_vertexes = graph.get_num_vertexes();
-    global_si.num_active_vertexes = visited.get_num_bit();
+    global_si.num_active_vertexes = output_visited.get_num_bit();
     global_si.num_edges = graph.get_num_edges();
     global_si.num_iters = count_iters;
     global_si.elapsed_time =
@@ -281,6 +286,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     //  return false;
     //}
 
+     LOG_INFO(global_si.num_active_vertexes , " ", graph.get_num_vertexes());
     return !(global_si.num_active_vertexes <= graph.get_num_vertexes() / 10000);
   }
 

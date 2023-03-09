@@ -49,7 +49,7 @@ class PRAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
     }
     next = this->context_.gamma * (next / (float)count);
     if ((u.vdata[0] - next) * (u.vdata[0] - next) > this->context_.epsilon) {
-      write_min(u.vdata, next);
+      write_min(u.vdata, (VDATA_T)next);
       return true;
     } else
       return false;
@@ -141,8 +141,8 @@ class PRAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
         next = gamma * (next / (float)count);
         if ((u.vdata[0] - next) * (u.vdata[0] - next) > epsilon) {
           if (global_border_vid_map->get_bit(graph->localid2globalid(u.vid)))
-            write_min(global_vdata + graph->localid2globalid(u.vid), next);
-          write_min(u.vdata, next);
+            write_min(global_vdata + graph->localid2globalid(u.vid), (VDATA_T)next);
+          write_min(u.vdata, (VDATA_T)next);
           out_visited->set_bit(u.vid);
           visited->set_bit(u.vid);
           for (size_t j = 0; j < u.outdegree; j++) {

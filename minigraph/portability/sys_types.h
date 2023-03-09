@@ -6,7 +6,7 @@
 
 using gid_t = unsigned;
 using vid_t = unsigned;
-using vdata_t = float;
+using vdata_t = unsigned;
 using edata_t = size_t;
 
 #define VID_MAX 0XFFFFFFFF
@@ -14,7 +14,7 @@ using edata_t = size_t;
 #define GID_MAX 0XFFFFFFF
 #define MINIGRAPH_GID_MAX (((unsigned)(-1)) >> 1)
 #define ALIGNMENT_FACTOR 1024
-#define NUM_NEW_BUCKETS 3
+#define NUM_NEW_BUCKETS 1
 
 
 #ifndef HAVE_MODE_T
