@@ -301,7 +301,7 @@ class DataMngr {
     communication_matrix_file.write((char*)&num_graphs, sizeof(size_t));
     communication_matrix_file.write((char*)communication_matrix,
                                     sizeof(bool) * num_graphs * num_graphs);
-    LOG_INFO("num_ghraphs", num_graphs);
+    LOG_INFO("num_ghraphs: ", num_graphs);
     for (size_t i = 0; i < num_graphs; i++) {
       for (size_t j = 0; j < num_graphs; j++) {
         std::cout << *(communication_matrix + i * num_graphs + j) << ", ";

@@ -340,109 +340,85 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
       finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
 
       LOG_INFO("Run: Construct splitted sub-graphs");
-      pending_packages.store(cores);
-      for (size_t tid = 0; tid < cores; tid++) {
-        thread_pool.Commit([&, tid, &cores, &atom_gid, &delete_graph,
-                            &num_partitions, &num_new_buckets,
-                            &bucket_id_to_be_splitted,
-                            &sum_in_edges_by_new_fragments, &max_vid_per_bucket,
-                            &new_fragments, &sum_out_edges_by_new_fragments,
-                            &set_graphs, &num_vertexes_per_new_bucket, &vid_map,
-                            &pending_packages, &finish_cv]() {
-          for (size_t gid = tid; gid < num_new_buckets; gid += cores) {
-            auto local_gid = __sync_fetch_and_add(&atom_gid, 1);
-            auto graph =
-                new graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>(
-                    local_gid, new_fragments[gid],
-                    num_vertexes_per_new_bucket[gid],
-                    sum_in_edges_by_new_fragments[gid],
-                    sum_out_edges_by_new_fragments[gid],
-                    max_vid_per_bucket[bucket_id_to_be_splitted], vid_map);
-            for (size_t i = 0; i < max_vid_per_bucket[gid]; i++) {
-              delete new_fragments[gid][i];
-            }
-            free(new_fragments[gid]);
-            if (!delete_graph) {
-              set_graphs[local_gid] =
-                  (graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>*)graph;
-            } else {
-              set_graphs[local_gid] = nullptr;
-              std::string meta_pt = dst_pt + "minigraph_meta/" +
-                                    std::to_string(local_gid) + ".bin";
-              std::string data_pt = dst_pt + "minigraph_data/" +
-                                    std::to_string(local_gid) + ".bin";
-              std::string vdata_pt = dst_pt + "minigraph_vdata/" +
-                                     std::to_string(local_gid) + ".bin";
-              data_mngr.csr_io_adapter_->Write(*graph, csr_bin, false, meta_pt,
-                                               data_pt, vdata_pt);
-              StatisticInfo&& si =
-                  this->ParallelSetStatisticInfo(*graph, cores);
-              std::string si_pt = dst_pt + "minigraph_si/" +
-                                  std::to_string(local_gid) + ".yaml";
-              data_mngr.WriteStatisticInfo(si, si_pt);
-              delete graph;
-            }
-          }
-          if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
-          return;
-        });
+
+      for (size_t gid = 0; gid < num_new_buckets; gid++) {
+        auto local_gid = __sync_fetch_and_add(&atom_gid, 1);
+        auto graph = new graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>(
+            local_gid, new_fragments[gid], num_vertexes_per_new_bucket[gid],
+            sum_in_edges_by_new_fragments[gid],
+            sum_out_edges_by_new_fragments[gid],
+            max_vid_per_bucket[bucket_id_to_be_splitted], vid_map);
+        for (size_t i = 0; i < max_vid_per_bucket[gid]; i++) {
+          delete new_fragments[gid][i];
+        }
+        free(new_fragments[gid]);
+        if (!delete_graph) {
+          set_graphs[local_gid] =
+              (graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>*)graph;
+        } else {
+          set_graphs[local_gid] = nullptr;
+          std::string meta_pt =
+              dst_pt + "minigraph_meta/" + std::to_string(local_gid) + ".bin";
+          std::string data_pt =
+              dst_pt + "minigraph_data/" + std::to_string(local_gid) + ".bin";
+          std::string vdata_pt =
+              dst_pt + "minigraph_vdata/" + std::to_string(local_gid) + ".bin";
+          data_mngr.csr_io_adapter_->Write(*graph, csr_bin, false, meta_pt,
+                                           data_pt, vdata_pt);
+          StatisticInfo&& si = this->ParallelSetStatisticInfo(*graph, cores);
+          std::string si_pt =
+              dst_pt + "minigraph_si/" + std::to_string(local_gid) + ".yaml";
+          data_mngr.WriteStatisticInfo(si, si_pt);
+          LOG_INFO("delete: ", local_gid);
+          delete graph;
+        }
       }
-      finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
     }
 
     LOG_INFO("Run: Construct sub-graphs");
     pending_packages.store(cores);
-    for (size_t tid = 0; tid < cores; tid++) {
-      thread_pool.Commit([&, tid, &cores, &atom_gid, &delete_graph,
-                          &num_partitions, &dst_pt, &data_mngr,
-                          &sum_in_edges_by_fragments, &max_vid_per_bucket,
-                          &fragments, &sum_out_edges_by_fragments, &set_graphs,
-                          &bucket_id_to_be_splitted, &num_vertexes_per_bucket,
-                          &vid_map, &pending_packages, &finish_cv]() {
-        for (size_t gid = tid; gid < num_partitions; gid += cores) {
-          if (gid == bucket_id_to_be_splitted) continue;
-          auto local_gid = __sync_fetch_and_add(&atom_gid, 1);
-          auto graph = new graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>(
-              local_gid, fragments[gid], num_vertexes_per_bucket[gid],
-              sum_in_edges_by_fragments[gid], sum_out_edges_by_fragments[gid],
-              max_vid_per_bucket[gid], vid_map);
-          for (size_t i = 0; i < max_vid_per_bucket[gid]; i++) {
-            delete fragments[gid][i];
-          }
-          free(fragments[gid]);
-          graph->InitVdata2AllX(0);
-          graph->SetGlobalBorderVidMap(this->global_border_vid_map_,
-                                       is_in_bucketX,
-                                       (num_partitions + num_new_buckets - 1));
-          if (!delete_graph) {
-            set_graphs[local_gid] =
-                (graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>*)graph;
-          } else {
-            set_graphs[local_gid] = nullptr;
-            std::string meta_pt =
-                dst_pt + "minigraph_meta/" + std::to_string(local_gid) + ".bin";
-            std::string data_pt =
-                dst_pt + "minigraph_data/" + std::to_string(local_gid) + ".bin";
-            std::string vdata_pt = dst_pt + "minigraph_vdata/" +
-                                   std::to_string(local_gid) + ".bin";
-            data_mngr.csr_io_adapter_->Write(*graph, csr_bin, false, meta_pt,
-                                             data_pt, vdata_pt);
-            StatisticInfo&& si = this->ParallelSetStatisticInfo(*graph, cores);
-            std::string si_pt =
-                dst_pt + "minigraph_si/" + std::to_string(local_gid) + ".yaml";
-            data_mngr.WriteStatisticInfo(si, si_pt);
-            delete graph;
-          }
-        }
-        if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
-        return;
-      });
-    }
-    finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
 
-    for (size_t gid = 0; gid < num_partitions + num_new_buckets; gid++) {
-      if (set_graphs[gid] == nullptr) continue;
-      this->fragments_->push_back(set_graphs[gid]);
+    for (size_t gid = 0; gid < num_partitions; gid++) {
+      if (gid == bucket_id_to_be_splitted) continue;
+      auto local_gid = __sync_fetch_and_add(&atom_gid, 1);
+      auto graph = new graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>(
+          local_gid, fragments[gid], num_vertexes_per_bucket[gid],
+          sum_in_edges_by_fragments[gid], sum_out_edges_by_fragments[gid],
+          max_vid_per_bucket[gid], vid_map);
+      for (size_t i = 0; i < max_vid_per_bucket[gid]; i++) {
+        delete fragments[gid][i];
+      }
+      free(fragments[gid]);
+      graph->InitVdata2AllX(0);
+      graph->SetGlobalBorderVidMap(this->global_border_vid_map_, is_in_bucketX,
+                                   (num_partitions + num_new_buckets - 1));
+      if (!delete_graph) {
+        set_graphs[local_gid] =
+            (graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>*)graph;
+      } else {
+        set_graphs[local_gid] = nullptr;
+        std::string meta_pt =
+            dst_pt + "minigraph_meta/" + std::to_string(local_gid) + ".bin";
+        std::string data_pt =
+            dst_pt + "minigraph_data/" + std::to_string(local_gid) + ".bin";
+        std::string vdata_pt =
+            dst_pt + "minigraph_vdata/" + std::to_string(local_gid) + ".bin";
+        data_mngr.csr_io_adapter_->Write(*graph, csr_bin, false, meta_pt,
+                                         data_pt, vdata_pt);
+        StatisticInfo&& si = this->ParallelSetStatisticInfo(*graph, cores);
+        std::string si_pt =
+            dst_pt + "minigraph_si/" + std::to_string(local_gid) + ".yaml";
+        data_mngr.WriteStatisticInfo(si, si_pt);
+        LOG_INFO("delete: ", local_gid);
+        delete graph;
+      }
+    }
+
+    if (!delete_graph) {
+      for (size_t gid = 0; gid < num_partitions + num_new_buckets; gid++) {
+        if (set_graphs[gid] == nullptr) continue;
+        this->fragments_->push_back(set_graphs[gid]);
+      }
     }
 
     LOG_INFO("Run: Set communication matrix");
