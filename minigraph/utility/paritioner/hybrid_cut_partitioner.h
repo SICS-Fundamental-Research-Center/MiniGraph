@@ -39,7 +39,8 @@ class HybridCutPartitioner : public PartitionerBase<GRAPH_T> {
 
   bool ParallelPartition(EDGE_LIST_T* edgelist_graph,
                          const size_t num_partitions = 1,
-                         const size_t cores = 1) override {
+                         const size_t cores = 1, const std::string dst_pt = "",
+                         bool delete_graph = false) override {
     LOG_INFO("ParallelPartition(): HybridCut");
 
     auto thread_pool = CPUThreadPool(cores, 1);
@@ -93,7 +94,6 @@ class HybridCutPartitioner : public PartitionerBase<GRAPH_T> {
       edges_buckets[i] = (VID_T*)malloc(sizeof(VID_T) * 2 * size_per_bucket[i]);
       memset(edges_buckets[i], 0, sizeof(VID_T) * 2 * size_per_bucket[i]);
     }
-
 
     Bitmap* is_in_bucketX[num_partitions + num_new_buckets];
     for (size_t i = 0; i < num_partitions + num_new_buckets; i++) {

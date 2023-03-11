@@ -3,10 +3,9 @@
 
 #include <atomic>
 #include <cstring>
+#include <stdio.h>
 #include <unordered_map>
 #include <vector>
-
-#include <stdio.h>
 
 #include <folly/AtomicHashMap.h>
 #include <folly/FBVector.h>
@@ -53,7 +52,8 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
 
   bool ParallelPartition(EDGE_LIST_T* edgelist_graph,
                          const size_t num_partitions = 1,
-                         const size_t cores = 1) override {
+                         const size_t cores = 1, const std::string dst_pt = "",
+                         bool delete_graph = false) override {
     LOG_INFO("ParallelPartition(): EdgeCut");
     edgelist_graph->ShowGraph(10);
     auto thread_pool = CPUThreadPool(cores, 1);
@@ -61,6 +61,7 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
     std::condition_variable finish_cv;
     std::unique_lock<std::mutex> lck(mtx);
     std::atomic<size_t> pending_packages(cores);
+    minigraph::utility::io::DataMngr<CSR_T> data_mngr;
 
     auto max_vid = edgelist_graph->get_max_vid();
     this->max_vid_ = edgelist_graph->get_max_vid();
@@ -73,6 +74,9 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
     auto num_edges = edgelist_graph->get_num_edges();
     this->num_edges_ = edgelist_graph->get_num_edges();
     size_t num_new_buckets = NUM_NEW_BUCKETS;
+    this->num_partitions = num_partitions + NUM_NEW_BUCKETS - 1;
+    this->global_border_vid_map_ = new Bitmap(this->aligned_max_vid_);
+    this->global_border_vid_map_->clear();
 
     auto vid_map =
         (VID_T*)malloc(sizeof(VID_T) * edgelist_graph->get_aligned_max_vid());
@@ -262,6 +266,7 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
     free(vertexes);
     auto bucket_id_to_be_splitted = GID_MAX;
 
+    GID_T atom_gid = 0;
     if (num_new_buckets > 1) {
       LOG_INFO("Run: Split the biggest bucket.");
       auto max_degree = 0;
@@ -334,29 +339,49 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
       }
       finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
 
-
-      for(size_t i = 0; i< num_new_buckets; i++){
-        LOG_INFO(num_vertexes_per_new_bucket[i]);
-      }
       LOG_INFO("Run: Construct splitted sub-graphs");
       pending_packages.store(cores);
       for (size_t tid = 0; tid < cores; tid++) {
-        thread_pool.Commit([tid, &cores, &num_partitions, &num_new_buckets,
+        thread_pool.Commit([&, tid, &cores, &atom_gid, &delete_graph,
+                            &num_partitions, &num_new_buckets,
                             &bucket_id_to_be_splitted,
                             &sum_in_edges_by_new_fragments, &max_vid_per_bucket,
                             &new_fragments, &sum_out_edges_by_new_fragments,
                             &set_graphs, &num_vertexes_per_new_bucket, &vid_map,
                             &pending_packages, &finish_cv]() {
           for (size_t gid = tid; gid < num_new_buckets; gid += cores) {
+            auto local_gid = __sync_fetch_and_add(&atom_gid, 1);
             auto graph =
                 new graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>(
-                    gid + num_partitions, new_fragments[gid],
+                    local_gid, new_fragments[gid],
                     num_vertexes_per_new_bucket[gid],
                     sum_in_edges_by_new_fragments[gid],
                     sum_out_edges_by_new_fragments[gid],
                     max_vid_per_bucket[bucket_id_to_be_splitted], vid_map);
-            set_graphs[num_partitions + gid] =
-                (graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>*)graph;
+            for (size_t i = 0; i < max_vid_per_bucket[gid]; i++) {
+              delete new_fragments[gid][i];
+            }
+            free(new_fragments[gid]);
+            if (!delete_graph) {
+              set_graphs[local_gid] =
+                  (graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>*)graph;
+            } else {
+              set_graphs[local_gid] = nullptr;
+              std::string meta_pt = dst_pt + "minigraph_meta/" +
+                                    std::to_string(local_gid) + ".bin";
+              std::string data_pt = dst_pt + "minigraph_data/" +
+                                    std::to_string(local_gid) + ".bin";
+              std::string vdata_pt = dst_pt + "minigraph_vdata/" +
+                                     std::to_string(local_gid) + ".bin";
+              data_mngr.csr_io_adapter_->Write(*graph, csr_bin, false, meta_pt,
+                                               data_pt, vdata_pt);
+              StatisticInfo&& si =
+                  this->ParallelSetStatisticInfo(*graph, cores);
+              std::string si_pt = dst_pt + "minigraph_si/" +
+                                  std::to_string(local_gid) + ".yaml";
+              data_mngr.WriteStatisticInfo(si, si_pt);
+              delete graph;
+            }
           }
           if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
           return;
@@ -368,23 +393,46 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
     LOG_INFO("Run: Construct sub-graphs");
     pending_packages.store(cores);
     for (size_t tid = 0; tid < cores; tid++) {
-      thread_pool.Commit([tid, &cores, &num_partitions,
+      thread_pool.Commit([&, tid, &cores, &atom_gid, &delete_graph,
+                          &num_partitions, &dst_pt, &data_mngr,
                           &sum_in_edges_by_fragments, &max_vid_per_bucket,
                           &fragments, &sum_out_edges_by_fragments, &set_graphs,
                           &bucket_id_to_be_splitted, &num_vertexes_per_bucket,
                           &vid_map, &pending_packages, &finish_cv]() {
         for (size_t gid = tid; gid < num_partitions; gid += cores) {
           if (gid == bucket_id_to_be_splitted) continue;
+          auto local_gid = __sync_fetch_and_add(&atom_gid, 1);
           auto graph = new graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>(
-              gid, fragments[gid], num_vertexes_per_bucket[gid],
+              local_gid, fragments[gid], num_vertexes_per_bucket[gid],
               sum_in_edges_by_fragments[gid], sum_out_edges_by_fragments[gid],
               max_vid_per_bucket[gid], vid_map);
           for (size_t i = 0; i < max_vid_per_bucket[gid]; i++) {
             delete fragments[gid][i];
           }
           free(fragments[gid]);
-          set_graphs[gid] =
-              (graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>*)graph;
+          graph->InitVdata2AllX(0);
+          graph->SetGlobalBorderVidMap(this->global_border_vid_map_,
+                                       is_in_bucketX,
+                                       (num_partitions + num_new_buckets - 1));
+          if (!delete_graph) {
+            set_graphs[local_gid] =
+                (graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>*)graph;
+          } else {
+            set_graphs[local_gid] = nullptr;
+            std::string meta_pt =
+                dst_pt + "minigraph_meta/" + std::to_string(local_gid) + ".bin";
+            std::string data_pt =
+                dst_pt + "minigraph_data/" + std::to_string(local_gid) + ".bin";
+            std::string vdata_pt = dst_pt + "minigraph_vdata/" +
+                                   std::to_string(local_gid) + ".bin";
+            data_mngr.csr_io_adapter_->Write(*graph, csr_bin, false, meta_pt,
+                                             data_pt, vdata_pt);
+            StatisticInfo&& si = this->ParallelSetStatisticInfo(*graph, cores);
+            std::string si_pt =
+                dst_pt + "minigraph_si/" + std::to_string(local_gid) + ".yaml";
+            data_mngr.WriteStatisticInfo(si, si_pt);
+            delete graph;
+          }
         }
         if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
         return;
@@ -413,20 +461,21 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
         i * (num_partitions + num_new_buckets - 1) + i) = 0;
 
     LOG_INFO("Run: Set global_border_vid_map");
-    this->global_border_vid_map_ = new Bitmap(this->aligned_max_vid_);
-    this->global_border_vid_map_->clear();
-    for (auto& iter_fragments : *this->fragments_) {
-      auto fragment = (CSR_T*)iter_fragments;
-      fragment->InitVdata2AllX(0);
-      fragment->SetGlobalBorderVidMap(this->global_border_vid_map_,
-                                      is_in_bucketX,
-                                      (num_partitions + num_new_buckets - 1));
+
+    if (!delete_graph) {
+      for (auto& iter_fragments : *this->fragments_) {
+        auto fragment = (CSR_T*)iter_fragments;
+        fragment->InitVdata2AllX(0);
+        fragment->SetGlobalBorderVidMap(this->global_border_vid_map_,
+                                        is_in_bucketX,
+                                        (num_partitions + num_new_buckets - 1));
+      }
     }
-    GID_T local_gid = 0;
-    for (auto& iter_fragments : *this->fragments_) {
-      auto fragment = (CSR_T*)iter_fragments;
-      fragment->gid_ = local_gid++;
-    }
+    // GID_T local_gid = 0;
+    // for (auto& iter_fragments : *this->fragments_) {
+    //   auto fragment = (CSR_T*)iter_fragments;
+    //   fragment->gid_ = local_gid++;
+    // }
 
     return false;
   }

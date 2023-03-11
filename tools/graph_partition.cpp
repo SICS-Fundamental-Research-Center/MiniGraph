@@ -1,3 +1,10 @@
+#include <gflags/gflags.h>
+#include <sys/stat.h>
+#include <iostream>
+#include <string>
+
+#include "yaml-cpp/yaml.h"
+
 #include "graphs/edge_list.h"
 #include "graphs/immutable_csr.h"
 #include "portability/sys_data_structure.h"
@@ -9,79 +16,12 @@
 #include "utility/paritioner/partitioner_base.h"
 #include "utility/paritioner/vertex_cut_partitioner.h"
 #include "utility/thread_pool.h"
-#include "yaml-cpp/yaml.h"
-#include <gflags/gflags.h>
-#include <sys/stat.h>
-#include <iostream>
-#include <string>
 
 using CSR_T = minigraph::graphs::ImmutableCSR<gid_t, vid_t, vdata_t, edata_t>;
 using GRAPH_BASE_T = minigraph::graphs::Graph<gid_t, vid_t, vdata_t, edata_t>;
 using EDGE_LIST_T = minigraph::graphs::EdgeList<gid_t, vid_t, vdata_t, edata_t>;
 using VID_T = vid_t;
 using VertexInfo = minigraph::graphs::VertexInfo<vid_t, vdata_t, edata_t>;
-
-StatisticInfo ParallelSetStatisticInfo(CSR_T& csr_graph, const size_t cores) {
-  auto thread_pool = minigraph::utility::EDFThreadPool(cores);
-  std::mutex mtx;
-  std::condition_variable finish_cv;
-  std::unique_lock<std::mutex> lck(mtx);
-  std::atomic<size_t> pending_packages(cores);
-
-  StatisticInfo si;
-  si.num_active_vertexes = csr_graph.get_num_vertexes();
-  si.num_vertexes = csr_graph.get_num_vertexes();
-  si.num_edges = csr_graph.get_num_edges();
-
-  size_t pending_package = cores;
-  pending_packages.store(cores);
-  for (size_t tid = 0; tid < cores; tid++) {
-    thread_pool.Commit(
-        [tid, &cores, &csr_graph, &si, &pending_package, &finish_cv]() {
-          size_t local_sum_border_vertexes = 0;
-          size_t local_sum_out_degree = 0;
-          size_t local_sum_dgv_times_dgv = 0;
-          size_t local_sum_dlv_times_dlv = 0;
-          size_t local_sum_dlv_times_dgv = 0;
-          size_t local_sum_dlv = 0;
-          size_t local_sum_dgv = 0;
-          for (size_t i = tid; i < csr_graph.get_num_vertexes(); i += cores) {
-            VertexInfo&& u = csr_graph.GetVertexByIndex(i);
-            size_t dlv = 0;
-            size_t dgv = u.outdegree;
-            for (size_t out_nbr_i = 0; out_nbr_i < u.outdegree; ++out_nbr_i) {
-              if (!csr_graph.IsInGraph(u.out_edges[out_nbr_i])) {
-                ++local_sum_border_vertexes;
-                continue;
-              }
-              ++dlv;
-              ++local_sum_out_degree;
-            }
-            local_sum_dlv_times_dgv += dlv * dgv;
-            local_sum_dlv_times_dlv += dlv * dlv;
-            local_sum_dgv_times_dgv += dgv * dgv;
-            local_sum_dgv += dgv;
-            local_sum_dlv += dlv;
-          }
-
-          write_add(&si.sum_out_degree, local_sum_out_degree);
-          write_add(&si.sum_dlv_times_dgv, local_sum_dlv_times_dgv);
-          write_add(&si.sum_dlv_times_dlv, local_sum_dlv_times_dlv);
-          write_add(&si.sum_dgv_times_dgv, local_sum_dgv_times_dgv);
-          write_add(&si.sum_out_border_vertexes, local_sum_border_vertexes);
-          write_add(&si.sum_dlv, local_sum_dlv);
-          write_add(&si.sum_dgv, local_sum_dgv);
-          if (__sync_fetch_and_sub(&pending_package, 1) == 1)
-            finish_cv.notify_all();
-
-          return;
-        });
-  }
-  finish_cv.wait(lck, [&] { return pending_package == 0; });
-
-  // si.ShowInfo();
-  return si;
-}
 
 void GraphPartitionEdgeList2CSR(std::string src_pt, std::string dst_pt,
                                 std::size_t cores, std::size_t num_partitions,
@@ -90,38 +30,9 @@ void GraphPartitionEdgeList2CSR(std::string src_pt, std::string dst_pt,
                                 const std::string t_partitioner = "edgecut") {
   assert(t_partitioner == "edgecut" || t_partitioner == "vertexcut" ||
          t_partitioner == "hybridcut");
+
   minigraph::utility::io::DataMngr<CSR_T> data_mngr;
-  minigraph::utility::io::EdgeListIOAdapter<gid_t, vid_t, vdata_t, edata_t>
-      edgelist_io_adapter;
-
-  minigraph::utility::partitioner::PartitionerBase<CSR_T>* partitioner =
-      nullptr;
-  if (t_partitioner == "edgecut")
-    partitioner =
-        new minigraph::utility::partitioner::EdgeCutPartitioner<CSR_T>();
-  else if (t_partitioner == "vertexcut")
-    partitioner =
-        new minigraph::utility::partitioner::VertexCutPartitioner<CSR_T>();
-  else if (t_partitioner == "hybridcut")
-    partitioner =
-        new minigraph::utility::partitioner::HybridCutPartitioner<CSR_T>();
-
-  // Read Graph
-  auto edgelist_graph = new EDGE_LIST_T;
-  if (frombin) {
-    std::string meta_pt = src_pt + "minigraph_meta" + ".bin";
-    std::string data_pt = src_pt + "minigraph_data" + ".bin";
-    std::string vdata_pt = src_pt + "minigraph_vdata" + ".bin";
-    edgelist_io_adapter.ReadEdgeListFromBin(edgelist_graph, 0, meta_pt, data_pt,
-                                            vdata_pt);
-  } else {
-    edgelist_io_adapter.ParallelRead((GRAPH_BASE_T*)edgelist_graph,
-                                     edge_list_csv, separator_params, 0, cores,
-                                     src_pt);
-  }
-
-  partitioner->ParallelPartition(edgelist_graph, num_partitions, cores);
-
+  // Clean dst path.
   if (!data_mngr.IsExist(dst_pt + "minigraph_meta/")) {
     data_mngr.MakeDirectory(dst_pt + "minigraph_meta/");
   } else {
@@ -165,6 +76,38 @@ void GraphPartitionEdgeList2CSR(std::string src_pt, std::string dst_pt,
     data_mngr.MakeDirectory(dst_pt + "minigraph_si/");
   }
 
+  minigraph::utility::io::EdgeListIOAdapter<gid_t, vid_t, vdata_t, edata_t>
+      edgelist_io_adapter;
+
+  minigraph::utility::partitioner::PartitionerBase<CSR_T>* partitioner =
+      nullptr;
+  if (t_partitioner == "edgecut")
+    partitioner =
+        new minigraph::utility::partitioner::EdgeCutPartitioner<CSR_T>();
+  else if (t_partitioner == "vertexcut")
+    partitioner =
+        new minigraph::utility::partitioner::VertexCutPartitioner<CSR_T>();
+  else if (t_partitioner == "hybridcut")
+    partitioner =
+        new minigraph::utility::partitioner::HybridCutPartitioner<CSR_T>();
+
+  // Read Graph
+  auto edgelist_graph = new EDGE_LIST_T;
+  if (frombin) {
+    std::string meta_pt = src_pt + "minigraph_meta" + ".bin";
+    std::string data_pt = src_pt + "minigraph_data" + ".bin";
+    std::string vdata_pt = src_pt + "minigraph_vdata" + ".bin";
+    edgelist_io_adapter.ReadEdgeListFromBin(edgelist_graph, 0, meta_pt, data_pt,
+                                            vdata_pt);
+  } else {
+    edgelist_io_adapter.ParallelRead((GRAPH_BASE_T*)edgelist_graph,
+                                     edge_list_csv, separator_params, 0, cores,
+                                     src_pt);
+  }
+
+  partitioner->ParallelPartition(edgelist_graph, num_partitions, cores, dst_pt,
+                                 true);
+
   LOG_INFO("WriteCommunicationMatrix.");
   auto pair_communication_matrix = partitioner->GetCommunicationMatrix();
 
@@ -188,23 +131,24 @@ void GraphPartitionEdgeList2CSR(std::string src_pt, std::string dst_pt,
 
   auto fragments = partitioner->GetFragments();
   delete partitioner;
+  LOG_INFO("Write StatisticInfo.");
   size_t count = 0;
-  for (auto& iter_fragments : *fragments) {
-    auto fragment = (CSR_T*)iter_fragments;
-    std::string meta_pt =
-        dst_pt + "minigraph_meta/" + std::to_string(count) + ".bin";
-    std::string data_pt =
-        dst_pt + "minigraph_data/" + std::to_string(count) + ".bin";
-    std::string vdata_pt =
-        dst_pt + "minigraph_vdata/" + std::to_string(count) + ".bin";
-    data_mngr.csr_io_adapter_->Write(*fragment, csr_bin, false, meta_pt,
-                                     data_pt, vdata_pt);
-    StatisticInfo&& si = ParallelSetStatisticInfo(*fragment, cores);
-    std::string si_pt =
-        dst_pt + "minigraph_si/" + std::to_string(count) + ".yaml";
-    data_mngr.WriteStatisticInfo(si, si_pt);
-    count++;
-  }
+  // for (auto& iter_fragments : *fragments) {
+  //   auto fragment = (CSR_T*)iter_fragments;
+  //   std::string meta_pt =
+  //       dst_pt + "minigraph_meta/" + std::to_string(count) + ".bin";
+  //   std::string data_pt =
+  //       dst_pt + "minigraph_data/" + std::to_string(count) + ".bin";
+  //   std::string vdata_pt =
+  //       dst_pt + "minigraph_vdata/" + std::to_string(count) + ".bin";
+  //   data_mngr.csr_io_adapter_->Write(*fragment, csr_bin, false, meta_pt,
+  //                                    data_pt, vdata_pt);
+  //   StatisticInfo&& si = ParallelSetStatisticInfo(*fragment, cores);
+  //   std::string si_pt =
+  //       dst_pt + "minigraph_si/" + std::to_string(count) + ".yaml";
+  //   data_mngr.WriteStatisticInfo(si, si_pt);
+  //   count++;
+  // }
 
   LOG_INFO("End graph partition#");
 }
