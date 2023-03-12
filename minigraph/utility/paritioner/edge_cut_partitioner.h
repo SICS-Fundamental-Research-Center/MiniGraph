@@ -189,6 +189,7 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
     free(offset_in_edges);
     free(offset_out_edges);
 
+    LOG_INFO("X");
     size_t* offset_fragments = (size_t*)malloc(sizeof(size_t) * num_partitions);
     memset(offset_fragments, 0, sizeof(size_t) * num_partitions);
     size_t* sum_in_edges_by_fragments =
@@ -197,9 +198,11 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
     size_t* sum_out_edges_by_fragments =
         (size_t*)malloc(sizeof(size_t) * num_partitions);
     memset(sum_out_edges_by_fragments, 0, sizeof(size_t) * num_partitions);
+    LOG_INFO("X");
 
     auto fragments = (graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>***)malloc(
         sizeof(graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>**) * num_partitions);
+    LOG_INFO("X");
 
     for (size_t i = 0; i < num_partitions; i++) {
       fragments[i] = (graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>**)malloc(
@@ -208,6 +211,7 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
       for (size_t j = 0; j < this->aligned_max_vid_; j++)
         fragments[i][j] = nullptr;
     }
+    LOG_INFO("X");
 
     size_t num_vertexes_per_bucket[num_partitions] = {0};
     VID_T max_vid_per_bucket[num_partitions] = {0};
@@ -216,7 +220,11 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
       is_in_bucketX[i] = new Bitmap(aligned_max_vid);
       is_in_bucketX[i]->clear();
     }
+<<<<<<< HEAD
 
+=======
+    LOG_INFO("X");
+>>>>>>> 9d0f4d1509ee91874a8a7a4597dd35db3aba9493
     auto set_graphs = (graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>**)malloc(
         sizeof(graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>*) *
         (num_partitions + num_new_buckets));
