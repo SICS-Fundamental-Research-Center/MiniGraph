@@ -78,13 +78,6 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
     this->global_border_vid_map_ = new Bitmap(this->aligned_max_vid_);
     this->global_border_vid_map_->clear();
 
-    auto vid_map =
-        (VID_T*)malloc(sizeof(VID_T) * edgelist_graph->get_aligned_max_vid());
-    this->vid_map_ = vid_map;
-
-    memset(this->vid_map_, 0,
-           sizeof(VID_T) * edgelist_graph->get_aligned_max_vid());
-
     Bitmap* vertex_indicator =
         new Bitmap(edgelist_graph->get_aligned_max_vid());
     vertex_indicator->clear();
@@ -218,11 +211,12 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
 
     size_t num_vertexes_per_bucket[num_partitions] = {0};
     VID_T max_vid_per_bucket[num_partitions] = {0};
-    Bitmap* is_in_bucketX[num_partitions + num_new_buckets];
-    for (size_t i = 0; i < num_partitions + num_new_buckets; i++) {
+    Bitmap* is_in_bucketX[num_partitions + num_new_buckets - 1];
+    for (size_t i = 0; i < num_partitions + num_new_buckets - 1; i++) {
       is_in_bucketX[i] = new Bitmap(aligned_max_vid);
       is_in_bucketX[i]->clear();
     }
+
     auto set_graphs = (graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>**)malloc(
         sizeof(graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>*) *
         (num_partitions + num_new_buckets));
@@ -239,7 +233,7 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
                           &num_partitions, &local_id_for_each_bucket,
                           &sum_in_edges_by_fragments,
                           &sum_out_edges_by_fragments, &vertex_indicator,
-                          &num_vertexes_per_bucket, &vid_map, &num_vertexes,
+                          &num_vertexes_per_bucket, &num_vertexes,
                           &pending_packages, &finish_cv]() {
         for (VID_T global_vid = tid; global_vid < aligned_max_vid;
              global_vid += cores) {
@@ -264,9 +258,15 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
     finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
 
     free(vertexes);
-    auto bucket_id_to_be_splitted = GID_MAX;
+
+    auto vid_map =
+        (VID_T*)malloc(sizeof(VID_T) * edgelist_graph->get_aligned_max_vid());
+    this->vid_map_ = vid_map;
+    memset(this->vid_map_, 0,
+           sizeof(VID_T) * edgelist_graph->get_aligned_max_vid());
 
     GID_T atom_gid = 0;
+    auto bucket_id_to_be_splitted = GID_MAX;
     if (num_new_buckets > 1) {
       LOG_INFO("Run: Split the biggest bucket.");
       auto max_degree = 0;
