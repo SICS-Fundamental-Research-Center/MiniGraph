@@ -28,7 +28,7 @@ class LearnedScheduler : public SubGraphsSchedulerBase<GID_T> {
   size_t ChooseOne(std::vector<GID_T>& vec_gid) {
     GID_T gid = GID_MAX;
 
-    double rank_max = 0;
+    //double rank_max = 0;
     double rank_min = DBL_MAX;
     size_t index = 0;
     for (size_t i = 0; i < vec_gid.size(); ++i) {
@@ -37,14 +37,13 @@ class LearnedScheduler : public SubGraphsSchedulerBase<GID_T> {
       //auto rank =
       //    model_a(si_[i].sum_dlv, si_[i].sum_dgv, si_[i].sum_dlv_times_dlv,
       //            si_[i].sum_dlv_times_dgv, si_[i].sum_dgv_times_dgv);
-       //auto rank = model_b(si_[i].sum_dlv, si_[i].sum_dlv_times_dlv);
-       auto rank =
-          model_c(si_[i].sum_dlv, si_[i].sum_dgv, si_[i].sum_dlv_times_dlv,
-                  si_[i].sum_dlv_times_dgv, si_[i].sum_dgv_times_dgv, 5);
+       auto rank = model_b(si_[i].sum_dlv, si_[i].sum_dlv_times_dlv);
+      // auto rank =
+      //    model_c(si_[i].sum_dlv, si_[i].sum_dgv, si_[i].sum_dlv_times_dlv,
+      //            si_[i].sum_dlv_times_dgv, si_[i].sum_dgv_times_dgv, 5);
 
-        
-      if (write_max(&rank_max, rank(0, 0))) {
-      //if (write_min(&rank_min, rank(0, 0))) {
+      // if (write_max(&rank_max, rank(0, 0))) {
+      if (write_min(&rank_min, rank(0, 0))) {
         index = i;
         gid = vec_gid.at(i);
       }
@@ -110,16 +109,16 @@ class LearnedScheduler : public SubGraphsSchedulerBase<GID_T> {
     x << sum_dlv, sum_dlv_times_dlv;
 
     // Train 1
-    // w1 << -0.2797, 0.7662;
-    // w2 << 0.4837, -0.3442;
-    // b1 << -0.1687;
-    // b2 << 0.0572;
+     w1 << -0.2797, 0.7662;
+     w2 << 0.4837, -0.3442;
+     b1 << -0.1687;
+     b2 << 0.0572;
 
     // Train2
-    w1 << 0.2501, 0.4593;
-    w2 << 0.0253, -0.0723;
-    b1 << 0.3898;
-    b2 << 0.1571;
+    //w1 << 0.2501, 0.4593;
+    //w2 << 0.0253, -0.0723;
+    //b1 << 0.3898;
+    //b2 << 0.1571;
     auto y1 = x * w1 + b1;
     auto y2 = x * w2 + b2;
     Eigen::MatrixXd y(1, 1);

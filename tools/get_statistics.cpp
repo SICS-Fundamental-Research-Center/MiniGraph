@@ -1,3 +1,11 @@
+#include <cstring>
+#include <iostream>
+#include <math.h>
+#include <rapidcsv.h>
+#include <string>
+
+#include <gflags/gflags.h>
+
 #include "graphs/edge_list.h"
 #include "portability/sys_types.h"
 #include "utility/atomic.h"
@@ -5,12 +13,6 @@
 #include "utility/io/edge_list_io_adapter.h"
 #include "utility/logging.h"
 #include "utility/thread_pool.h"
-#include <gflags/gflags.h>
-#include <cstring>
-#include <iostream>
-#include <math.h>
-#include <rapidcsv.h>
-#include <string>
 
 using EDGE_LIST_T = minigraph::graphs::EdgeList<gid_t, vid_t, vdata_t, edata_t>;
 using GRAPH_BASE_T = minigraph::graphs::Graph<gid_t, vid_t, vdata_t, edata_t>;
@@ -264,10 +266,14 @@ void GetGraphStatisticFromBin(const std::string input_pt,
                         &sum_outdegree, &sum_indegree, &max_outdegree,
                         &max_degree]() {
       for (size_t j = tid; j < aligned_max_vid; j += cores) {
-        write_max(&max_indegree, indegree[j]);
-        write_max(&max_outdegree, outdegree[j]);
-        write_add(&sum_indegree, outdegree[j]);
-        write_add(&sum_outdegree, indegree[j]);
+        if(max_indegree < indegree[j]){
+          write_max(&max_indegree, indegree[j]);
+        }
+        if(max_outdegree < outdegree[j]){
+          write_max(&max_outdegree, outdegree[j]);
+        }
+        write_add(&sum_indegree, indegree[j]);
+        write_add(&sum_outdegree, outdegree[j]);
         write_max(&max_degree, indegree[j] + outdegree[j]);
       }
       if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();

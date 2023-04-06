@@ -6,9 +6,7 @@
 #include <vector>
 
 #include "graphs/graph.h"
-#include "message_manager/border_vertexes.h"
 #include "message_manager/message_manager_base.h"
-#include "message_manager/partial_match.h"
 #include "portability/sys_data_structure.h"
 #include "utility/io/data_mngr.h"
 
@@ -25,9 +23,6 @@ class DefaultMessageManager : public MessageManagerBase {
   using CSR_T = graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>;
 
  public:
-  PartialMatch<GID_T, VID_T, VDATA_T, EDATA_T>* partial_match_ = nullptr;
-  BorderVertexes<GID_T, VID_T, VDATA_T, EDATA_T>* border_vertexes_ = nullptr;
-
   DefaultMessageManager(utility::io::DataMngr<GRAPH_T>* data_mngr,
                         const std::string& work_space, bool is_mining = false)
       : MessageManagerBase() {}
@@ -87,15 +82,10 @@ class DefaultMessageManager : public MessageManagerBase {
     memset(global_vertexes_state_, VERTEXUNLABELED, sizeof(char) * max_vid_);
 
     // init Message bucket
-    msg_bucket = (void**)malloc(sizeof(void*) * num_graphs_);
-    for (size_t i = 0; i < num_graphs_; i++) msg_bucket = nullptr;
   };
 
   void ClearnUp() { active_vertexes_bit_map_->clear(); }
 
-  PartialMatch<GID_T, VID_T, VDATA_T, EDATA_T>* GetPartialMatch() {
-    return partial_match_;
-  }
 
   bool* GetCommunicationMatrix() { return communication_matrix_; }
 
@@ -111,12 +101,6 @@ class DefaultMessageManager : public MessageManagerBase {
 
   VID_T globalid2localid(const VID_T globalid) { return vid_map_[globalid]; };
 
-  bool EnqueueMsgQueue(void* msg) {
-    if (offset_bucket > num_graphs_) return false;
-    msg_bucket[offset_bucket++] = msg;
-  }
-
-  bool GetMsgQueue() { return msg_bucket[offset_bucket]; }
 
   void SetStateMatrix(const size_t gid, char state) {
     if (gid >= num_graphs_) {
@@ -157,7 +141,6 @@ class DefaultMessageManager : public MessageManagerBase {
   char* global_vertexes_state_ = nullptr;
   bool* communication_matrix_ = nullptr;
   char* historical_state_matrix_ = nullptr;
-  void** msg_bucket = nullptr;
   StatisticInfo* si_ = nullptr;
   std::atomic<size_t> offset_bucket = 0;
 };

@@ -105,8 +105,6 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     size_t* num_out_edges = (size_t*)malloc(sizeof(size_t) * aligned_max_vid);
     memset(num_in_edges, 0, sizeof(size_t) * aligned_max_vid);
     memset(num_out_edges, 0, sizeof(size_t) * aligned_max_vid);
-    // size_t num_in_edges[aligned_max_vid] = {0};
-    // size_t num_out_edges[aligned_max_vid] = {0};
 
     Bitmap* vertex_indicator = new Bitmap(aligned_max_vid);
     vertex_indicator->clear();
@@ -161,7 +159,6 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
           auto u = new graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>();
           u->vid = __sync_fetch_and_add(&local_id, 1);
           if (vid_map != nullptr) vid_map[global_id] = u->vid;
-          // u->vid = global_id;
           u->indegree = num_in_edges[global_id];
           u->outdegree = num_out_edges[global_id];
           u->in_edges = (VID_T*)malloc(sizeof(VID_T) * (u->indegree));
@@ -233,7 +230,7 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
   bool ReadCSRFromEdgeListCSV(
       graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>* graph,
       const std::string& pt) {
-    if (!this->IsExist(pt)) {
+    if (!this->Exist(pt)) {
       XLOG(ERR, "Read file fault: ", pt);
       return false;
     }
@@ -271,8 +268,6 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
         graph_in_edges.insert(std::make_pair(dst.at(i), in_edges));
       }
     }
-    // immutable_csr->sum_in_edges_ = graph_in_edges.size();
-    // immutable_csr->sum_out_edges_ = graph_out_edges.size();
     immutable_csr->sum_in_edges_ = src.size();
     immutable_csr->sum_out_edges_ = dst.size();
     for (auto& iter : graph_in_edges) {
@@ -316,11 +311,11 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
   bool ReadCSRFromCSRBin(GRAPH_BASE_T* graph_base, const GID_T& gid,
                          const std::string& meta_pt, const std::string& data_pt,
                          const std::string& vdata_pt) {
-    if (!this->IsExist(meta_pt)) {
+    if (!this->Exist(meta_pt)) {
       XLOG(ERR, "Read file fault: meta_pt, ", meta_pt, ", not exist");
       return false;
     }
-    if (!this->IsExist(data_pt)) {
+    if (!this->Exist(data_pt)) {
       XLOG(ERR, "Read file fault: data_pt, ", data_pt, ", not exist");
       return false;
     }
@@ -432,8 +427,8 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     }
     if (!vdata_only) {
       // write meta
-      if (this->IsExist(meta_pt)) remove(meta_pt.c_str());
-      if (this->IsExist(data_pt)) remove(data_pt.c_str());
+      if (this->Exist(meta_pt)) remove(meta_pt.c_str());
+      if (this->Exist(data_pt)) remove(data_pt.c_str());
       std::ofstream meta_file(meta_pt, std::ios::binary | std::ios::app);
       size_t* buf_meta = (size_t*)malloc(sizeof(size_t) * 3);
       memset(buf_meta, 0, sizeof(size_t) * 3);
@@ -468,7 +463,7 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
 
     {
       // write vdata
-      if (this->IsExist(vdata_pt)) remove(vdata_pt.c_str());
+      if (this->Exist(vdata_pt)) remove(vdata_pt.c_str());
       std::ofstream vdata_file(vdata_pt, std::ios::binary | std::ios::app);
       vdata_file.write((char*)graph.vdata_,
                        sizeof(VDATA_T) * graph.num_vertexes_);

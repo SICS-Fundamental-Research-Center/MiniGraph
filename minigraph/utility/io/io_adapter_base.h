@@ -43,7 +43,7 @@ class IOAdapterBase {
     }
   }
 
-  bool IsExist(const std::string& pt) const {
+  bool Exist(const std::string& pt) const {
     struct stat buffer;
     return (stat(pt.c_str(), &buffer) == 0);
   }

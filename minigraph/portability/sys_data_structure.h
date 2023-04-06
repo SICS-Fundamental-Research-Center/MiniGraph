@@ -12,16 +12,16 @@
 
 #define BIG_CONSTANT(x) (x##LLU)
 
-struct CSRPt {
+struct Path {
   std::string meta_pt;
   std::string data_pt;
   std::string vdata_pt;
 };
 
-struct EdgeListPt {
-  std::string edges_pt;
-  std::string v_label_pt;
-};
+//struct EdgeListPt {
+//  std::string edges_pt;
+//  std::string v_label_pt;
+//};
 
 template <typename VID_T, typename GID_T>
 class VertexDependencies {
