@@ -41,7 +41,8 @@ class VertexCutPartitioner : public PartitionerBase<GRAPH_T> {
 
   bool ParallelPartition(EDGE_LIST_T* edgelist_graph,
                          const size_t num_partitions = 1,
-                         const size_t cores = 1) override {
+                         const size_t cores = 1, const std::string dst_pt = "",
+                         bool delete_graph = false) override {
     LOG_INFO("ParallelPartition(): VertexCut");
 
     auto thread_pool = CPUThreadPool(cores, 1);
@@ -50,6 +51,7 @@ class VertexCutPartitioner : public PartitionerBase<GRAPH_T> {
     std::unique_lock<std::mutex> lck(mtx);
     std::atomic<size_t> pending_packages(cores);
 
+    minigraph::utility::io::DataMngr<CSR_T> data_mngr;
     VID_T aligned_max_vid =
         ceil((float)edgelist_graph->max_vid_ / ALIGNMENT_FACTOR) *
         ALIGNMENT_FACTOR;
@@ -62,6 +64,9 @@ class VertexCutPartitioner : public PartitionerBase<GRAPH_T> {
     size_t* size_per_bucket = new size_t[num_partitions];
     memset(size_per_bucket, 0, sizeof(size_t) * num_partitions);
     size_t num_edges = edgelist_graph->num_edges_;
+    this->global_border_vid_map_ = new Bitmap(aligned_max_vid);
+    this->global_border_vid_map_->clear();
+    this->num_partitions = num_partitions;
 
     LOG_INFO("Compute the number of edges for each bucket.");
     pending_packages.store(cores);
@@ -148,7 +153,26 @@ class VertexCutPartitioner : public PartitionerBase<GRAPH_T> {
       auto csr_graph = csr_io_adapter.EdgeList2CSR(gid, edgelist_graph, cores);
       delete edgelist_graph;
       free(edges_buckets[gid]);
-      this->fragments_->push_back(csr_graph);
+      csr_graph->InitVdata2AllX(0);
+      if (!delete_graph) {
+        this->fragments_->push_back(csr_graph);
+      } else {
+        std::string meta_pt =
+            dst_pt + "minigraph_meta/" + std::to_string(gid) + ".bin";
+        std::string data_pt =
+            dst_pt + "minigraph_data/" + std::to_string(gid) + ".bin";
+        std::string vdata_pt =
+            dst_pt + "minigraph_vdata/" + std::to_string(gid) + ".bin";
+        data_mngr.csr_io_adapter_->Write(*csr_graph, csr_bin, false, meta_pt,
+                                         data_pt, vdata_pt);
+        StatisticInfo&& si = this->ParallelSetStatisticInfo(*csr_graph, cores);
+        std::string si_pt =
+            dst_pt + "minigraph_si/" + std::to_string(gid) + ".yaml";
+        data_mngr.WriteStatisticInfo(si, si_pt);
+        csr_graph->SetGlobalBorderVidMap(this->global_border_vid_map_,
+                                         is_in_bucketX, num_partitions);
+        delete csr_graph;
+      }
     }
 
     LOG_INFO("Run: Set communication matrix");
@@ -164,24 +188,12 @@ class VertexCutPartitioner : public PartitionerBase<GRAPH_T> {
     for (size_t i = 0; i < num_partitions; i++)
       *(this->communication_matrix_ + i * num_partitions + i) = 0;
 
-    LOG_INFO("Run: Set global_border_vid_map");
-
-    this->global_border_vid_map_ = new Bitmap(aligned_max_vid);
-
-    this->global_border_vid_map_->clear();
-    for (GID_T i = 0; i < num_partitions; i++) {
-      ((CSR_T*)this->fragments_->at(i))
-          ->SetGlobalBorderVidMap(this->global_border_vid_map_, is_in_bucketX,
-                                  num_partitions);
+    for (size_t i = 0; i < num_partitions; i++) {
+      delete is_in_bucketX[i];
     }
-    LOG_INFO("X");
-
-    //for (size_t i = 0; i < num_partitions; i++) {
-    //  delete is_in_bucketX[i];
-    //}
-    //for (GID_T gid = 0; gid < num_partitions; gid++) {
-    //  free(edges_buckets[gid]);
-    //}
+    for (GID_T gid = 0; gid < num_partitions; gid++) {
+      free(edges_buckets[gid]);
+    }
     free(num_vertexes_per_bucket);
     free(max_vid_per_bucket);
     free(size_per_bucket);

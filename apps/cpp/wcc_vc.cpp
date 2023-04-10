@@ -27,7 +27,6 @@ class WCCAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
     if (v.vdata[0] > u.vdata[0]) {
       if (write_min(v.vdata, u.vdata[0])) {
         tag = true;
-        //LOG_INFO(origin, "<-", u.vdata[0], " ", tag);
       }
     }
     return tag;
@@ -61,7 +60,6 @@ class WCCAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
       ++local_sum_out_border_vertex;
       auto global_id = graph->localid2globalid(u.vid);
       if (*(global_border_vdata + global_id) > u.vdata[0]) {
-        // LOG_INFO(*(global_border_vdata + global_id), "<-", u.vdata[0]);
         if(write_min((global_border_vdata + global_id), u.vdata[0])){
           visited->set_bit(u.vid);
         }
@@ -88,10 +86,6 @@ class WCCAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
           in_visited->set_bit(u.vid);
         }
       }
-      // if (write_min(u.vdata,
-      //               global_border_vdata[graph->localid2globalid(u.vid)])) {
-      //   in_visited->set_bit(u.vid);
-      // }
       for (size_t nbr_i = 0; nbr_i < u.indegree; nbr_i++) {
         if (global_border_vid_map->get_bit(u.in_edges[nbr_i]) == 0) continue;
         ++local_num_border_vertexes;
@@ -121,7 +115,6 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
   bool Init(GRAPH_T& graph,
             minigraph::executors::TaskRunner* task_runner) override {
-    // LOG_INFO("Init() - Processing gid: ", graph.gid_);
     Bitmap* visited = new Bitmap(graph.max_vid_);
     visited->fill();
     this->auto_map_->ActiveMap(graph, task_runner, visited,
@@ -151,27 +144,15 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     size_t count_iters = 0;
     std::vector<StatisticInfo> vec_si;
     while (run) {
-      // StatisticInfo si(0, 0);
       auto iter_start_time = std::chrono::system_clock::now();
       run = this->auto_map_->ActiveEMap(in_visited, out_visited, graph,
                                         task_runner, vid_map, &visited,
                                         &global_si);
       auto iter_end_time = std::chrono::system_clock::now();
-      // si.current_iter = count_iters++;
       count_iters++;
       std::swap(in_visited, out_visited);
-      // si.elapsed_time =
-      // std::chrono::duration_cast<std::chrono::microseconds>(
-      //                       iter_end_time - iter_start_time)
-      //                       .count() /
-      //                   (double)CLOCKS_PER_SEC;
-      // vec_si.push_back(si);
     }
 
-    for (size_t i = 0; i < vec_si.size(); i++) {
-      vec_si.at(i).num_iters = count_iters;
-      vec_si.at(i).ShowInfo();
-    }
 
     this->auto_map_->ActiveMap(
         graph, task_runner, &visited,
@@ -229,21 +210,11 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     size_t count_iters = 0;
     std::vector<StatisticInfo> vec_si;
     while (run) {
-      // StatisticInfo si(1, 0);
-      // auto iter_start_time = std::chrono::system_clock::now();
       run = this->auto_map_->ActiveEMap(in_visited, out_visited, graph,
                                         task_runner, vid_map, &visited,
                                         &global_si);
       std::swap(in_visited, out_visited);
       count_iters++;
-      // si.current_iter = count_iters++;
-      // auto iter_end_time = std::chrono::system_clock::now();
-      // si.elapsed_time =
-      // std::chrono::duration_cast<std::chrono::microseconds>(
-      //     iter_end_time - iter_start_time)
-      //                       .count() /
-      //                   (double)CLOCKS_PER_SEC;
-      // vec_si.push_back(si);
     }
 
     for (size_t i = 0; i < vec_si.size(); i++) {
@@ -278,14 +249,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     }
 
     global_si.ShowInfo();
-    // LOG_INFO("Visited: ", visited_num, " / ", graph.get_num_vertexes(), " |
-    // ",
-    //          graph.get_num_vertexes() / 10000);
-    // if (visited_num < graph.get_num_vertexes() / 10000) {
-    //  return false;
-    //}
 
-     LOG_INFO(global_si.num_active_vertexes , " ", graph.get_num_vertexes());
     return !(global_si.num_active_vertexes <= graph.get_num_vertexes() / 10000);
   }
 

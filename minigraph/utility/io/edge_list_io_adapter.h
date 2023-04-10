@@ -115,7 +115,7 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
                            const std::string& pt, const GID_T gid = 0,
                            const bool assemble = false,
                            char separator_params = ',') {
-    if (!this->IsExist(pt)) {
+    if (!this->Exist(pt)) {
       XLOG(ERR, "Read file fault: ", pt);
       return false;
     }
@@ -310,7 +310,7 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>* graph,
       const std::string& pt, const GID_T gid, char separator_params,
       const size_t cores = 1) {
-    if (!this->IsExist(pt)) {
+    if (!this->Exist(pt)) {
       XLOG(ERR, "Read file fault: ", pt);
       return false;
     }
@@ -408,9 +408,9 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       XLOG(ERR, "Segmentation fault: buf_graph is nullptr");
       return false;
     }
-    if (this->IsExist(meta_pt)) remove(meta_pt.c_str());
-    if (this->IsExist(data_pt)) remove(data_pt.c_str());
-    if (this->IsExist(vdata_pt)) remove(vdata_pt.c_str());
+    if (this->Exist(meta_pt)) remove(meta_pt.c_str());
+    if (this->Exist(data_pt)) remove(data_pt.c_str());
+    if (this->Exist(vdata_pt)) remove(vdata_pt.c_str());
 
     std::ofstream meta_file(meta_pt, std::ios::binary | std::ios::app);
     std::ofstream data_file(data_pt, std::ios::binary | std::ios::app);
@@ -445,7 +445,7 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>* graph,
       const std::string& pt, const GID_T gid = 0, const bool assemble = false,
       char separator_params = ',', const size_t cores = 1) {
-    if (!this->IsExist(pt)) {
+    if (!this->Exist(pt)) {
       XLOG(ERR, "Read file fault: ", pt);
       return false;
     }

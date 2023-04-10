@@ -26,8 +26,71 @@ class PartitionerBase {
   }
 
   virtual bool ParallelPartition(EDGE_LIST_T* edgelist_graph = nullptr,
-                         const size_t num_partitions = 1,
-                         const size_t cores = 1) = 0;
+                                 const size_t num_partitions = 1,
+                                 const size_t cores = 1, const std::string = "",
+                                 bool delete_graph = false) = 0;
+
+  StatisticInfo ParallelSetStatisticInfo(CSR_T& csr_graph, const size_t cores) {
+    auto thread_pool = minigraph::utility::EDFThreadPool(cores);
+    std::mutex mtx;
+    std::condition_variable finish_cv;
+    std::unique_lock<std::mutex> lck(mtx);
+    std::atomic<size_t> pending_packages(cores);
+
+    StatisticInfo si;
+    si.num_active_vertexes = csr_graph.get_num_vertexes();
+    si.num_vertexes = csr_graph.get_num_vertexes();
+    si.num_edges = csr_graph.get_num_edges();
+
+    size_t pending_package = cores;
+    pending_packages.store(cores);
+    for (size_t tid = 0; tid < cores; tid++) {
+      thread_pool.Commit(
+          [tid, &cores, &csr_graph, &si, &pending_package, &finish_cv]() {
+            size_t local_sum_border_vertexes = 0;
+            size_t local_sum_out_degree = 0;
+            size_t local_sum_dgv_times_dgv = 0;
+            size_t local_sum_dlv_times_dlv = 0;
+            size_t local_sum_dlv_times_dgv = 0;
+            size_t local_sum_dlv = 0;
+            size_t local_sum_dgv = 0;
+            for (size_t i = tid; i < csr_graph.get_num_vertexes(); i += cores) {
+              auto u = csr_graph.GetVertexByIndex(i);
+              size_t dlv = 0;
+              size_t dgv = u.outdegree;
+              for (size_t out_nbr_i = 0; out_nbr_i < u.outdegree; ++out_nbr_i) {
+                if (!csr_graph.IsInGraph(u.out_edges[out_nbr_i])) {
+                  ++local_sum_border_vertexes;
+                  continue;
+                }
+                ++dlv;
+                ++local_sum_out_degree;
+              }
+              local_sum_dlv_times_dgv += dlv * dgv;
+              local_sum_dlv_times_dlv += dlv * dlv;
+              local_sum_dgv_times_dgv += dgv * dgv;
+              local_sum_dgv += dgv;
+              local_sum_dlv += dlv;
+            }
+
+            write_add(&si.sum_out_degree, local_sum_out_degree);
+            write_add(&si.sum_dlv_times_dgv, local_sum_dlv_times_dgv);
+            write_add(&si.sum_dlv_times_dlv, local_sum_dlv_times_dlv);
+            write_add(&si.sum_dgv_times_dgv, local_sum_dgv_times_dgv);
+            write_add(&si.sum_out_border_vertexes, local_sum_border_vertexes);
+            write_add(&si.sum_dlv, local_sum_dlv);
+            write_add(&si.sum_dgv, local_sum_dgv);
+            if (__sync_fetch_and_sub(&pending_package, 1) == 1)
+              finish_cv.notify_all();
+
+            return;
+          });
+    }
+    finish_cv.wait(lck, [&] { return pending_package == 0; });
+
+    // si.ShowInfo();
+    return si;
+  }
 
   std::vector<graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>*>* GetFragments() {
     return fragments_;
@@ -39,7 +102,7 @@ class PartitionerBase {
   }
 
   std::pair<size_t, bool*> GetCommunicationMatrix() const {
-    return std::make_pair(fragments_->size(), communication_matrix_);
+    return std::make_pair(num_partitions, communication_matrix_);
   }
 
   std::unordered_map<VID_T, VertexDependencies<VID_T, GID_T>*>*
@@ -63,13 +126,12 @@ class PartitionerBase {
   VID_T* GetVidMap() { return vid_map_; }
 
  public:
-
   // Basic parameters.
   VID_T max_vid_ = 0;
   VID_T aligned_max_vid_ = 0;
   size_t num_vertexes_ = 0;
   size_t num_edges_ = 0;
-
+  size_t num_partitions = 0;
 
   bool* communication_matrix_ = nullptr;
   Bitmap* global_border_vid_map_ = nullptr;

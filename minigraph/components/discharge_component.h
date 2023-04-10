@@ -30,7 +30,7 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       std::queue<GID_T>* partial_result_queue,
       folly::ProducerConsumerQueue<GID_T>* task_queue,
       std::queue<GID_T>* read_trigger,
-      folly::AtomicHashMap<GID_T, CSRPt>* pt_by_gid,
+      folly::AtomicHashMap<GID_T, Path>* pt_by_gid,
       utility::io::DataMngr<GRAPH_T>* data_mngr,
       message::DefaultMessageManager<GRAPH_T>* msg_mngr,
       std::unique_lock<std::mutex>* partial_result_lck,
@@ -89,8 +89,8 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
               this->get_global_superstep() > num_iter_) {
             auto out_rts = this->state_machine_->EvokeAllX(RTS);
             for (auto& iter : out_rts) {
-              CSRPt& csr_pt = pt_by_gid_->find(iter)->second;
-              data_mngr_->WriteGraph(gid, csr_pt, csr_bin, true);
+              Path& path = pt_by_gid_->find(iter)->second;
+              data_mngr_->WriteGraph(gid, path, csr_bin, true);
             }
             system_switch_cv_->wait(*system_switch_lck_,
                                     [&] { return system_switch_->load(); });
@@ -117,7 +117,7 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   std::queue<GID_T>* read_trigger_ = nullptr;
   utility::io::DataMngr<GRAPH_T>* data_mngr_ = nullptr;
   message::DefaultMessageManager<GRAPH_T>* msg_mngr_ = nullptr;
-  folly::AtomicHashMap<GID_T, CSRPt>* pt_by_gid_ = nullptr;
+  folly::AtomicHashMap<GID_T, Path>* pt_by_gid_ = nullptr;
   std::unique_lock<std::mutex>* partial_result_lck_ = nullptr;
   folly::ProducerConsumerQueue<GID_T>* task_queue_ = nullptr;
   std::condition_variable* read_trigger_cv_ = nullptr;
@@ -133,14 +133,14 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   void ReleaseGraphX(const GID_T gid, bool terminate = false) {
     if (IsSameType<GRAPH_T, CSR_T>()) {
       if (this->state_machine_->GraphIs(gid, RTS)) {
-        CSRPt& csr_pt = pt_by_gid_->find(gid)->second;
-        data_mngr_->WriteGraph(gid, csr_pt, csr_bin, true);
+        Path& path = pt_by_gid_->find(gid)->second;
+        data_mngr_->WriteGraph(gid, path, csr_bin, true);
         data_mngr_->EraseGraph(gid);
       } else if (this->state_machine_->GraphIs(gid, RT)) {
         data_mngr_->EraseGraph(gid);
       } else if (this->state_machine_->GraphIs(gid, RC)) {
-        CSRPt& csr_pt = pt_by_gid_->find(gid)->second;
-        data_mngr_->WriteGraph(gid, csr_pt, csr_bin, true);
+        Path& path = pt_by_gid_->find(gid)->second;
+        data_mngr_->WriteGraph(gid, path, csr_bin, true);
         data_mngr_->EraseGraph(gid);
       }
     }
@@ -169,8 +169,8 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
     for (auto& iter : out_rc_) {
       this->state_machine_->EvokeX(iter, RC);
       GID_T gid = iter;
-      CSRPt& csr_pt = pt_by_gid_->find(gid)->second;
-      data_mngr_->WriteGraph(gid, csr_pt, edge_list_bin);
+      Path& path = pt_by_gid_->find(gid)->second;
+      data_mngr_->WriteGraph(gid, path, edge_list_bin);
       data_mngr_->EraseGraph(gid);
       read_trigger_->push(gid);
     }

@@ -65,7 +65,7 @@ class MiniGraphSys {
         data_mngr_.get(), work_space, false);
     msg_mngr_->Init(work_space);
 
-    pt_by_gid_ = new folly::AtomicHashMap<GID_T, CSRPt>(8096);
+    pt_by_gid_ = new folly::AtomicHashMap<GID_T, Path>(8096);
     InitPtByGid(work_space);
 
     // init global superstep
@@ -128,8 +128,6 @@ class MiniGraphSys {
     system_switch_lck_ = std::make_unique<std::unique_lock<std::mutex>>(
         *system_switch_mtx_.get());
     system_switch_cv_ = std::make_unique<std::condition_variable>();
-
-    auto sem_lc_dc = new folly::NativeSemaphore(buffer_size);
 
     // init components
     load_component_ = std::make_unique<components::LoadComponent<GRAPH_T>>(
@@ -214,17 +212,17 @@ class MiniGraphSys {
     LOG_INFO("**************Show Result****************");
     for (auto& iter : *pt_by_gid_) {
       GID_T gid = iter.first;
-      CSRPt csr_pt = iter.second;
+      Path path = iter.second;
       auto graph = new GRAPH_T;
       if (IsSameType<GRAPH_T, CSR_T>()) {
         data_mngr_->csr_io_adapter_->Read((GRAPH_BASE_T*)graph, csr_bin, gid,
-                                          csr_pt.meta_pt, csr_pt.data_pt,
-                                          csr_pt.vdata_pt);
+                                          path.meta_pt, path.data_pt,
+                                          path.vdata_pt);
         ((CSR_T*)graph)->ShowGraph(num_vertexes_to_show);
       } else if (IsSameType<GRAPH_T, EDGE_LIST_T>()) {
         data_mngr_->edge_list_io_adapter_->Read(
             (GRAPH_BASE_T*)graph, edge_list_bin, separator_params, gid,
-            csr_pt.meta_pt, csr_pt.data_pt, csr_pt.vdata_pt);
+            path.meta_pt, path.data_pt, path.vdata_pt);
         ((EDGE_LIST_T*)graph)->ShowGraph(num_vertexes_to_show);
       }
     }
@@ -236,12 +234,10 @@ class MiniGraphSys {
     // vdata_t components = 0;
     for (auto& iter : *pt_by_gid_) {
       GID_T gid = iter.first;
-      CSRPt csr_pt = iter.second;
+      Path path = iter.second;
       auto graph = new GRAPH_T;
       data_mngr_->csr_io_adapter_->Read((GRAPH_BASE_T*)graph, csr_bin, gid,
-                                        csr_pt.meta_pt, csr_pt.data_pt);
-      // auto components_of_X = graph->GetComponents();
-      // LOG_INFO(components_of_X, " components found");
+                                        path.meta_pt, path.data_pt);
     }
   }
 
@@ -249,7 +245,7 @@ class MiniGraphSys {
 
  private:
   // file path by gid.
-  folly::AtomicHashMap<GID_T, CSRPt>* pt_by_gid_ = nullptr;
+  folly::AtomicHashMap<GID_T, Path>* pt_by_gid_ = nullptr;
 
   // thread pool.
   size_t num_threads_ = 0;
@@ -309,9 +305,9 @@ class MiniGraphSys {
     std::string meta_root = work_space + "minigraph_meta/";
     std::string data_root = work_space + "minigraph_data/";
     std::string vdata_root = work_space + "minigraph_vdata/";
-    if (!data_mngr_->IsExist(meta_root)) data_mngr_->MakeDirectory(meta_root);
-    if (!data_mngr_->IsExist(data_root)) data_mngr_->MakeDirectory(data_root);
-    if (!data_mngr_->IsExist(vdata_root)) data_mngr_->MakeDirectory(vdata_root);
+    if (!data_mngr_->Exist(meta_root)) data_mngr_->MakeDirectory(meta_root);
+    if (!data_mngr_->Exist(data_root)) data_mngr_->MakeDirectory(data_root);
+    if (!data_mngr_->Exist(vdata_root)) data_mngr_->MakeDirectory(vdata_root);
   }
 
   bool InitPtByGid(const std::string& work_space) {
@@ -330,9 +326,9 @@ class MiniGraphSys {
       GID_T gid = (GID_T)std::stoi(gid_str);
       auto iter = pt_by_gid_->find(gid);
       if (iter == pt_by_gid_->end()) {
-        CSRPt csr_pt;
-        csr_pt.meta_pt = path;
-        pt_by_gid_->insert(gid, csr_pt);
+        Path _path;
+        _path.meta_pt = path;
+        pt_by_gid_->insert(gid, _path);
       } else {
         iter->second.meta_pt = path;
       }
@@ -348,9 +344,9 @@ class MiniGraphSys {
       GID_T gid = (GID_T)std::stoi(gid_str);
       auto iter = pt_by_gid_->find(gid);
       if (iter == pt_by_gid_->end()) {
-        CSRPt csr_pt;
-        csr_pt.data_pt = path;
-        pt_by_gid_->insert(gid, csr_pt);
+        Path _path;
+        _path.data_pt = path;
+        pt_by_gid_->insert(gid, _path);
       } else {
         iter->second.data_pt = path;
       }
@@ -365,9 +361,9 @@ class MiniGraphSys {
       GID_T gid = (GID_T)std::stoi(gid_str);
       auto iter = pt_by_gid_->find(gid);
       if (iter == pt_by_gid_->end()) {
-        CSRPt csr_pt;
-        csr_pt.vdata_pt = path;
-        pt_by_gid_->insert(gid, csr_pt);
+        Path _path;
+        _path.vdata_pt = path;
+        pt_by_gid_->insert(gid, _path);
       } else {
         iter->second.vdata_pt = path;
       }

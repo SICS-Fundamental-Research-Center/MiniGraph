@@ -44,7 +44,7 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       std::queue<GID_T>* read_trigger,
       folly::ProducerConsumerQueue<GID_T>* task_queue,
       std::queue<GID_T>* partial_result_queue,
-      folly::AtomicHashMap<GID_T, CSRPt>* pt_by_gid,
+      folly::AtomicHashMap<GID_T, Path>* pt_by_gid,
       utility::io::DataMngr<GRAPH_T>* data_mngr,
       message::DefaultMessageManager<GRAPH_T>* msg_mngr,
       std::unique_lock<std::mutex>* read_trigger_lck,
@@ -125,7 +125,7 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   std::queue<GID_T>* read_trigger_ = nullptr;
   folly::ProducerConsumerQueue<GID_T>* task_queue_ = nullptr;
   std::queue<GID_T>* partial_result_queue_ = nullptr;
-  folly::AtomicHashMap<GID_T, CSRPt>* pt_by_gid_ = nullptr;
+  folly::AtomicHashMap<GID_T, Path>* pt_by_gid_ = nullptr;
   utility::io::DataMngr<GRAPH_T>* data_mngr_ = nullptr;
   message::DefaultMessageManager<GRAPH_T>* msg_mngr_ = nullptr;
   bool switch_ = true;
@@ -156,9 +156,9 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
 
     if (mode_ == "NoShort") read = true;
     if (read) {
-      CSRPt& csr_pt = pt_by_gid_->find(gid)->second;
+      Path& path = pt_by_gid_->find(gid)->second;
       auto tag = false;
-      tag = this->data_mngr_->ReadGraph(gid, csr_pt, csr_bin);
+      tag = this->data_mngr_->ReadGraph(gid, path, csr_bin);
       if (tag) {
         this->state_machine_->ProcessEvent(gid, LOAD);
         while (!task_queue_->write(gid))

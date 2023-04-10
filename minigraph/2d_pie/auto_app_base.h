@@ -30,7 +30,7 @@ class AutoAppBase {
     context_ = context;
   }
 
-  // @brief Partial evaluation to implement.
+  // @brief init to implement.
   // @note: This pure virtual function works as an interface, instructing users
   // to implement in the specific app. The Init in the inherited apps would be
   // invoked directly, not via virtual functions.

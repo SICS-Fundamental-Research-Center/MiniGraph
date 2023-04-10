@@ -503,8 +503,9 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
   void SetGlobalBorderVidMap(Bitmap* global_border_vid_map = nullptr,
                              Bitmap** is_in_bucketX = nullptr,
                              const size_t num_partitions = 1) {
-    assert(global_border_vid_map != nullptr && is_in_bucketX != nullptr &&
-           num_partitions > 0);
+    assert(global_border_vid_map != nullptr);
+    assert(is_in_bucketX != nullptr);
+    assert(num_partitions > 0);
 
     LOG_INFO("SetGlobalBorderVidMap, GID: ", this->get_gid());
     for (VID_T local_id = 0; local_id < this->get_num_vertexes(); local_id++) {
@@ -533,7 +534,6 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     }
     return;
   }
-
 
  public:
   size_t sum_in_edges_ = 0;
