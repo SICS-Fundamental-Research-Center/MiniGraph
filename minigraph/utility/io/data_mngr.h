@@ -43,6 +43,7 @@ class DataMngr {
     pgraph_mtx_ = new std::mutex;
   };
 
+  // csr format load?
   bool ReadGraph(const GID_T& gid, const Path& path,
                  const GraphFormat& graph_format, char separator_params = ',') {
     bool out = false;

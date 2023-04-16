@@ -1,6 +1,6 @@
 #include "2d_pie/auto_app_base.h"
-#include "2d_pie/edge_map_reduce.h"
-#include "2d_pie/vertex_map_reduce.h"
+// #include "2d_pie/edge_map_reduce.h"
+// #include "2d_pie/vertex_map_reduce.h"
 #include "graphs/graph.h"
 #include "minigraph_sys.h"
 #include "portability/sys_data_structure.h"

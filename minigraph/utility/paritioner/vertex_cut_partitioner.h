@@ -180,7 +180,7 @@ class VertexCutPartitioner : public PartitionerBase<GRAPH_T> {
       this->communication_matrix_ =
           (bool*)malloc(sizeof(bool) * num_partitions * num_partitions);
     else
-      free(this->communication_matrix_);
+      // free(this->communication_matrix_);
     memset(this->communication_matrix_, 0,
            sizeof(bool) * num_partitions * num_partitions);
     for (size_t i = 0; i < num_partitions * num_partitions; i++)
@@ -192,13 +192,13 @@ class VertexCutPartitioner : public PartitionerBase<GRAPH_T> {
       delete is_in_bucketX[i];
     }
     for (GID_T gid = 0; gid < num_partitions; gid++) {
-      free(edges_buckets[gid]);
+      // free(edges_buckets[gid]);
     }
-    free(num_vertexes_per_bucket);
-    free(max_vid_per_bucket);
-    free(size_per_bucket);
-    delete num_in_edges;
-    delete num_out_edges;
+    // free(num_vertexes_per_bucket);
+    // free(max_vid_per_bucket);
+    // free(size_per_bucket);
+    // delete num_in_edges;
+    // delete num_out_edges;
     LOG_INFO("END");
 
     return true;
