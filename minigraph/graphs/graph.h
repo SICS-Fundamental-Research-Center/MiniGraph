@@ -147,15 +147,6 @@ class Graph {
   virtual void CleanUp() = 0;
   virtual ~Graph() = default;
 
-  //run phase
-  void init() {}
-
-  void PEval() {}
-
-  void IncEval() {}
-
-  void Assemble() {}
-
  public:
   GID_T gid_ = -1;
   size_t num_vertexes_ = 0;

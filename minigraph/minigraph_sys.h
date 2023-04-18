@@ -1,6 +1,16 @@
 #ifndef MINIGRAPH_MINIGRAPH_SYS_H
 #define MINIGRAPH_MINIGRAPH_SYS_H
 
+#include "2d_pie/auto_app_base.h"
+#include "components/computing_component.h"
+#include "components/discharge_component.h"
+#include "components/load_component.h"
+#include "message_manager/default_message_manager.h"
+#include "utility/io/data_mngr.h"
+#include "utility/paritioner/edge_cut_partitioner.h"
+#include "utility/state_machine.h"
+#include <folly/AtomicHashMap.h>
+#include <folly/synchronization/NativeSemaphore.h>
 #include <condition_variable>
 #include <dirent.h>
 #include <filesystem>
@@ -12,18 +22,6 @@
 #include <string>
 #include <thread>
 #include <vector>
-
-#include <folly/AtomicHashMap.h>
-#include <folly/synchronization/NativeSemaphore.h>
-
-#include "2d_pie/auto_app_base.h"
-#include "components/computing_component.h"
-#include "components/discharge_component.h"
-#include "components/load_component.h"
-#include "message_manager/default_message_manager.h"
-#include "utility/io/data_mngr.h"
-#include "utility/paritioner/edge_cut_partitioner.h"
-#include "utility/state_machine.h"
 
 namespace minigraph {
 
