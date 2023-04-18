@@ -439,6 +439,7 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     return vertex_info;
   }
 
+  //return vertexInfo in heap. should be done in graph load phase. return a stack value?
   graphs::VertexInfo<VID_T, VDATA_T, EDATA_T> GetVertexByVid(const VID_T vid) {
     graphs::VertexInfo<VID_T, VDATA_T, EDATA_T> vertex_info;
     vertex_info.vid = vid;
@@ -461,8 +462,8 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     return vertex_info;
   }
 
-  graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>* GetPVertexByVid(
-      const VID_T vid) {
+  // use only in sssp_gc
+  graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>* GetPVertexByVid(const VID_T vid) {
     auto vertex_info = new graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>;
     vertex_info->vid = vid;
     // size_t index = index_by_vid_[vid];
@@ -493,6 +494,7 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     assert(localid_by_globalid_ != nullptr);
     return localid_by_globalid_[vid];
   }
+
 
   // @brief: set Global Border vertexes in the format of Bitmap.
   // @param: global_border_vid_map is a bitmap that indicate whether a vertex

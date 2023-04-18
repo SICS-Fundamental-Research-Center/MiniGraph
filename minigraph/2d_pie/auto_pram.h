@@ -1,5 +1,5 @@
-#ifndef MINIGRAPH_2D_PIE_AUTO_MAP_REDUCE_H
-#define MINIGRAPH_2D_PIE_AUTO_MAP_REDUCE_H
+#ifndef MINIGRAPH_2D_PIE_AUTO_PRAM_H
+#define MINIGRAPH_2D_PIE_AUTO_PRAM_H
 
 #include <condition_variable>
 #include <functional>
@@ -23,7 +23,7 @@
 namespace minigraph {
 
 template <typename GRAPH_T, typename CONTEXT_T>
-class AutoMapBase {
+class AutoPramBase {
   using GID_T = typename GRAPH_T::gid_t;
   using VID_T = typename GRAPH_T::vid_t;
   using VDATA_T = typename GRAPH_T::vdata_t;
@@ -33,8 +33,8 @@ class AutoMapBase {
                          typename GRAPH_T::edata_t>;
 
  public:
-  AutoMapBase() = default;
-  ~AutoMapBase() = default;
+  AutoPramBase() = default;
+  ~AutoPramBase() = default;
 
   virtual bool F(const VertexInfo& u, VertexInfo& v,
                  GRAPH_T* graph = nullptr) = 0;
@@ -56,7 +56,7 @@ class AutoMapBase {
     bool global_visited = false;
 
     for (size_t tid = 0; tid < task_runner->GetParallelism(); ++tid) {
-      auto task = std::bind(&AutoMapBase<GRAPH_T, CONTEXT_T>::ActiveEReduce,
+      auto task = std::bind(&AutoPramBase<GRAPH_T, CONTEXT_T>::ActiveEReduce,
                             this, &graph, in_visited, out_visited, tid,
                             task_runner->GetParallelism(), &global_visited,
                             vid_map, visited, si);
@@ -80,7 +80,7 @@ class AutoMapBase {
     bool global_visited = false;
     size_t active_vertices = 0;
     for (size_t tid = 0; tid < task_runner->GetParallelism(); ++tid) {
-      auto task = std::bind(&AutoMapBase<GRAPH_T, CONTEXT_T>::ActiveVReduce,
+      auto task = std::bind(&AutoPramBase<GRAPH_T, CONTEXT_T>::ActiveVReduce,
                             this, &graph, in_visited, out_visited, tid,
                             task_runner->GetParallelism(), &global_visited,
                             &active_vertices, vid_map, visited);
@@ -201,4 +201,4 @@ class AutoMapBase {
 };
 
 }  // namespace minigraph
-#endif  // MINIGRAPH_2d_PIE_EDGE_MAP_REDUCE_H
+#endif  // MINIGRAPH_2d_PIE_EDGE_PRAM_H

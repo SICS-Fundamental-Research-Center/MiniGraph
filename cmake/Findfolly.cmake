@@ -17,7 +17,7 @@
 
 include(FindPackageHandleStandardArgs)
 
-set(FOLLY_ROOT_DIR "" CACHE PATH "Folder contains libfolly")
+set(FOLLY_ROOT_DIR "/home/liuyang/folly_ly/installed/folly" CACHE PATH "Folder contains libfolly")
 
 # We are testing only a couple of files in the include directories
 find_path(FOLLY_INCLUDE_DIR folly PATHS ${FOLLY_ROOT_DIR}/include)

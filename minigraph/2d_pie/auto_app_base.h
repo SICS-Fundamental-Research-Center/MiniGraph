@@ -1,12 +1,6 @@
 #ifndef MINIGRAPH_2D_PIE_AUTO_APP_BASE_H
 #define MINIGRAPH_2D_PIE_AUTO_APP_BASE_H
 
-#include <memory>
-#include <unordered_map>
-
-#include <folly/MPMCQueue.h>
-#include <folly/concurrency/DynamicBoundedQueue.h>
-
 #include "2d_pie/auto_map.h"
 #include "executors/scheduled_executor.h"
 #include "executors/scheduler.h"
@@ -16,10 +10,15 @@
 #include "graphs/immutable_csr.h"
 #include "message_manager/default_message_manager.h"
 #include "utility/thread_pool.h"
-
+#include <folly/MPMCQueue.h>
+#include <folly/concurrency/DynamicBoundedQueue.h>
+#include <memory>
+#include <unordered_map>
 
 namespace minigraph {
 
+
+//abstract class for APP
 template <typename GRAPH_T, typename CONTEXT_T>
 class AutoAppBase {
   using AutoMap_T = AutoMapBase<GRAPH_T, CONTEXT_T>;
@@ -62,12 +61,12 @@ class AutoAppBase {
   virtual bool Aggregate(void* partial_result_a, void* partial_result_b,
                          executors::TaskRunner* task_runner) = 0;
 
-
   AutoMap_T* auto_map_ = nullptr;
   CONTEXT_T context_;
   message::DefaultMessageManager<GRAPH_T>* msg_mngr_ = nullptr;
 };
 
+//APPwrapper used by ComputingComponent
 template <typename AutoApp, typename GRAPH_T>
 class AppWrapper {
   using GID_T = typename GRAPH_T::gid_t;

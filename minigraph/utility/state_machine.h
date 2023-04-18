@@ -332,7 +332,7 @@ class StateMachine {
     std::cout << std::endl;
   }
 
- private:
+private:
   std::unordered_map<GID_T, std::unique_ptr<sml::sm<GraphStateMachine>>>
       graph_state_;
   sml::sm<SystemStateMachine> system_state_;

@@ -2,6 +2,11 @@
 bin
 cmake-build-debug
 .idea
+.vscode
+build
+inputs/workspace
 
 # Auxiliary files
 Makefile
+test.cpp
+a.out

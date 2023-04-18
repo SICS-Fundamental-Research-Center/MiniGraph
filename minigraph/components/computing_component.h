@@ -1,11 +1,6 @@
 #ifndef MINIGRAPH_COMPUTING_COMPONENT_H
 #define MINIGRAPH_COMPUTING_COMPONENT_H
 
-#include <condition_variable>
-#include <memory>
-
-#include <folly/ProducerConsumerQueue.h>
-
 #include "components/component_base.h"
 #include "executors/scheduled_executor.h"
 #include "executors/scheduler.h"
@@ -13,6 +8,9 @@
 #include "graphs/immutable_csr.h"
 #include "utility/io/data_mngr.h"
 #include "utility/thread_pool.h"
+#include <folly/ProducerConsumerQueue.h>
+#include <condition_variable>
+#include <memory>
 
 namespace minigraph {
 namespace components {
@@ -59,8 +57,7 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
         std::make_unique<executors::ScheduledExecutor>(kTotalParallelism);
     p_ = (size_t*)malloc(sizeof(size_t) * superstep_by_gid->size());
     for (size_t i = 0; i < superstep_by_gid->size(); i++)
-      p_[i] = (size_t) num_cores / num_workers;
-
+      p_[i] = (size_t)num_cores / num_workers;
 
     XLOG(INFO,
          "Init ComputingComponent: Finish. TotalParallelism: ", num_cores_);
@@ -73,6 +70,7 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
     folly::NativeSemaphore sem(num_workers_);
     std::queue<GID_T> que_gid;
     while (this->switch_.load()) {
+      // useful?? vec_gid
       std::vector<GID_T> vec_gid;
       GID_T gid = MINIGRAPH_GID_MAX;
       task_queue_cv_->wait(*task_queue_lck_,
@@ -86,6 +84,7 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
         gid = que_gid.front();
         que_gid.pop();
         sem.try_wait();
+        //sub graph processing
         auto task = std::bind(
             &components::ComputingComponent<GRAPH_T, AUTOAPP_T>::ProcessGraph,
             this, gid, sem);
@@ -123,8 +122,10 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   void ProcessGraph(const GID_T& gid, folly::NativeSemaphore& sem) {
     // executor_cv_->wait(*executor_lck_, [&] { return true; });
     GRAPH_T* graph = (GRAPH_T*)data_mngr_->GetGraph(gid);
-    executors::TaskRunner* task_runner = scheduled_executor_->RequestTaskRunner(
-        {1, (unsigned)p_[gid]});
+    executors::TaskRunner* task_runner =
+        scheduled_executor_->RequestTaskRunner({1, (unsigned)p_[gid]});
+    
+    // PIE running phase
     if (this->get_superstep_via_gid(gid) == 0) {
       app_wrapper_->auto_app_->Init(*graph, task_runner);
       app_wrapper_->auto_app_->PEval(*graph, task_runner);
