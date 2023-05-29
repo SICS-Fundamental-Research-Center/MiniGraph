@@ -24,22 +24,19 @@ class SplitMerge {
 
     size_t tmp_base = immutable_csr.get_num_out_edges() / 2;
 
-    // Binary search for splited poit.
+    // Binary search for splitted poit.
     size_t i = immutable_csr.get_num_vertexes() / 2;
     size_t end = immutable_csr.get_num_vertexes();
     size_t start = 0;
+
     while (start <= end) {
       i = start + (end - start) / 2;
-      if (immutable_csr.out_offset_[i] < tmp_base &&
-          tmp_base <
-              immutable_csr.out_offset_[i] + immutable_csr.outdegree_[i]) {
-        break;
-      } else if (immutable_csr.out_offset_[i] + immutable_csr.outdegree_[i] <
-                 tmp_base) {
+      if (immutable_csr.out_offset_[i] < tmp_base)
         start = i + 1;
-      } else if (immutable_csr.out_offset_[i] > tmp_base) {
+      else if (immutable_csr.out_offset_[i] > tmp_base)
         end = i - 1;
-      }
+      else
+        break;
     }
 
     // Construct graph_a
