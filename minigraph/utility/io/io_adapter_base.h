@@ -1,7 +1,3 @@
-//
-// Created by hsiaoko on 2022/3/14.
-//
-
 #ifndef MINIGRAPH_UTILITY_IO_IO_ADAPTER_BASE_H
 #define MINIGRAPH_UTILITY_IO_IO_ADAPTER_BASE_H
 

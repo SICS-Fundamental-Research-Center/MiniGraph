@@ -20,15 +20,11 @@ class WCCAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
  public:
   WCCAutoMap() : minigraph::AutoMapBase<GRAPH_T, CONTEXT_T>() {}
 
+  // Push vdata from u to v.
   bool F(const VertexInfo& u, VertexInfo& v,
          GRAPH_T* graph = nullptr) override {
     auto tag = false;
-    auto origin = v.vdata[0];
-    if (v.vdata[0] > u.vdata[0]) {
-      if (write_min(v.vdata, u.vdata[0])) {
-        tag = true;
-      }
-    }
+    if (write_min(v.vdata, u.vdata[0])) tag = true;
     return tag;
   }
 
@@ -60,7 +56,7 @@ class WCCAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
       ++local_sum_out_border_vertex;
       auto global_id = graph->localid2globalid(u.vid);
       if (*(global_border_vdata + global_id) > u.vdata[0]) {
-        if(write_min((global_border_vdata + global_id), u.vdata[0])){
+        if (write_min((global_border_vdata + global_id), u.vdata[0])) {
           visited->set_bit(u.vid);
         }
       } else {
@@ -125,10 +121,9 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
   bool PEval(GRAPH_T& graph,
              minigraph::executors::TaskRunner* task_runner) override {
-    // LOG_INFO("PEval() - Processing gid: ", graph.gid_,
-    //          " num_vertexes: ", graph.get_num_vertexes());
-    //graph.ShowGraph();
-    //if (!graph.IsInGraph(0)) return true;
+    LOG_INFO("PEval() - Processing gid: ", graph.gid_,
+             " num_vertexes: ", graph.get_num_vertexes());
+    if (!graph.IsInGraph(0)) return true;
     auto vid_map = this->msg_mngr_->GetVidMap();
     auto start_time = std::chrono::system_clock::now();
 
@@ -152,7 +147,6 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
       count_iters++;
       std::swap(in_visited, out_visited);
     }
-
 
     this->auto_map_->ActiveMap(
         graph, task_runner, &visited,
