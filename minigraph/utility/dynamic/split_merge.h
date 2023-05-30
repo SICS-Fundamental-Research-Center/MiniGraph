@@ -38,7 +38,7 @@ class SplitMerge {
       else
         break;
     }
-    LOG_INFO("i", i);
+    LOG_INFO("X", i);
 
     // Construct graph_a
     graph_a->set_num_vertexes(i);
