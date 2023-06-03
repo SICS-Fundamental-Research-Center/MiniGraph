@@ -89,11 +89,8 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     auto graph_a = pair_graphs.first;
     auto graph_b = pair_graphs.second;
 
-    LOG_INFO("X");
     graph_a->ShowGraph(99);
-    LOG_INFO("X");
     graph_b->ShowGraph(99);
-    LOG_INFO("X");
 
     split_merge.Merge(linkedlist_mutable_csr, graph_a);
     split_merge.Merge(linkedlist_mutable_csr, graph_b);

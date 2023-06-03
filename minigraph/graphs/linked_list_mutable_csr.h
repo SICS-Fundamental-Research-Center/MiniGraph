@@ -17,15 +17,15 @@ namespace graphs {
 //
 // It organized several graphs that in ImmutableCSR format into a LinkedList.
 // It allows user to search a vertex with global_id in linked graphs.
-template <typename GID_T, typename VID_T, typename VDATA_T, typename EDATA_T>
+template<typename GID_T, typename VID_T, typename VDATA_T, typename EDATA_T>
 class LinkedListMutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
   using VertexInfo = graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>;
 
  public:
   struct LinkedList {
-    ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>* p_graphs = nullptr;
-    LinkedList* next = nullptr;
-  }* linked_list_ = nullptr;
+    ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T> *p_graphs = nullptr;
+    LinkedList *next = nullptr;
+  } *linked_list_ = nullptr;
 
   LinkedListMutableCSR() : Graph<GID_T, VID_T, VDATA_T, EDATA_T>() {
     linked_list_ = new LinkedList();
@@ -39,7 +39,7 @@ class LinkedListMutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
 
   // Append a new graph im ImmutableCSR format to the trail of linked_list.
   void GraphAppend(
-      ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>* immutable_csr) {
+      ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T> *immutable_csr) {
     if (num_graphs_ == 0) {
       num_graphs_ = 1;
       linked_list_->p_graphs = immutable_csr;
@@ -56,31 +56,17 @@ class LinkedListMutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     return;
   }
 
-  VID_T get_localid(VID_T global_id) {
-    auto next = linked_list_;
-    auto local_id = global_id;
-    while (next->next != nullptr) {
-      if (next->p_graphs->get_num_vertexes() <= local_id) {
-        local_id -= next->p_graphs->get_num_vertexes();
-        next = next->next;
-      } else {
-        break;
-      }
-    }
-    return local_id;
-  }
-
   // Get a vertexinfo by globalid.
   graphs::VertexInfo<VID_T, VDATA_T, EDATA_T> GetVertexByVid(
       const VID_T globalid) {
-    VID_T localid = get_localid(globalid);
+    VID_T localid = 0;
     auto next = linked_list_;
-    graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>* p = nullptr;
+    graphs::VertexInfo<VID_T, VDATA_T, EDATA_T> *p = nullptr;
     while (next->next != nullptr) {
-      if (next->p_graphs &&
-          next->p_graphs->globalid_by_index_[localid] != globalid) {
+      if (next->p_graphs && globalid > next->p_graphs->get_max_vid()) {
         next = next->next;
       } else {
+        localid = next->p_graphs->globalid2localid(globalid);
         break;
       }
     }
@@ -91,6 +77,6 @@ class LinkedListMutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
   size_t num_graphs_ = 0;
 };
 
-}  // namespace graphs
-}  // namespace minigraph
-#endif  // MINIGRAPH_GRAPHS_LINKEDLISTMUTABLECSR_H
+}// namespace graphs
+}// namespace minigraph
+#endif// MINIGRAPH_GRAPHS_LINKEDLISTMUTABLECSR_H
