@@ -15,22 +15,22 @@
 namespace minigraph {
 namespace graphs {
 
-template<typename VID_T, typename VDATA_T, typename EDATA_T>
+template <typename VID_T, typename VDATA_T, typename EDATA_T>
 class VertexInfo {
  public:
   VID_T vid;
   size_t outdegree = 0;
   size_t indegree = 0;
-  VID_T *in_edges = nullptr;
-  VID_T *out_edges = nullptr;
-  VDATA_T *vdata = nullptr;
-  EDATA_T *edata = nullptr;
-  char *state = nullptr;
+  VID_T* in_edges = nullptr;
+  VID_T* out_edges = nullptr;
+  VDATA_T* vdata = nullptr;
+  EDATA_T* edata = nullptr;
+  char* state = nullptr;
 
   VertexInfo() = default;
   ~VertexInfo() = default;
 
-  void ShowVertexAbs(const VID_T &globalid = -1) const {
+  void ShowVertexAbs(const VID_T& globalid = -1) const {
     if (vdata == nullptr) {
       std::cout << " localid: " << vid << ", globalid: " << globalid
                 << ", outdegree: " << outdegree << ", indegree: " << indegree
@@ -41,7 +41,7 @@ class VertexInfo {
                 << ", indegree: " << indegree << std::endl;
     }
   }
-  void ShowVertexInfo(const VID_T &globalid = -1) const {
+  void ShowVertexInfo(const VID_T& globalid = -1) const {
     if (vdata == nullptr) {
       std::cout << " localid: " << vid << ", globalid: " << globalid
                 << ", outdegree: " << outdegree << ", indegree: " << indegree
@@ -88,7 +88,7 @@ class VertexInfo {
   }
 };
 
-template<typename GID_T, typename VID_T, typename VDATA_T, typename EDATA_T>
+template <typename GID_T, typename VID_T, typename VDATA_T, typename EDATA_T>
 class Graph {
  public:
   typedef VID_T vid_t;
@@ -109,7 +109,7 @@ class Graph {
 
   void InitVdata2AllX(const VDATA_T init_vdata = 0) {
     if (vdata_ == nullptr) {
-      vdata_ = (VDATA_T *) malloc(sizeof(VDATA_T) * get_num_vertexes());
+      vdata_ = (VDATA_T*)malloc(sizeof(VDATA_T) * get_num_vertexes());
       if (init_vdata != 0)
         for (size_t i = 0; i < this->get_num_vertexes(); i++)
           vdata_[i] = init_vdata;
@@ -125,7 +125,7 @@ class Graph {
 
   void InitVdataByVid() {
     if (vdata_ == nullptr) {
-      vdata_ = (VDATA_T *) malloc(sizeof(VDATA_T) * get_num_vertexes());
+      vdata_ = (VDATA_T*)malloc(sizeof(VDATA_T) * get_num_vertexes());
       memset(vdata_, 0, sizeof(VDATA_T) * this->get_num_vertexes());
       for (size_t i = 0; i < this->get_num_vertexes(); i++) vdata_[i] = i;
 
@@ -159,11 +159,11 @@ class Graph {
   VID_T max_vid_ = 0;
   VID_T aligned_max_vid_ = 0;
   size_t num_edges_ = 0;
-  VDATA_T *vdata_ = nullptr;
-  Bitmap *bitmap_ = nullptr;
-  VID_T *buf_graph_ = nullptr;
+  VDATA_T* vdata_ = nullptr;
+  Bitmap* bitmap_ = nullptr;
+  VID_T* buf_graph_ = nullptr;
 };
 
-}// namespace graphs
-}// namespace minigraph
-#endif// MINIGRAPH_GRAPHS_GRAPH_H
+}  // namespace graphs
+}  // namespace minigraph
+#endif  // MINIGRAPH_GRAPHS_GRAPH_H

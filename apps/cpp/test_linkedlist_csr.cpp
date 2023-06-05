@@ -70,7 +70,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
              minigraph::executors::TaskRunner* task_runner) override {
     LOG_INFO("PEval() - Processing gid: ", graph.gid_,
              " num_vertexes: ", graph.get_num_vertexes());
-    graph.ShowGraph(99);
+    // graph.ShowGraph(99);
     if (!graph.IsInGraph(0)) return true;
     auto vid_map = this->msg_mngr_->GetVidMap();
     auto start_time = std::chrono::system_clock::now();
@@ -89,21 +89,30 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     auto graph_a = pair_graphs.first;
     auto graph_b = pair_graphs.second;
 
-    graph_a->ShowGraph(99);
-    graph_b->ShowGraph(99);
+    // graph_a->ShowGraph(99);
+    // graph_b->ShowGraph(99);
 
-    split_merge.Merge(linkedlist_mutable_csr, graph_a);
-    split_merge.Merge(linkedlist_mutable_csr, graph_b);
+    // split_merge.Merge(linkedlist_mutable_csr, graph_a);
+    // split_merge.Merge(linkedlist_mutable_csr, graph_b);
+    // auto u = linkedlist_mutable_csr->GetVertexByVid(4);
+    // u.ShowVertexInfo();
 
-    auto u = linkedlist_mutable_csr->GetVertexByVid(4);
-    u.ShowVertexInfo();
+    // auto pair_graphs_a = split_merge.Split(*graph_a);
+    // auto graph_aa = pair_graphs_a.first;
+    // auto graph_ab = pair_graphs_a.second;
+
+    auto pair_graphs_b = split_merge.Split(*graph_b);
+    auto graph_ba = pair_graphs_b.first;
+    auto graph_bb = pair_graphs_b.second;
+    graph_ba->ShowGraph(99);
+    graph_bb->ShowGraph(99);
 
     return true;
   }
 
   bool IncEval(GRAPH_T& graph,
                minigraph::executors::TaskRunner* task_runner) override {
-   return false;
+    return false;
   }
 
   bool Aggregate(void* a, void* b,
