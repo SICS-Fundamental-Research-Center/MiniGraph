@@ -230,17 +230,6 @@ class MiniGraphSys {
       msg_mngr_->GetPartialMatch()->ShowMatchingSolutions();
   }
 
-  void ShowNumComponents() {
-    // vdata_t components = 0;
-    for (auto& iter : *pt_by_gid_) {
-      GID_T gid = iter.first;
-      Path path = iter.second;
-      auto graph = new GRAPH_T;
-      data_mngr_->csr_io_adapter_->Read((GRAPH_BASE_T*)graph, csr_bin, gid,
-                                        path.meta_pt, path.data_pt);
-    }
-  }
-
   utility::io::DataMngr<GRAPH_T>* GetDataMngr() { return data_mngr_.get(); }
 
  private:

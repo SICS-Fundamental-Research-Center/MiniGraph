@@ -1,12 +1,3 @@
-#include <iostream>
-#include <math.h>
-#include <string.h>
-#include <string>
-
-#include <rapidcsv.h>
-
-#include <gflags/gflags.h>
-
 #include "graphs/edge_list.h"
 #include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
@@ -15,15 +6,22 @@
 #include "utility/io/edge_list_io_adapter.h"
 #include "utility/logging.h"
 #include "utility/thread_pool.h"
+#include <gflags/gflags.h>
+#include <iostream>
+#include <math.h>
+#include <rapidcsv.h>
+#include <string.h>
+#include <string>
 
 using EDGE_LIST_T = minigraph::graphs::EdgeList<gid_t, vid_t, vdata_t, edata_t>;
 using GRAPH_BASE_T = minigraph::graphs::Graph<gid_t, vid_t, vdata_t, edata_t>;
 
 template <typename VID_T, typename VDATA_T>
-void GraphReduceCSVToCSV(const std::string input_pt,
-                         const std::string output_pt, const size_t cores,
-                         char separator_params = ',',
-                         const size_t read_edges = 0) {
+void CompressEdgelistCSV2EdgeListCSV(const std::string input_pt,
+                                     const std::string output_pt,
+                                     const size_t cores,
+                                     char separator_params = ',',
+                                     const size_t read_edges = 0) {
   LOG_INFO("GraphReduce: CSV2CSV");
   std::mutex mtx;
   std::condition_variable finish_cv;
@@ -141,9 +139,10 @@ void GraphReduceCSVToCSV(const std::string input_pt,
 }
 
 template <typename VID_T, typename VDATA_T>
-void GraphReduceCSVToBin(const std::string input_pt, const std::string dst_pt,
-                         const size_t cores, char separator_params = ',',
-                         const size_t read_num_edges = 0) {
+void CompressEdgelistCSV2CSRBin(const std::string input_pt,
+                                const std::string dst_pt, const size_t cores,
+                                char separator_params = ',',
+                                const size_t read_num_edges = 0) {
   LOG_INFO("GraphReduce: CSV2Bin, read_edges:", read_num_edges);
   minigraph::utility::io::EdgeListIOAdapter<gid_t, vid_t, vdata_t, edata_t>
       edge_list_io_adapter;
@@ -302,8 +301,8 @@ void GraphReduceCSVToBin(const std::string input_pt, const std::string dst_pt,
 }
 
 template <typename VID_T, typename VDATA_T>
-void GraphReduceBinToBin(const std::string input_pt, const std::string dst_pt,
-                         const size_t cores) {
+void CompressEdgelistBin2CSRbin(const std::string input_pt,
+                                const std::string dst_pt, const size_t cores) {
   LOG_INFO("GraphReduce: Bin2Bin");
   minigraph::utility::io::EdgeListIOAdapter<gid_t, vid_t, vdata_t, edata_t>
       edgelist_io_adapter;
@@ -428,8 +427,10 @@ void GraphReduceBinToBin(const std::string input_pt, const std::string dst_pt,
 }
 
 template <typename VID_T, typename VDATA_T>
-void GraphReduceBinToCSV(const std::string input_pt, const std::string dst_pt,
-                         const size_t cores, char separator_params = ',') {
+void CompressEdgeListBin2EdgelistCSV(const std::string input_pt,
+                                     const std::string dst_pt,
+                                     const size_t cores,
+                                     char separator_params = ',') {
   LOG_INFO("GraphReduce: Bin2CSV");
   minigraph::utility::io::EdgeListIOAdapter<gid_t, vid_t, vdata_t, edata_t>
       edgelist_io_adapter;
@@ -567,19 +568,25 @@ int main(int argc, char* argv[]) {
 
   assert(FLAGS_i != "" && FLAGS_o != "");
   LOG_INFO("Reduce: ", FLAGS_i);
-  if (FLAGS_tobin) {
-    if (FLAGS_frombin)
-      GraphReduceBinToBin<vid_t, vdata_t>(FLAGS_i, FLAGS_o, cores);
-    else
-      GraphReduceCSVToBin<vid_t, vdata_t>(FLAGS_i, FLAGS_o, cores,
-                                          *FLAGS_sep.c_str(), FLAGS_edges);
-  } else {
-    if (FLAGS_frombin)
-      GraphReduceBinToCSV<vid_t, vdata_t>(FLAGS_i, FLAGS_o, cores,
-                                          *FLAGS_sep.c_str());
-    else
-      GraphReduceCSVToCSV<vid_t, vdata_t>(FLAGS_i, FLAGS_o, cores,
-                                          *FLAGS_sep.c_str(), FLAGS_edges);
-  }
+
+  if (FLAGS_frombin && FLAGS_tobin && FLAGS_in_type == "edgelist" &&
+      FLAGS_out_type == "csr")
+    CompressEdgelistBin2CSRbin<vid_t, vdata_t>(FLAGS_i, FLAGS_o, cores);
+
+  if (FLAGS_frombin == false && FLAGS_tobin && FLAGS_in_type == "edgelist" &&
+      FLAGS_out_type == "csr")
+    CompressEdgelistCSV2CSRBin<vid_t, vdata_t>(FLAGS_i, FLAGS_o, cores,
+                                               *FLAGS_sep.c_str(), FLAGS_edges);
+
+  if (FLAGS_frombin && FLAGS_tobin == false && FLAGS_in_type == "edgelist" &&
+      FLAGS_out_type == "edgelist")
+    CompressEdgeListBin2EdgelistCSV<vid_t, vdata_t>(FLAGS_i, FLAGS_o, cores,
+                                                    *FLAGS_sep.c_str());
+
+  if (FLAGS_frombin == false && FLAGS_tobin == false &&
+      FLAGS_in_type == "edgelist" && FLAGS_out_type == "edgelist")
+    CompressEdgelistCSV2EdgeListCSV<vid_t, vdata_t>(
+        FLAGS_i, FLAGS_o, cores, *FLAGS_sep.c_str(), FLAGS_edges);
+
   gflags::ShutDownCommandLineFlags();
 }
