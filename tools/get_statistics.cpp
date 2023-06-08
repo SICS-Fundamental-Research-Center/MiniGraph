@@ -6,7 +6,7 @@
 
 #include <gflags/gflags.h>
 
-#include "graphs/edge_list.h"
+#include "graphs/edgelist.h"
 #include "portability/sys_types.h"
 #include "utility/atomic.h"
 #include "utility/bitmap.h"
@@ -182,7 +182,7 @@ void GetGraphStatisticFromBin(const std::string input_pt,
   auto thread_pool = minigraph::utility::CPUThreadPool(cores, 1);
 
   auto graph = new EDGE_LIST_T;
-  edge_list_io_adapter.Read((GRAPH_BASE_T*)graph, edge_list_bin, ' ', 0,
+  edge_list_io_adapter.Read((GRAPH_BASE_T*)graph, edgelist_bin, ' ', 0,
                             input_meta_pt, input_data_pt, input_vdata_pt);
 
   size_t num_edges = graph->num_edges_;

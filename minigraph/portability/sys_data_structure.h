@@ -64,11 +64,14 @@ class VertexDependencies {
 
 // reference http://www.cs.cmu.edu/~pbbs/benchmarks/graphIO.html
 enum GraphFormat {
-  edge_list_csv,
-  weight_edge_list_csv,
-  edge_list_bin,
+  edgelist_csv,
+  weight_edgelist_csv,
+  edgelist_bin,
   csr_bin,
-  immutable_csr_bin
+  immutable_csr_bin,
+  batch_relation_csv,
+  relation_csv,
+  relation_bin
 };
 
 template <typename T>

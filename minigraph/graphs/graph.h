@@ -1,14 +1,16 @@
 #ifndef MINIGRAPH_GRAPHS_GRAPH_H
 #define MINIGRAPH_GRAPHS_GRAPH_H
 
-#include "portability/sys_types.h"
-#include "utility/bitmap.h"
-#include <folly/AtomicHashMap.h>
-#include <folly/FBString.h>
-#include <folly/Range.h>
 #include <iostream>
 #include <string>
 #include <unordered_map>
+
+#include <folly/AtomicHashMap.h>
+#include <folly/FBString.h>
+#include <folly/Range.h>
+
+#include "portability/sys_types.h"
+#include "utility/bitmap.h"
 
 namespace minigraph {
 namespace graphs {
@@ -135,13 +137,14 @@ class Graph {
 
   virtual void CleanUp() = 0;
   virtual ~Graph() = default;
+  virtual Graph* GetClassType(void) = 0;
 
   inline void set_num_edges(const size_t n) { num_edges_ = n; };
   inline void set_num_vertexes(const size_t n) { num_vertexes_ = n; };
   inline GID_T get_gid() const { return gid_; }
   inline size_t get_num_vertexes() const { return num_vertexes_; }
   inline size_t get_num_edges() const { return num_edges_; }
-  inline size_t get_max_vid() const { return max_vid_; }
+  inline VID_T get_max_vid() const { return max_vid_; }
   inline size_t get_aligned_max_vid() const {
     return ceil(aligned_max_vid_ / ALIGNMENT_FACTOR) * ALIGNMENT_FACTOR;
   }

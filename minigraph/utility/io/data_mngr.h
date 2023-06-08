@@ -8,6 +8,7 @@
 
 #include "utility/io/csr_io_adapter.h"
 #include "utility/io/edge_list_io_adapter.h"
+#include "utility/io/relation_io_adapter.h"
 
 namespace minigraph {
 namespace utility {
@@ -22,6 +23,7 @@ class DataMngr {
   using GRAPH_BASE_T = graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>;
   using CSR_T = graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>;
   using EDGE_LIST_T = graphs::EdgeList<GID_T, VID_T, VDATA_T, EDATA_T>;
+  using RELATION_T = graphs::Relation<GID_T, VID_T, VDATA_T, EDATA_T>;
   using VertexInfo = graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>;
 
  public:
@@ -30,6 +32,9 @@ class DataMngr {
   std::unique_ptr<
       utility::io::EdgeListIOAdapter<GID_T, VID_T, VDATA_T, EDATA_T>>
       edge_list_io_adapter_;
+  std::unique_ptr<
+      utility::io::RelationIOAdapter<GID_T, VID_T, VDATA_T, EDATA_T>>
+      relation_io_adapter_;
 
   DataMngr() {
     pgraph_by_gid_ =
@@ -49,14 +54,18 @@ class DataMngr {
     GRAPH_BASE_T* graph = nullptr;
     if (graph_format == csr_bin) {
       graph = new CSR_T;
-      out = csr_io_adapter_->Read((GRAPH_BASE_T*)graph, graph_format, gid,
-                                  path.meta_pt, path.data_pt,
-                                  path.vdata_pt);
-    } else if (graph_format == edge_list_bin) {
+      out = csr_io_adapter_->Read((GRAPH_BASE_T*)graph, csr_bin, gid,
+                                  path.meta_pt, path.data_pt, path.vdata_pt);
+    } else if (graph_format == edgelist_bin) {
       graph = new EDGE_LIST_T;
-      out = edge_list_io_adapter_->Read((GRAPH_BASE_T*)graph, edge_list_bin,
+      out = edge_list_io_adapter_->Read((GRAPH_BASE_T*)graph, edgelist_bin,
                                         separator_params, gid, path.meta_pt,
                                         path.data_pt, path.vdata_pt);
+    } else if (graph_format == relation_bin) {
+      graph = new RELATION_T;
+      out = relation_io_adapter_->Read((GRAPH_BASE_T*)graph, relation_bin, 1,
+                                       separator_params, path.meta_pt,
+                                       path.data_pt);
     }
 
     if (out) {
@@ -78,8 +87,9 @@ class DataMngr {
       return csr_io_adapter_->Write(*((GRAPH_BASE_T*)graph), csr_bin,
                                     vdata_only, path.meta_pt, path.data_pt,
                                     path.vdata_pt);
-    } else if (graph_format == edge_list_bin) {
+    } else if (graph_format == edgelist_bin) {
       return false;
+    } else if (graph_format == relation_bin) {
     }
     return false;
   }
@@ -92,20 +102,21 @@ class DataMngr {
     communication_matrix_file.write((char*)&num_graphs, sizeof(size_t));
     communication_matrix_file.write((char*)communication_matrix,
                                     sizeof(bool) * num_graphs * num_graphs);
-    LOG_INFO("num_ghraphs: ", num_graphs);
-    for (size_t i = 0; i < num_graphs; i++) {
-      for (size_t j = 0; j < num_graphs; j++) {
-        std::cout << *(communication_matrix + i * num_graphs + j) << ", ";
-      }
-      std::cout << std::endl;
-    }
+    // LOG_INFO("Write communication matrix, num_ghraphs: ", num_graphs);
+    // for (size_t i = 0; i < num_graphs; i++) {
+    //   for (size_t j = 0; j < num_graphs; j++) {
+    //     std::cout << *(communication_matrix + i * num_graphs + j) << ", ";
+    //   }
+    //   std::cout << std::endl;
+    // }
     communication_matrix_file.close();
     return true;
   }
 
   bool WriteGlobalBorderVertexesbyGid(
-      std::unordered_map<GID_T, std::vector<VID_T>*>&
-          global_border_vertexes_by_gid,
+      std::unordered_map<GID_T, std::vector<VID_T>*
+
+                         >& global_border_vertexes_by_gid,
       const std::string& output_pt) {
     size_t num_graph = global_border_vertexes_by_gid.size();
     size_t* num_vertexes_for_each_graph =
@@ -176,6 +187,63 @@ class DataMngr {
     input_file.read((char*)data, meta_buff[1]);
     input_file.close();
     return std::make_pair(meta_buff[0], new Bitmap(meta_buff[0], data));
+  }
+
+  std::unordered_map<VID_T, std::vector<GID_T>*>*
+
+  ReadBorderVertexes(const std::string& border_vertexes_pt) {
+    auto global_border_vertexes =
+        new std::unordered_map<VID_T, std::vector<GID_T>*>();
+    std::ifstream border_vertexes_file(border_vertexes_pt,
+                                       std::ios::binary | std::ios::app);
+    size_t global_border_vertexes_size;
+
+    border_vertexes_file.read((char*)&global_border_vertexes_size,
+                              sizeof(size_t));
+    global_border_vertexes->reserve(global_border_vertexes_size);
+    VID_T* buf_global_border_vertexes =
+        (VID_T*)malloc(sizeof(VID_T*) * global_border_vertexes_size);
+    border_vertexes_file.read((char*)buf_global_border_vertexes,
+                              sizeof(VID_T) * global_border_vertexes_size);
+
+    for (size_t i = 0; i < global_border_vertexes_size; i++) {
+      global_border_vertexes->insert(
+          std::make_pair(buf_global_border_vertexes[i], nullptr));
+    }
+    LOG_INFO("LOAD global_border_vertexes: ", global_border_vertexes->size());
+    return global_border_vertexes;
+  }
+
+  std::pair<VID_T, GID_T*> ReadGlobalid2Gid(const std::string& input_pt) {
+    std::ifstream input_file(input_pt, std::ios::binary | std::ios::app);
+    VID_T maximum_vid = 0;
+    input_file.read((char*)&maximum_vid, sizeof(VID_T));
+    GID_T* buf_globalid2gid = (GID_T*)malloc(sizeof(GID_T) * maximum_vid);
+    memset(buf_globalid2gid, 0, sizeof(GID_T) * maximum_vid);
+    input_file.read((char*)buf_globalid2gid, sizeof(GID_T) * maximum_vid);
+    input_file.close();
+    return std::make_pair(maximum_vid, buf_globalid2gid);
+  }
+
+  bool WriteGlobalid2Gid(std::unordered_map<VID_T, GID_T>& globalid2gid,
+                         const std::string& output_pt) {
+    if (Exist(output_pt)) {
+      remove(output_pt.c_str());
+    }
+    VID_T maximum_vid = 0;
+    for (auto& iter : globalid2gid)
+      iter.first > maximum_vid ? maximum_vid = iter.first : 0;
+    maximum_vid++;
+    GID_T* buf_globalid2gid = (GID_T*)malloc(sizeof(GID_T) * maximum_vid);
+    memset(buf_globalid2gid, 0, (maximum_vid) * sizeof(GID_T));
+    for (auto& iter : globalid2gid) buf_globalid2gid[iter.first] = iter.second;
+
+    std::ofstream output_file(output_pt, std::ios::binary | std::ios::app);
+    output_file.write((char*)&maximum_vid, sizeof(VID_T));
+    output_file.write((char*)buf_globalid2gid, sizeof(GID_T) * maximum_vid);
+    free(buf_globalid2gid);
+    output_file.close();
+    return true;
   }
 
   bool WriteVidMap(const size_t max_vid, VID_T* vid_map,

@@ -424,7 +424,7 @@ int main(int argc, char* argv[]) {
                                            CSR_T::vdata_t, CSR_T::edata_t>();
 
   auto pattern = new CSR_T;
-  csr_io_adapter.Read(pattern, edge_list_csv, 0, pattern_pt);
+  csr_io_adapter.Read(pattern, edgelist_csv, 0, pattern_pt);
   Context context;
   context.p = pattern;
   pattern->Serialize();

@@ -1,4 +1,4 @@
-#include "graphs/edge_list.h"
+#include "graphs/edgelist.h"
 #include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
 #include "utility/atomic.h"
@@ -139,7 +139,7 @@ void CompressEdgelistCSV2EdgeListCSV(const std::string input_pt,
 }
 
 template <typename VID_T, typename VDATA_T>
-void CompressEdgelistCSV2CSRBin(const std::string input_pt,
+void CompressEdgelistCSV2EdgelistBin(const std::string input_pt,
                                 const std::string dst_pt, const size_t cores,
                                 char separator_params = ',',
                                 const size_t read_num_edges = 0) {
@@ -295,13 +295,13 @@ void CompressEdgelistCSV2CSRBin(const std::string input_pt,
   free(src_v);
   free(dst_v);
   graph->ShowGraph(10);
-  edge_list_io_adapter.Write(*graph, edge_list_bin, meta_pt, data_pt, vdata_pt);
+  edge_list_io_adapter.Write(*graph, edgelist_bin, meta_pt, data_pt, vdata_pt);
   std::cout << "Save at " << dst_pt << std::endl;
   return;
 }
 
 template <typename VID_T, typename VDATA_T>
-void CompressEdgelistBin2CSRbin(const std::string input_pt,
+void CompressEdgelistBin2EdgelistBin(const std::string input_pt,
                                 const std::string dst_pt, const size_t cores) {
   LOG_INFO("GraphReduce: Bin2Bin");
   minigraph::utility::io::EdgeListIOAdapter<gid_t, vid_t, vdata_t, edata_t>
@@ -419,7 +419,7 @@ void CompressEdgelistBin2CSRbin(const std::string input_pt,
   graph->aligned_max_vid_ =
       ceil((float)graph->max_vid_ / ALIGNMENT_FACTOR) * ALIGNMENT_FACTOR;
 
-  edgelist_io_adapter.Write(*graph, edge_list_bin, dst_meta_pt, dst_data_pt,
+  edgelist_io_adapter.Write(*graph, edgelist_bin, dst_meta_pt, dst_data_pt,
                             dst_vdata_pt);
   graph->ShowGraph(10);
   std::cout << "Save at " << dst_pt << std::endl;
@@ -570,12 +570,12 @@ int main(int argc, char* argv[]) {
   LOG_INFO("Reduce: ", FLAGS_i);
 
   if (FLAGS_frombin && FLAGS_tobin && FLAGS_in_type == "edgelist" &&
-      FLAGS_out_type == "csr")
-    CompressEdgelistBin2CSRbin<vid_t, vdata_t>(FLAGS_i, FLAGS_o, cores);
+      FLAGS_out_type == "edgelist")
+    CompressEdgelistBin2EdgelistBin<vid_t, vdata_t>(FLAGS_i, FLAGS_o, cores);
 
   if (FLAGS_frombin == false && FLAGS_tobin && FLAGS_in_type == "edgelist" &&
-      FLAGS_out_type == "csr")
-    CompressEdgelistCSV2CSRBin<vid_t, vdata_t>(FLAGS_i, FLAGS_o, cores,
+      FLAGS_out_type == "edgelist")
+    CompressEdgelistCSV2EdgelistBin<vid_t, vdata_t>(FLAGS_i, FLAGS_o, cores,
                                                *FLAGS_sep.c_str(), FLAGS_edges);
 
   if (FLAGS_frombin && FLAGS_tobin == false && FLAGS_in_type == "edgelist" &&

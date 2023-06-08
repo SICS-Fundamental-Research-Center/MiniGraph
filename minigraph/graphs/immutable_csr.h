@@ -22,7 +22,7 @@
 #include <folly/portability/Atomic.h>
 #include <folly/portability/SysTime.h>
 
-#include "graphs/edge_list.h"
+#include "graphs/edgelist.h"
 #include "graphs/graph.h"
 #include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
@@ -186,8 +186,6 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       free(this->vdata_);
       this->vdata_ = nullptr;
     }
-    vid_by_index_ = nullptr;
-    // index_by_vid_ = nullptr;
     in_edges_ = nullptr;
     out_edges_ = nullptr;
     indegree_ = nullptr;
@@ -275,7 +273,6 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       vertex_info.ShowVertexInfo(global_id);
     }
     std::cout << std::endl;
-    LOG_INFO("###########");
   }
 
   void ShowGraphAbs(const size_t count = 2) {
@@ -554,6 +551,10 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
   };
   void set_out_offset_base(size_t base) { out_offset_base_ = base; };
   void set_in_offset_base(size_t base) { in_offset_base_ = base; };
+
+  ImmutableCSR* GetClassType(void) override {
+      return this;       
+  }
 
  public:
   size_t sum_in_edges_ = 0;

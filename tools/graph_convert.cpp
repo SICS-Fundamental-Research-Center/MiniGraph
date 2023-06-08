@@ -3,7 +3,7 @@
 #include <iostream>
 #include <string>
 
-#include "graphs/edge_list.h"
+#include "graphs/edgelist.h"
 #include "graphs/immutable_csr.h"
 #include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
@@ -137,7 +137,7 @@ void EdgeListCSV2EdgeListBin(std::string src_pt, std::string dst_pt,
   LOG_INFO("Write: ", meta_pt);
   LOG_INFO("Write: ", data_pt);
   LOG_INFO("Write: ", vdata_pt);
-  edge_list_io_adapter.Write(*graph, edge_list_bin, meta_pt, data_pt, vdata_pt);
+  edge_list_io_adapter.Write(*graph, edgelist_bin, meta_pt, data_pt, vdata_pt);
 }
 
 void CSRBin2CSRText(std::string src_pt, std::string dst_pt, std::size_t cores,
