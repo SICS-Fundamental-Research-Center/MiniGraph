@@ -33,7 +33,7 @@ class ColoringAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
     return false;
   }
 
-  static bool kernel_update(GRAPH_T* graph, const size_t tid, Bitmap* visited,
+  static void kernel_update(GRAPH_T* graph, const size_t tid, Bitmap* visited,
                             const size_t step, VDATA_T* global_border_vdata,
                             Bitmap* out_visited,
                             typename GRAPH_T::vid_t& local_upper_bound,
@@ -53,7 +53,7 @@ class ColoringAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
         }
       }
     }
-    return true;
+    return;
   }
 };
 
@@ -83,51 +83,53 @@ class ColoringPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     LOG_INFO("PEval() - Processing gid: ", graph.gid_,
              " num_vertexes: ", graph.get_num_vertexes());
 
-    Bitmap in_visited(graph.get_num_vertexes());
-    Bitmap out_visited(graph.get_num_vertexes());
+    Bitmap *in_visited = new Bitmap(graph.get_num_vertexes());
+    Bitmap *out_visited= new Bitmap(graph.get_num_vertexes());
     Bitmap visited(graph.get_num_vertexes());
-    in_visited.fill();
-    out_visited.clear();
+    in_visited->fill();
+    out_visited->clear();
     visited.clear();
 
     typename GRAPH_T::vid_t local_upper_bound = 0;
-    while (!in_visited.empty()) {
+    while (!in_visited->empty()) {
+      LOG_INFO(in_visited->get_num_bit());
       this->auto_map_->ActiveMap(
           graph, task_runner, &visited,
           ColoringAutoMap<GRAPH_T, CONTEXT_T>::kernel_update,
-          this->msg_mngr_->GetGlobalVdata(), &out_visited, local_upper_bound,
+          this->msg_mngr_->GetGlobalVdata(), out_visited, local_upper_bound,
           this->context_.upper_bound);
       std::swap(in_visited, out_visited);
-      out_visited.clear();
+      out_visited->clear();
     }
-    graph.ShowGraph(99);
     write_add(&this->context_.num_graphs, 1);
+    delete in_visited;
+    delete out_visited;
     return true;
   }
 
   bool IncEval(GRAPH_T& graph,
                minigraph::executors::TaskRunner* task_runner) override {
-    LOG_INFO("IncEval: ");
-    LOG_INFO("gid: ", graph.get_gid());
-    typename GRAPH_T::vid_t local_upper_bound = 0;
-    Bitmap in_visited(graph.get_num_vertexes());
-    Bitmap out_visited(graph.get_num_vertexes());
+    LOG_INFO("IncEval: ", graph.get_gid());
+    Bitmap *in_visited = new Bitmap(graph.get_num_vertexes());
+    Bitmap *out_visited= new Bitmap(graph.get_num_vertexes());
     Bitmap visited(graph.get_num_vertexes());
-    in_visited.fill();
+    in_visited->fill();
+    out_visited->clear();
     visited.clear();
-    out_visited.clear();
 
-    while (!in_visited.empty()) {
+    typename GRAPH_T::vid_t local_upper_bound = 0;
+    while (!in_visited->empty()) {
+      LOG_INFO(in_visited->get_num_bit());
       this->auto_map_->ActiveMap(
           graph, task_runner, &visited,
           ColoringAutoMap<GRAPH_T, CONTEXT_T>::kernel_update,
-          this->msg_mngr_->GetGlobalVdata(), &out_visited, local_upper_bound,
+          this->msg_mngr_->GetGlobalVdata(), out_visited, local_upper_bound,
           this->context_.upper_bound);
       std::swap(in_visited, out_visited);
-      out_visited.clear();
+      out_visited->clear();
     }
-    write_max(&this->context_.sync_bound, local_upper_bound);
 
+    write_max(&this->context_.sync_bound, local_upper_bound);
     // The last fragment in a BSP step responsible updating upper_bound
     write_add(&this->context_.inc_vote, 1);
     if (this->context_.inc_vote == this->context_.num_graphs) {
@@ -135,7 +137,8 @@ class ColoringPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
       this->context_.inc_vote = 0;
       this->context_.sync_bound = 0;
     }
-    graph.ShowGraph(99);
+    delete in_visited;
+    delete out_visited;
     return !visited.empty();
   }
 

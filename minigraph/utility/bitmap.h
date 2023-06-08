@@ -1,10 +1,9 @@
 #ifndef BITMAP_H
 #define BITMAP_H
 
-#include <stdio.h>
-
 #include <cassert>
 #include <cstring>
+#include <stdio.h>
 
 #include "utility/logging.h"
 
@@ -18,13 +17,20 @@ class Bitmap {
 
   Bitmap() = default;
 
-  Bitmap(const size_t size) { init(size); }
+  Bitmap(const size_t size) {
+    init(size);
+    return;
+  }
 
-  Bitmap(const size_t size, unsigned long* data) { init(size, data); }
+  Bitmap(const size_t size, unsigned long* data) {
+    init(size, data);
+    return;
+  }
 
   ~Bitmap() {
     if (data_ != nullptr) free(data_);
     size_ = 0;
+    return;
   }
 
   void init(size_t size) {
@@ -76,11 +82,11 @@ class Bitmap {
 
   unsigned long get_bit(size_t i) {
     if (i > size_) {
-      //LOG_INFO("Bitmap: query point ", i,
-      //         " beyound the scope of get_bit that size of ", size_);
+      // LOG_INFO("Bitmap: query point ", i,
+      //          " beyound the scope of get_bit that size of ", size_);
       return 0;
     }
-    //assert(i <= size_);
+    // assert(i <= size_);
     return data_[WORD_OFFSET(i)] & (1ul << BIT_OFFSET(i));
   }
 
@@ -91,10 +97,7 @@ class Bitmap {
   void set_bit(size_t i) {
     if (i > size_) {
       return;
-      //LOG_INFO("Bitmap: query point ", i,
-      //         " beyound the scope of set_bit that size of ", size_);
     }
-    //assert(i <= size_);
     __sync_fetch_and_or(data_ + WORD_OFFSET(i), 1ul << BIT_OFFSET(i));
     return;
   }

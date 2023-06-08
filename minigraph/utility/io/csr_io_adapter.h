@@ -414,7 +414,6 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       XLOG(ERR, "Graph has not been serialized.");
       return false;
     }
-    LOG_INFO(graph.get_gid());
     if (graph.buf_graph_ == nullptr) {
       XLOG(ERR, "Segmentation fault: buf_graph is nullptr");
       return false;
