@@ -1,11 +1,9 @@
+#include <gflags/gflags.h>
 #include <sys/stat.h>
-
 #include <iostream>
 #include <string>
 
-#include <gflags/gflags.h>
-
-#include "graphs/edge_list.h"
+#include "graphs/edgelist.h"
 #include "graphs/immutable_csr.h"
 #include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
@@ -139,7 +137,43 @@ void EdgeListCSV2EdgeListBin(std::string src_pt, std::string dst_pt,
   LOG_INFO("Write: ", meta_pt);
   LOG_INFO("Write: ", data_pt);
   LOG_INFO("Write: ", vdata_pt);
-  edge_list_io_adapter.Write(*graph, edge_list_bin, meta_pt, data_pt, vdata_pt);
+  edge_list_io_adapter.Write(*graph, edgelist_bin, meta_pt, data_pt, vdata_pt);
+}
+
+void CSRBin2CSRText(std::string src_pt, std::string dst_pt, std::size_t cores,
+                    char separator_params = ',') {
+  minigraph::utility::io::DataMngr<CSR_T> data_mngr;
+
+  Path path;
+  path.meta_pt = src_pt + "minigraph_meta/0.bin";
+  path.data_pt = src_pt + "minigraph_data/0.bin";
+  path.vdata_pt = src_pt + "minigraph_vdata/0.bin";
+
+  minigraph::utility::io::CSRIOAdapter<gid_t, vid_t, vdata_t, edata_t>
+      csr_io_adapter;
+
+  auto graph = new CSR_T;
+  csr_io_adapter.Read(graph, csr_bin, 0, path.meta_pt, path.data_pt,
+                      path.vdata_pt);
+
+  graph->ShowGraph(100);
+
+  if (data_mngr.Exist(dst_pt)) remove(dst_pt.c_str());
+
+  std::ofstream out_file(dst_pt, std::ios::binary | std::ios::app);
+
+  LOG_INFO("XXXXX");
+
+  out_file << "AdjacencyGraph" << std::endl;
+  out_file << graph->get_num_vertexes() << std::endl;
+  out_file << graph->get_num_out_edges() << std::endl;
+  for (size_t i = 0; i < graph->get_num_vertexes(); i++) {
+    out_file << graph->out_offset_[i] << std::endl;
+  }
+  for (size_t i = 0; i < graph->get_num_out_edges(); i++) {
+    out_file << graph->out_edges_[i] << std::endl;
+  }
+  out_file.close();
 }
 
 int main(int argc, char* argv[]) {
@@ -151,12 +185,16 @@ int main(int argc, char* argv[]) {
   std::size_t cores = FLAGS_cores;
   std::string graph_type = FLAGS_t;
 
-  if (FLAGS_tobin) {
-    if (graph_type == "edgelist_bin") {
-      EdgeListCSV2EdgeListBin(src_pt, dst_pt, cores, *FLAGS_sep.c_str());
-    } else if (graph_type == "csr_bin") {
-      EdgeList2CSR(src_pt, dst_pt, cores, *FLAGS_sep.c_str(), FLAGS_frombin);
-    }
-  }
+  if (FLAGS_tobin && FLAGS_out_type == "edgelist" &&
+      FLAGS_in_type == "edgelist")
+    EdgeListCSV2EdgeListBin(src_pt, dst_pt, cores, *FLAGS_sep.c_str());
+
+  if (FLAGS_tobin && FLAGS_out_type == "csr" && FLAGS_in_type == "edgelist")
+    EdgeList2CSR(src_pt, dst_pt, cores, *FLAGS_sep.c_str(), FLAGS_frombin);
+
+  if (FLAGS_frombin && FLAGS_tobin == false && FLAGS_out_type == "csr" &&
+      FLAGS_in_type == "csr")
+    CSRBin2CSRText(src_pt, dst_pt, cores, *FLAGS_sep.c_str());
+
   gflags::ShutDownCommandLineFlags();
 }

@@ -47,6 +47,8 @@ if (USE_JEMALLOC)
     endif ()
 endif ()
 
+
+
 # find Threads
 set(CMAKE_THREAD_PREFER_PTHREAD ON)
 find_package(Threads REQUIRED)
@@ -65,6 +67,10 @@ include_directories(${THIRD_PARTY_ROOT}/eigen/)
 
 # yaml-cpp
 include_directories(${THIRD_PARTY_ROOT}/yaml-cpp/include/)
+
+# common
+include_directories(${PROJECT_ROOT_DIR}/common)
+
 
 #######################
 # Artifacts

@@ -221,24 +221,13 @@ class MiniGraphSys {
         ((CSR_T*)graph)->ShowGraph(num_vertexes_to_show);
       } else if (IsSameType<GRAPH_T, EDGE_LIST_T>()) {
         data_mngr_->edge_list_io_adapter_->Read(
-            (GRAPH_BASE_T*)graph, edge_list_bin, separator_params, gid,
+            (GRAPH_BASE_T*)graph, edgelist_bin, separator_params, gid,
             path.meta_pt, path.data_pt, path.vdata_pt);
         ((EDGE_LIST_T*)graph)->ShowGraph(num_vertexes_to_show);
       }
     }
     if (msg_mngr_->GetPartialMatch() != nullptr)
       msg_mngr_->GetPartialMatch()->ShowMatchingSolutions();
-  }
-
-  void ShowNumComponents() {
-    // vdata_t components = 0;
-    for (auto& iter : *pt_by_gid_) {
-      GID_T gid = iter.first;
-      Path path = iter.second;
-      auto graph = new GRAPH_T;
-      data_mngr_->csr_io_adapter_->Read((GRAPH_BASE_T*)graph, csr_bin, gid,
-                                        path.meta_pt, path.data_pt);
-    }
   }
 
   utility::io::DataMngr<GRAPH_T>* GetDataMngr() { return data_mngr_.get(); }

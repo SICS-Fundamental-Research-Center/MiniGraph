@@ -8,6 +8,7 @@
 
 #include "utility/io/csr_io_adapter.h"
 #include "utility/io/edge_list_io_adapter.h"
+#include "utility/io/relation_io_adapter.h"
 
 namespace minigraph {
 namespace utility {
@@ -22,6 +23,7 @@ class DataMngr {
   using GRAPH_BASE_T = graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>;
   using CSR_T = graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>;
   using EDGE_LIST_T = graphs::EdgeList<GID_T, VID_T, VDATA_T, EDATA_T>;
+  using RELATION_T = graphs::Relation<GID_T, VID_T, VDATA_T, EDATA_T>;
   using VertexInfo = graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>;
 
  public:
@@ -30,6 +32,9 @@ class DataMngr {
   std::unique_ptr<
       utility::io::EdgeListIOAdapter<GID_T, VID_T, VDATA_T, EDATA_T>>
       edge_list_io_adapter_;
+  std::unique_ptr<
+      utility::io::RelationIOAdapter<GID_T, VID_T, VDATA_T, EDATA_T>>
+      relation_io_adapter_;
 
   DataMngr() {
     pgraph_by_gid_ =
@@ -49,14 +54,18 @@ class DataMngr {
     GRAPH_BASE_T* graph = nullptr;
     if (graph_format == csr_bin) {
       graph = new CSR_T;
-      out = csr_io_adapter_->Read((GRAPH_BASE_T*)graph, graph_format, gid,
-                                  path.meta_pt, path.data_pt,
-                                  path.vdata_pt);
-    } else if (graph_format == edge_list_bin) {
+      out = csr_io_adapter_->Read((GRAPH_BASE_T*)graph, csr_bin, gid,
+                                  path.meta_pt, path.data_pt, path.vdata_pt);
+    } else if (graph_format == edgelist_bin) {
       graph = new EDGE_LIST_T;
-      out = edge_list_io_adapter_->Read((GRAPH_BASE_T*)graph, edge_list_bin,
+      out = edge_list_io_adapter_->Read((GRAPH_BASE_T*)graph, edgelist_bin,
                                         separator_params, gid, path.meta_pt,
                                         path.data_pt, path.vdata_pt);
+    } else if (graph_format == relation_bin) {
+      graph = new RELATION_T;
+      out = relation_io_adapter_->Read((GRAPH_BASE_T*)graph, relation_bin, 1,
+                                       separator_params, path.meta_pt,
+                                       path.data_pt);
     }
 
     if (out) {
@@ -71,29 +80,6 @@ class DataMngr {
     return out;
   }
 
-  //bool ReadGraph(const GID_T& gid, const EdgeListPt& edge_list_pt,
-  //               const GraphFormat& graph_format = edge_list_csv,
-  //               char separator_params = ',') {
-  //  LOG_INFO("Read gid: ", gid);
-  //  auto graph = new EDGE_LIST_T;
-
-  //  auto out = edge_list_io_adapter_->Read((GRAPH_BASE_T*)graph, graph_format,
-  //                                         gid, edge_list_pt.edges_pt,
-  //                                         edge_list_pt.v_label_pt);
-  //  if (out) {
-  //    pgraph_mtx_->lock();
-  //    auto iter = pgraph_by_gid_->find(gid);
-  //    if (iter != pgraph_by_gid_->end()) {
-  //      if (iter->second == nullptr)
-  //        iter->second = (GRAPH_BASE_T*)graph;
-  //      else
-  //        pgraph_by_gid_->insert(std::make_pair(gid, (GRAPH_BASE_T*)graph));
-  //    }
-  //    pgraph_mtx_->unlock();
-  //  }
-  //  return out;
-  //}
-
   bool WriteGraph(const GID_T& gid, const Path& path,
                   const GraphFormat& graph_format, bool vdata_only = false) {
     if (graph_format == csr_bin) {
@@ -101,8 +87,9 @@ class DataMngr {
       return csr_io_adapter_->Write(*((GRAPH_BASE_T*)graph), csr_bin,
                                     vdata_only, path.meta_pt, path.data_pt,
                                     path.vdata_pt);
-    } else if (graph_format == edge_list_bin) {
+    } else if (graph_format == edgelist_bin) {
       return false;
+    } else if (graph_format == relation_bin) {
     }
     return false;
   }
@@ -115,20 +102,21 @@ class DataMngr {
     communication_matrix_file.write((char*)&num_graphs, sizeof(size_t));
     communication_matrix_file.write((char*)communication_matrix,
                                     sizeof(bool) * num_graphs * num_graphs);
-    LOG_INFO("num_ghraphs: ", num_graphs);
-    for (size_t i = 0; i < num_graphs; i++) {
-      for (size_t j = 0; j < num_graphs; j++) {
-        std::cout << *(communication_matrix + i * num_graphs + j) << ", ";
-      }
-      std::cout << std::endl;
-    }
+    // LOG_INFO("Write communication matrix, num_ghraphs: ", num_graphs);
+    // for (size_t i = 0; i < num_graphs; i++) {
+    //   for (size_t j = 0; j < num_graphs; j++) {
+    //     std::cout << *(communication_matrix + i * num_graphs + j) << ", ";
+    //   }
+    //   std::cout << std::endl;
+    // }
     communication_matrix_file.close();
     return true;
   }
 
   bool WriteGlobalBorderVertexesbyGid(
-      std::unordered_map<GID_T, std::vector<VID_T>*>&
-          global_border_vertexes_by_gid,
+      std::unordered_map<GID_T, std::vector<VID_T>*
+
+                         >& global_border_vertexes_by_gid,
       const std::string& output_pt) {
     size_t num_graph = global_border_vertexes_by_gid.size();
     size_t* num_vertexes_for_each_graph =
@@ -201,8 +189,9 @@ class DataMngr {
     return std::make_pair(meta_buff[0], new Bitmap(meta_buff[0], data));
   }
 
-  std::unordered_map<VID_T, std::vector<GID_T>*>* ReadBorderVertexes(
-      const std::string& border_vertexes_pt) {
+  std::unordered_map<VID_T, std::vector<GID_T>*>*
+
+  ReadBorderVertexes(const std::string& border_vertexes_pt) {
     auto global_border_vertexes =
         new std::unordered_map<VID_T, std::vector<GID_T>*>();
     std::ifstream border_vertexes_file(border_vertexes_pt,

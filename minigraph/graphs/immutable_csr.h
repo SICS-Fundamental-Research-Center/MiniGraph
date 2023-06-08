@@ -1,13 +1,15 @@
 #ifndef MINIGRAPH_GRAPHS_IMMUTABLECSR_H
 #define MINIGRAPH_GRAPHS_IMMUTABLECSR_H
 
+#include <malloc.h>
+
 #include <fstream>
 #include <iostream>
-#include <malloc.h>
 #include <map>
 #include <memory>
 #include <unordered_map>
 
+#include <jemalloc/jemalloc.h>
 #include <folly/AtomicHashArray.h>
 #include <folly/AtomicHashMap.h>
 #include <folly/AtomicUnorderedMap.h>
@@ -19,9 +21,8 @@
 #include <folly/portability/Asm.h>
 #include <folly/portability/Atomic.h>
 #include <folly/portability/SysTime.h>
-#include <jemalloc/jemalloc.h>
 
-#include "graphs/edge_list.h"
+#include "graphs/edgelist.h"
 #include "graphs/graph.h"
 #include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
@@ -185,8 +186,6 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       free(this->vdata_);
       this->vdata_ = nullptr;
     }
-    vid_by_index_ = nullptr;
-    // index_by_vid_ = nullptr;
     in_edges_ = nullptr;
     out_edges_ = nullptr;
     indegree_ = nullptr;
@@ -274,7 +273,6 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       vertex_info.ShowVertexInfo(global_id);
     }
     std::cout << std::endl;
-    LOG_INFO("###########");
   }
 
   void ShowGraphAbs(const size_t count = 2) {
@@ -404,14 +402,18 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     if (index != this->get_num_vertexes() - 1) {
       vertex_info.outdegree = outdegree_[index];
       vertex_info.indegree = indegree_[index];
-      vertex_info.in_edges = (in_edges_ + in_offset_[index]);
-      vertex_info.out_edges = (out_edges_ + out_offset_[index]);
+      // vertex_info.in_edges = (in_edges_ + in_offset_[index]);
+      // vertex_info.out_edges = (out_edges_ + out_offset_[index]);
+      vertex_info.in_edges = (in_edges_ + get_in_offset_by_index(index));
+      vertex_info.out_edges = (out_edges_ + get_out_offset_by_index(index));
       vertex_info.vdata = (this->vdata_ + index);
     } else {
       vertex_info.outdegree = outdegree_[index];
       vertex_info.indegree = indegree_[index];
-      vertex_info.in_edges = (in_edges_ + in_offset_[index]);
-      vertex_info.out_edges = (out_edges_ + out_offset_[index]);
+      // vertex_info.in_edges = (in_edges_ + in_offset_[index]);
+      // vertex_info.out_edges = (out_edges_ + out_offset_[index]);
+      vertex_info.in_edges = (in_edges_ + get_in_offset_by_index(index));
+      vertex_info.out_edges = (out_edges_ + get_out_offset_by_index(index));
       vertex_info.vdata = (this->vdata_ + index);
     }
     vertex_info.state = (vertexes_state_ + index);
@@ -535,6 +537,25 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     return;
   }
 
+  size_t get_num_in_edges() { return sum_in_edges_; }
+  size_t get_num_out_edges() { return sum_out_edges_; }
+
+  void set_num_in_edges(const size_t n) { sum_in_edges_ = n; }
+  void set_num_out_edges(const size_t n) { sum_out_edges_ = n; }
+
+  size_t get_out_offset_by_index(size_t i) {
+    return out_offset_[i] - out_offset_base_;
+  };
+  size_t get_in_offset_by_index(size_t i) {
+    return in_offset_[i] - in_offset_base_;
+  };
+  void set_out_offset_base(size_t base) { out_offset_base_ = base; };
+  void set_in_offset_base(size_t base) { in_offset_base_ = base; };
+
+  ImmutableCSR* GetClassType(void) override {
+      return this;       
+  }
+
  public:
   size_t sum_in_edges_ = 0;
   size_t sum_out_edges_ = 0;
@@ -551,6 +572,9 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
   size_t* outdegree_ = nullptr;
   size_t* in_offset_ = nullptr;
   size_t* out_offset_ = nullptr;
+
+  size_t in_offset_base_ = 0;
+  size_t out_offset_base_ = 0;
 
   char* vertexes_state_ = nullptr;
   std::map<VID_T, graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>*>*

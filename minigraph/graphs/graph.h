@@ -99,15 +99,6 @@ class Graph {
   explicit Graph(GID_T gid) { gid_ = gid; }
   explicit Graph() {}
 
-  inline GID_T get_gid() const { return gid_; }
-  inline size_t get_num_vertexes() const { return num_vertexes_; }
-  inline size_t get_num_edges() const { return num_edges_; }
-  inline size_t get_max_vid() const { return max_vid_; }
-  inline size_t get_aligned_max_vid() const {
-    return ceil((float)aligned_max_vid_ / ALIGNMENT_FACTOR) *
-           ALIGNMENT_FACTOR;
-  }
-
   inline bool IsInGraph(const VID_T globalid) const {
     assert(bitmap_ != nullptr);
     if (globalid > bitmap_->size_) {
@@ -146,6 +137,17 @@ class Graph {
 
   virtual void CleanUp() = 0;
   virtual ~Graph() = default;
+  virtual Graph* GetClassType(void) = 0;
+
+  inline void set_num_edges(const size_t n) { num_edges_ = n; };
+  inline void set_num_vertexes(const size_t n) { num_vertexes_ = n; };
+  inline GID_T get_gid() const { return gid_; }
+  inline size_t get_num_vertexes() const { return num_vertexes_; }
+  inline size_t get_num_edges() const { return num_edges_; }
+  inline VID_T get_max_vid() const { return max_vid_; }
+  inline size_t get_aligned_max_vid() const {
+    return ceil(aligned_max_vid_ / ALIGNMENT_FACTOR) * ALIGNMENT_FACTOR;
+  }
 
  public:
   GID_T gid_ = -1;

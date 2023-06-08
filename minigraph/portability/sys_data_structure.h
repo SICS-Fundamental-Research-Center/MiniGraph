@@ -1,14 +1,17 @@
 #pragma once
 
+#include <math.h>
+
+#include <string>
+#include <vector>
+#include <condition_variable>
+
+#include <folly/AtomicHashMap.h>
+
 #include "graphs/graph.h"
 #include "graphs/immutable_csr.h"
 #include "portability/sys_data_structure.h"
 #include "utility/thread_pool.h"
-#include <folly/AtomicHashMap.h>
-#include <condition_variable>
-#include <math.h>
-#include <string>
-#include <vector>
 
 #define BIG_CONSTANT(x) (x##LLU)
 
@@ -61,11 +64,14 @@ class VertexDependencies {
 
 // reference http://www.cs.cmu.edu/~pbbs/benchmarks/graphIO.html
 enum GraphFormat {
-  edge_list_csv,
-  weight_edge_list_csv,
-  edge_list_bin,
+  edgelist_csv,
+  weight_edgelist_csv,
+  edgelist_bin,
   csr_bin,
-  immutable_csr_bin
+  immutable_csr_bin,
+  batch_relation_csv,
+  relation_csv,
+  relation_bin
 };
 
 template <typename T>

@@ -61,9 +61,9 @@ class AutoMapBase {
                             vid_map, visited, si);
       tasks.push_back(task);
     }
-    // LOG_INFO("ActiveEMap");
+    //LOG_INFO("ActiveEMap");
     task_runner->Run(tasks, false);
-    // LOG_INFO("# ", si->num_vertexes);
+    //LOG_INFO(global_visited);
     return global_visited;
   };
 
@@ -123,10 +123,9 @@ class AutoMapBase {
     for (size_t index = tid; index < graph->get_num_vertexes(); index += step) {
       if (in_visited->get_bit(index) == 0) continue;
       VertexInfo&& u = graph->GetVertexByIndex(index);
+      //u.ShowVertexInfo();
       size_t dlv = 0;
       size_t dgv = u.outdegree;
-      // write_add(&si->sum_out_degree, u.outdegree);
-      // write_add(&si->sum_in_degree, u.indegree);
       for (size_t i = 0; i < u.outdegree; ++i) {
         if (!graph->IsInGraph(u.out_edges[i])) {
           ++local_sum_border_vertexes;
@@ -143,7 +142,7 @@ class AutoMapBase {
         VertexInfo&& v = graph->GetVertexByVid(local_id);
         if (F(u, v)) {
           out_visited->set_bit(local_id);
-          //LOG_INFO("num_bit: ", out_visited->get_num_bit());
+          // LOG_INFO("num_bit: ", out_visited->get_num_bit());
           visited->set_bit(local_id);
           *global_visited == true ? 0 : *global_visited = true;
           ++local_active_vertices;

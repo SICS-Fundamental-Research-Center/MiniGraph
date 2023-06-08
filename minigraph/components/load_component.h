@@ -33,7 +33,9 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   using EDATA_T = typename GRAPH_T::edata_t;
   using CSR_T = graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>;
   using EDGE_LIST_T =
-      minigraph::graphs::EdgeList<gid_t, vid_t, vdata_t, edata_t>;
+      minigraph::graphs::EdgeList<GID_T, VID_T, VDATA_T, EDATA_T>;
+  using RELATION_T =
+      minigraph::graphs::Relation<GID_T, VID_T, VDATA_T, EDATA_T>;
 
  public:
   LoadComponent(
@@ -83,7 +85,6 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
     } else {
       scheduler_ = new scheduler::FIFOScheduler<GID_T>();
     }
-
     XLOG(INFO, "Init LoadComponent: Finish.");
   }
 
@@ -100,16 +101,12 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       std::vector<GID_T> vec_gid;
       while (!read_trigger_->empty()) {
         gid = read_trigger_->front();
-
-        LOG_INFO("push:", gid);
         que_gid.push(gid);
         vec_gid.push_back(gid);
         read_trigger_->pop();
       }
-
       while (!vec_gid.empty()) {
         gid = scheduler_->ChooseOne(vec_gid);
-        LOG_INFO("load ", gid);
         sem.try_wait();
         auto task = std::bind(&components::LoadComponent<GRAPH_T>::ProcessGraph,
                               this, gid, sem, mode_);
@@ -158,7 +155,13 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
     if (read) {
       Path& path = pt_by_gid_->find(gid)->second;
       auto tag = false;
-      tag = this->data_mngr_->ReadGraph(gid, path, csr_bin);
+      if (typeid(GRAPH_T) == typeid(CSR_T)) {
+        tag = this->data_mngr_->ReadGraph(gid, path, csr_bin);
+      } else if (typeid(GRAPH_T) == typeid(RELATION_T)) {
+        tag = this->data_mngr_->ReadGraph(gid, path, relation_bin);
+      } else if (typeid(GRAPH_T) == typeid(EDGE_LIST_T)) {
+        tag = this->data_mngr_->ReadGraph(gid, path, edgelist_bin);
+      }
       if (tag) {
         this->state_machine_->ProcessEvent(gid, LOAD);
         while (!task_queue_->write(gid))
@@ -170,7 +173,7 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       }
       sem.post();
     } else {
-      // LOG_INFO("LC ShortCut", gid);
+      LOG_INFO("LC ShortCut", gid);
       this->add_superstep_via_gid(gid);
       partial_result_queue_->push(gid);
       this->state_machine_->ProcessEvent(gid, SHORTCUTREAD);

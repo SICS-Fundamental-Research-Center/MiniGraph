@@ -5,7 +5,7 @@
 
 #include "yaml-cpp/yaml.h"
 
-#include "graphs/edge_list.h"
+#include "graphs/edgelist.h"
 #include "graphs/immutable_csr.h"
 #include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
@@ -101,7 +101,7 @@ void GraphPartitionEdgeList2CSR(std::string src_pt, std::string dst_pt,
                                             vdata_pt);
   } else {
     edgelist_io_adapter.ParallelRead((GRAPH_BASE_T*)edgelist_graph,
-                                     edge_list_csv, separator_params, 0, cores,
+                                     edgelist_csv, separator_params, 0, cores,
                                      src_pt);
   }
 

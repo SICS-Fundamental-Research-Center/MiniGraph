@@ -3,7 +3,7 @@
 #include <iostream>
 #include <string>
 
-#include "graphs/edge_list.h"
+#include "graphs/edgelist.h"
 #include "graphs/immutable_csr.h"
 #include "portability/sys_types.h"
 #include "utility/io/data_mngr.h"

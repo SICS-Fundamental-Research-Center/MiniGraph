@@ -13,7 +13,7 @@ using edata_t = size_t;
 #define VDATA_MAX 0XFFFFFFF
 #define GID_MAX 0XFFFFFFF
 #define MINIGRAPH_GID_MAX (((unsigned)(-1)) >> 1)
-#define ALIGNMENT_FACTOR 1024
+#define ALIGNMENT_FACTOR 1024.0
 #define NUM_NEW_BUCKETS 1
 
 
@@ -62,6 +62,8 @@ DEFINE_string(
     "two types of edge list files are supported: csr_bin, edge_list_bin");
 DEFINE_bool(p, false, "partition input graph");
 DEFINE_string(t, "edgelist", "type");
+DEFINE_string(in_type, "edgelist", "type");
+DEFINE_string(out_type, "edgelist", "type");
 DEFINE_string(sep, "seperator", ",");
 DEFINE_uint64(n, 1, "the number of fragments");
 DEFINE_uint64(vertexes, 1, "the number of vertexes");

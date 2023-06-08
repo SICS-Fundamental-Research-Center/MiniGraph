@@ -156,6 +156,10 @@ class EdgeList : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     return border_vertexes;
   }
 
+  EdgeList* GetClassType(void) override {
+      return this;
+  }
+
  public:
   size_t* index_by_vid_ = nullptr;
   VID_T* vid_by_index_ = nullptr;

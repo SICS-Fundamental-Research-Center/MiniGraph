@@ -4,7 +4,7 @@
 
 #include <gflags/gflags.h>
 
-#include "graphs/edge_list.h"
+#include "graphs/edgelist.h"
 #include "graphs/immutable_csr.h"
 #include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
@@ -28,9 +28,9 @@ void BatchEdgeList2EdgeList(std::string src_pt, std::string dst_pt,
   LOG_INFO("Write: ", meta_pt);
   LOG_INFO("Write: ", data_pt);
   LOG_INFO("Write: ", vdata_pt);
-  edge_list_io_adapter.BatchParallelRead((GRAPH_BASE_T*)graph, edge_list_csv,
+  edge_list_io_adapter.BatchParallelRead((GRAPH_BASE_T*)graph, edgelist_csv,
                                          separator_params, 0, cores, src_pt);
-  edge_list_io_adapter.Write(*graph, edge_list_bin, meta_pt, data_pt, vdata_pt);
+  edge_list_io_adapter.Write(*graph, edgelist_bin, meta_pt, data_pt, vdata_pt);
 }
 
 void EdgeListCSV2EdgeListBin(std::string src_pt, std::string dst_pt,
@@ -46,9 +46,9 @@ void EdgeListCSV2EdgeListBin(std::string src_pt, std::string dst_pt,
   LOG_INFO("Write: ", meta_pt);
   LOG_INFO("Write: ", data_pt);
   LOG_INFO("Write: ", vdata_pt);
-  edge_list_io_adapter.Read((GRAPH_BASE_T*)graph, edge_list_csv,
+  edge_list_io_adapter.Read((GRAPH_BASE_T*)graph, edgelist_csv,
                             separator_params, 0, src_pt);
-  edge_list_io_adapter.Write(*graph, edge_list_bin, meta_pt, data_pt, vdata_pt);
+  edge_list_io_adapter.Write(*graph, edgelist_bin, meta_pt, data_pt, vdata_pt);
 }
 
 int main(int argc, char* argv[]) {
