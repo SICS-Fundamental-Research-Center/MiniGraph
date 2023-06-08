@@ -107,6 +107,7 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       }
       while (!vec_gid.empty()) {
         gid = scheduler_->ChooseOne(vec_gid);
+        LOG_INFO(gid);
         sem.try_wait();
         auto task = std::bind(&components::LoadComponent<GRAPH_T>::ProcessGraph,
                               this, gid, sem, mode_);

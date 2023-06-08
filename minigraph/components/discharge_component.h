@@ -82,18 +82,20 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
         gid = que_gid.front();
         que_gid.pop();
         if (mode_ != "NoShort") CheckRTRule(gid);
-        ReleaseGraphX(gid);
+        LOG_INFO("XXXX");
         this->state_machine_->ShowAllState();
 
+        ReleaseGraphX(gid);
         if (this->TrySync()) {
+          LOG_INFO("Sync");
           LOG_INFO("step: ", this->get_global_superstep(), " ", num_iter_);
           if (this->state_machine_->IsTerminated() ||
               this->get_global_superstep() > num_iter_) {
-            auto out_rts = this->state_machine_->EvokeAllX(RTS);
-            // for (auto& iter : out_rts) {
-            //   Path& path = pt_by_gid_->find(iter)->second;
-            //   data_mngr_->WriteGraph(gid, path, csr_bin, true);
-            // }
+            // auto out_rts = this->state_machine_->EvokeAllX(RTS);
+            //  for (auto& iter : out_rts) {
+            //    Path& path = pt_by_gid_->find(iter)->second;
+            //    data_mngr_->WriteGraph(gid, path, csr_bin, true);
+            //  }
             system_switch_cv_->wait(*system_switch_lck_,
                                     [&] { return system_switch_->load(); });
             system_switch_->store(false);
@@ -104,9 +106,6 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
             CallNextIteration(gid);
           }
         }
-        // else {
-        // ReleaseGraphX(gid);
-        //}
       }
     }
   }
