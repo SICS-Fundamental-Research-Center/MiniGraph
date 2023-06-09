@@ -42,14 +42,15 @@ class WCCAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
 
   static void kernel_update(GRAPH_T* graph, const size_t tid, Bitmap* visited,
                             const size_t step, Bitmap* in_visited,
-                            Bitmap* out_visited, VID_T * vid_map, VDATA_T* global_border_vdata) {
+                            Bitmap* out_visited, VID_T* vid_map,
+                            VDATA_T* global_border_vdata) {
     for (size_t i = tid; i < graph->get_num_vertexes(); i += step) {
-      if(!in_visited->get_bit(i)) continue;
+      if (!in_visited->get_bit(i)) continue;
       auto u = graph->GetVertexByIndex(i);
       for (size_t j = 0; j < u.outdegree; ++j) {
         if (write_min(&global_border_vdata[u.out_edges[j]],
                       global_border_vdata[graph->localid2globalid(i)])) {
-          if(graph->IsInGraph(u.out_edges[j])){
+          if (graph->IsInGraph(u.out_edges[j])) {
             out_visited->set_bit(vid_map[u.out_edges[j]]);
             visited->set_bit(i);
           }
@@ -96,8 +97,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     while (!in_visited->empty()) {
       this->auto_map_->ActiveMap(graph, task_runner, &visited,
                                  WCCAutoMap<GRAPH_T, CONTEXT_T>::kernel_update,
-                                 in_visited,
-                                 out_visited,
+                                 in_visited, out_visited,
                                  this->msg_mngr_->GetVidMap(),
                                  this->msg_mngr_->GetGlobalVdata());
       std::swap(in_visited, out_visited);
@@ -112,7 +112,6 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
   bool IncEval(GRAPH_T& graph,
                minigraph::executors::TaskRunner* task_runner) override {
     auto start_time = std::chrono::system_clock::now();
-    graph.ShowGraph(99);
     Bitmap visited(graph.get_num_vertexes());
     Bitmap output_visited(graph.get_num_vertexes());
     Bitmap* in_visited = new Bitmap(graph.get_num_vertexes());
@@ -124,8 +123,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     while (!in_visited->empty()) {
       this->auto_map_->ActiveMap(graph, task_runner, &visited,
                                  WCCAutoMap<GRAPH_T, CONTEXT_T>::kernel_update,
-                                 in_visited,
-                                 out_visited,
+                                 in_visited, out_visited,
                                  this->msg_mngr_->GetVidMap(),
                                  this->msg_mngr_->GetGlobalVdata());
       std::swap(in_visited, out_visited);
