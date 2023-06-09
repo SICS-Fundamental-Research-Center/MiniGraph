@@ -20,12 +20,9 @@ class WCCAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
  public:
   WCCAutoMap() : minigraph::AutoMapBase<GRAPH_T, CONTEXT_T>() {}
 
-  // Push vdata from u to v.
   bool F(const VertexInfo& u, VertexInfo& v,
          GRAPH_T* graph = nullptr) override {
-    auto tag = false;
-    if (write_min(v.vdata, u.vdata[0])) tag = true;
-    return tag;
+    return false;
   }
 
   bool F(VertexInfo& u, GRAPH_T* graph = nullptr,
@@ -33,68 +30,30 @@ class WCCAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
     return false;
   }
 
-  static bool kernel_init(GRAPH_T* graph, const size_t tid, Bitmap* visited,
-                          const size_t step) {
+  static void kernel_init(GRAPH_T* graph, const size_t tid, Bitmap* visited,
+                          const size_t step, VDATA_T* vdata) {
     for (size_t i = tid; i < graph->get_num_vertexes(); i += step) {
       auto u = graph->GetVertexByIndex(i);
       graph->vdata_[i] = graph->localid2globalid(u.vid);
+      vdata[graph->localid2globalid(u.vid)] = graph->vdata_[i];
     }
-    return true;
+    return;
   }
 
-  static bool kernel_push_border_vertexes(GRAPH_T* graph, const size_t tid,
-                                          Bitmap* visited, const size_t step,
-                                          Bitmap* global_border_vid_map,
-                                          VDATA_T* global_border_vdata,
-                                          StatisticInfo* si) {
-    size_t local_sum_out_border_vertex = 0;
-    if (global_border_vid_map->size_ == 0) return true;
+  static void kernel_update(GRAPH_T* graph, const size_t tid, Bitmap* visited,
+                            const size_t step, Bitmap* out_visited,
+                            VDATA_T* global_border_vdata) {
     for (size_t i = tid; i < graph->get_num_vertexes(); i += step) {
       auto u = graph->GetVertexByIndex(i);
-      if (global_border_vid_map->get_bit(graph->localid2globalid(u.vid)) == 0)
-        continue;
-      ++local_sum_out_border_vertex;
-      auto global_id = graph->localid2globalid(u.vid);
-      if (*(global_border_vdata + global_id) > u.vdata[0]) {
-        if (write_min((global_border_vdata + global_id), u.vdata[0])) {
-          visited->set_bit(u.vid);
-        }
-      } else {
-      }
-    }
-    write_add(&si->sum_out_border_vertexes, local_sum_out_border_vertex);
-    return true;
-  }
-
-  static bool kernel_pull_border_vertexes(GRAPH_T* graph, const size_t tid,
-                                          Bitmap* visited, const size_t step,
-                                          Bitmap* in_visited,
-                                          Bitmap* global_border_vid_map,
-                                          VDATA_T* global_border_vdata,
-                                          StatisticInfo* si) {
-    size_t local_num_border_vertexes = 0;
-    if (global_border_vid_map->size_ == 0) return true;
-    for (size_t i = tid; i < graph->get_num_vertexes(); i += step) {
-      auto u = graph->GetVertexByIndex(i);
-      if (u.vdata[0] > global_border_vdata[graph->localid2globalid(u.vid)]) {
-        if (write_min(u.vdata,
-                      global_border_vdata[graph->localid2globalid(u.vid)])) {
-          in_visited->set_bit(u.vid);
-        }
-      }
-      for (size_t nbr_i = 0; nbr_i < u.indegree; nbr_i++) {
-        if (global_border_vid_map->get_bit(u.in_edges[nbr_i]) == 0) continue;
-        ++local_num_border_vertexes;
-        if (u.vdata[0] > global_border_vdata[u.in_edges[nbr_i]]) {
-          auto origin = u.vdata[0];
-          if (write_min(u.vdata, global_border_vdata[u.in_edges[nbr_i]])) {
-            in_visited->set_bit(u.vid);
-          }
+      for (size_t j = 0; j < u.outdegree; ++j) {
+        if (write_min(&global_border_vdata[u.out_edges[j]],
+                      global_border_vdata[graph->localid2globalid(i)])) {
+          out_visited->set_bit(u.out_edges[j]);
+          visited->set_bit(i);
         }
       }
     }
-    write_add(&si->sum_in_border_vertexes, local_num_border_vertexes);
-    return true;
+    return;
   }
 };
 
@@ -114,7 +73,8 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     Bitmap* visited = new Bitmap(graph.max_vid_);
     visited->fill();
     this->auto_map_->ActiveMap(graph, task_runner, visited,
-                               WCCAutoMap<GRAPH_T, CONTEXT_T>::kernel_init);
+                               WCCAutoMap<GRAPH_T, CONTEXT_T>::kernel_init,
+                               this->msg_mngr_->GetGlobalVdata());
     delete visited;
     return true;
   }
@@ -123,57 +83,23 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
              minigraph::executors::TaskRunner* task_runner) override {
     LOG_INFO("PEval() - Processing gid: ", graph.gid_,
              " num_vertexes: ", graph.get_num_vertexes());
-    if (!graph.IsInGraph(0)) return true;
-    auto vid_map = this->msg_mngr_->GetVidMap();
-    auto start_time = std::chrono::system_clock::now();
-
-    StatisticInfo global_si(0, 1);
+    auto vdata = this->msg_mngr_->GetGlobalVdata();
     Bitmap* in_visited = new Bitmap(graph.get_num_vertexes());
     Bitmap* out_visited = new Bitmap(graph.get_num_vertexes());
     in_visited->fill();
     out_visited->clear();
-
     Bitmap visited(graph.get_num_vertexes());
     visited.clear();
-    bool run = true;
-    size_t count_iters = 0;
-    std::vector<StatisticInfo> vec_si;
-    while (run) {
-      auto iter_start_time = std::chrono::system_clock::now();
-      run = this->auto_map_->ActiveEMap(in_visited, out_visited, graph,
-                                        task_runner, vid_map, &visited,
-                                        &global_si);
-      auto iter_end_time = std::chrono::system_clock::now();
-      count_iters++;
+
+    while (!in_visited->empty()) {
+      this->auto_map_->ActiveMap(graph, task_runner, &visited,
+                                 WCCAutoMap<GRAPH_T, CONTEXT_T>::kernel_update,
+                                 out_visited,
+                                 this->msg_mngr_->GetGlobalVdata());
       std::swap(in_visited, out_visited);
+      out_visited->clear();
     }
 
-    this->auto_map_->ActiveMap(
-        graph, task_runner, &visited,
-        WCCAutoMap<GRAPH_T, CONTEXT_T>::kernel_push_border_vertexes,
-        this->msg_mngr_->GetGlobalBorderVidMap(),
-        this->msg_mngr_->GetGlobalVdata(), &global_si);
-
-    auto end_time = std::chrono::system_clock::now();
-    global_si.elapsed_time =
-        std::chrono::duration_cast<std::chrono::microseconds>(end_time -
-                                                              start_time)
-            .count() /
-        (double)CLOCKS_PER_SEC;
-    global_si.num_iters = count_iters;
-
-    for (size_t i = 0; i < graph.get_num_vertexes(); i++) {
-      if (visited.get_bit(i)) {
-        auto u = graph.GetVertexByIndex(i);
-        global_si.sum_out_degree += u.outdegree;
-        global_si.sum_in_degree += u.indegree;
-      }
-    }
-
-    global_si.num_vertexes = graph.get_num_vertexes();
-    global_si.num_active_vertexes = visited.get_num_bit();
-    global_si.num_edges = graph.get_num_edges();
-    global_si.ShowInfo();
     delete in_visited;
     delete out_visited;
     return true;
@@ -183,7 +109,6 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
                minigraph::executors::TaskRunner* task_runner) override {
     auto start_time = std::chrono::system_clock::now();
 
-    StatisticInfo global_si(1, 1);
     Bitmap visited(graph.get_num_vertexes());
     Bitmap output_visited(graph.get_num_vertexes());
     Bitmap* in_visited = new Bitmap(graph.get_num_vertexes());
@@ -192,59 +117,21 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     visited.clear();
     in_visited->clear();
 
-    auto vid_map = this->msg_mngr_->GetVidMap();
-
-    this->auto_map_->ActiveMap(
-        graph, task_runner, &visited,
-        WCCAutoMap<GRAPH_T, CONTEXT_T>::kernel_pull_border_vertexes, in_visited,
-        this->msg_mngr_->GetGlobalBorderVidMap(),
-        this->msg_mngr_->GetGlobalVdata(), &global_si);
-
-    bool run = true;
-    size_t count_iters = 0;
-    std::vector<StatisticInfo> vec_si;
-    while (run) {
-      run = this->auto_map_->ActiveEMap(in_visited, out_visited, graph,
-                                        task_runner, vid_map, &visited,
-                                        &global_si);
+    while (!in_visited->empty()) {
+      this->auto_map_->ActiveMap(graph, task_runner, &visited,
+                                 WCCAutoMap<GRAPH_T, CONTEXT_T>::kernel_update,
+                                 out_visited,
+                                 this->msg_mngr_->GetGlobalVdata());
       std::swap(in_visited, out_visited);
-      count_iters++;
+      out_visited->clear();
     }
-
-    for (size_t i = 0; i < vec_si.size(); i++) {
-      vec_si.at(i).num_iters = count_iters;
-      vec_si.at(i).ShowInfo();
+    auto vdata = this->msg_mngr_->GetGlobalVdata();
+    for (size_t i = 0; i < 21; i++) {
+      LOG_INFO(i, " : ", vdata[i]);
     }
-
-    this->auto_map_->ActiveMap(
-        graph, task_runner, &output_visited,
-        WCCAutoMap<GRAPH_T, CONTEXT_T>::kernel_push_border_vertexes,
-        this->msg_mngr_->GetGlobalBorderVidMap(),
-        this->msg_mngr_->GetGlobalVdata(), &global_si);
-
     delete in_visited;
     delete out_visited;
-    auto end_time = std::chrono::system_clock::now();
-    global_si.num_vertexes = graph.get_num_vertexes();
-    global_si.num_active_vertexes = output_visited.get_num_bit();
-    global_si.num_edges = graph.get_num_edges();
-    global_si.num_iters = count_iters;
-    global_si.elapsed_time =
-        std::chrono::duration_cast<std::chrono::microseconds>(end_time -
-                                                              start_time)
-            .count() /
-        (double)CLOCKS_PER_SEC;
-    for (size_t i = 0; i < graph.get_num_vertexes(); i++) {
-      if (visited.get_bit(i)) {
-        auto u = graph.GetVertexByIndex(i);
-        global_si.sum_out_degree += u.outdegree;
-        global_si.sum_in_degree += u.indegree;
-      }
-    }
-
-    global_si.ShowInfo();
-
-    return !(global_si.num_active_vertexes <= graph.get_num_vertexes() / 10000);
+    return !visited.empty();
   }
 
   bool Aggregate(void* a, void* b,
