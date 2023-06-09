@@ -143,7 +143,7 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
     delete in_visited;
     delete out_visited;
-    return false;
+    return !visited.empty();
   }
 
   bool Aggregate(void* a, void* b,
