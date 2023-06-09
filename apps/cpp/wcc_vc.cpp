@@ -60,9 +60,6 @@ class WCCAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
       for (size_t j = 0; j < u.outdegree; ++j) {
         if (write_min(&global_border_vdata[u.out_edges[j]],
                       global_border_vdata[graph->localid2globalid(i)])) {
-          LOG_INFO(u.out_edges[j], "<-", graph->localid2globalid(i), " ",
-                   global_border_vdata[u.out_edges[j]]);
-
           if (graph->IsInGraph(u.out_edges[j])) {
             out_visited->set_bit(vid_map[u.out_edges[j]]);
           }
@@ -107,7 +104,6 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     Bitmap visited(graph.get_num_vertexes());
     visited.clear();
 
-    auto vdata = this->msg_mngr_->GetGlobalVdata();
     size_t num_active_vertices = 0;
 
     while (!in_visited->empty()) {
@@ -135,7 +131,6 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     output_visited.clear();
     visited.clear();
     in_visited->fill();
-    auto vdata = this->msg_mngr_->GetGlobalVdata();
 
     size_t num_active_vertices = 0;
     while (!in_visited->empty()) {
