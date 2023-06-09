@@ -35,7 +35,7 @@ class WCCAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
     for (size_t i = tid; i < graph->get_num_vertexes(); i += step) {
       auto u = graph->GetVertexByIndex(i);
       graph->vdata_[i] = graph->localid2globalid(u.vid);
-      vdata[graph->localid2globalid(u.vid)] = graph->vdata_[i];
+      write_min(&vdata[graph->localid2globalid(i)], graph->localid2globalid(i));
     }
     return;
   }
@@ -43,17 +43,30 @@ class WCCAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
   static void kernel_update(GRAPH_T* graph, const size_t tid, Bitmap* visited,
                             const size_t step, Bitmap* in_visited,
                             Bitmap* out_visited, VID_T* vid_map,
-                            VDATA_T* global_border_vdata) {
+                            VDATA_T* global_border_vdata,
+                            size_t* num_active_vertices) {
     for (size_t i = tid; i < graph->get_num_vertexes(); i += step) {
       if (!in_visited->get_bit(i)) continue;
       auto u = graph->GetVertexByIndex(i);
+
+      for (size_t j = 0; j < u.indegree; ++j) {
+        if (write_min(&global_border_vdata[graph->localid2globalid(i)],
+                      global_border_vdata[u.in_edges[j]])) {
+          out_visited->set_bit(i);
+          write_add(num_active_vertices, (size_t)1);
+        }
+      }
+
       for (size_t j = 0; j < u.outdegree; ++j) {
         if (write_min(&global_border_vdata[u.out_edges[j]],
                       global_border_vdata[graph->localid2globalid(i)])) {
+          LOG_INFO(u.out_edges[j], "<-", graph->localid2globalid(i), " ",
+                   global_border_vdata[u.out_edges[j]]);
+
           if (graph->IsInGraph(u.out_edges[j])) {
             out_visited->set_bit(vid_map[u.out_edges[j]]);
-            visited->set_bit(i);
           }
+          write_add(num_active_vertices, (size_t)1);
         }
       }
     }
@@ -94,12 +107,15 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     Bitmap visited(graph.get_num_vertexes());
     visited.clear();
 
+    auto vdata = this->msg_mngr_->GetGlobalVdata();
+    size_t num_active_vertices = 0;
+
     while (!in_visited->empty()) {
-      this->auto_map_->ActiveMap(graph, task_runner, &visited,
-                                 WCCAutoMap<GRAPH_T, CONTEXT_T>::kernel_update,
-                                 in_visited, out_visited,
-                                 this->msg_mngr_->GetVidMap(),
-                                 this->msg_mngr_->GetGlobalVdata());
+      this->auto_map_->ActiveMap(
+          graph, task_runner, &visited,
+          WCCAutoMap<GRAPH_T, CONTEXT_T>::kernel_update, in_visited,
+          out_visited, this->msg_mngr_->GetVidMap(),
+          this->msg_mngr_->GetGlobalVdata(), &num_active_vertices);
       std::swap(in_visited, out_visited);
       out_visited->clear();
     }
@@ -118,21 +134,23 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     Bitmap* out_visited = new Bitmap(graph.get_num_vertexes());
     output_visited.clear();
     visited.clear();
-    in_visited->clear();
+    in_visited->fill();
+    auto vdata = this->msg_mngr_->GetGlobalVdata();
 
+    size_t num_active_vertices = 0;
     while (!in_visited->empty()) {
-      this->auto_map_->ActiveMap(graph, task_runner, &visited,
-                                 WCCAutoMap<GRAPH_T, CONTEXT_T>::kernel_update,
-                                 in_visited, out_visited,
-                                 this->msg_mngr_->GetVidMap(),
-                                 this->msg_mngr_->GetGlobalVdata());
+      this->auto_map_->ActiveMap(
+          graph, task_runner, &visited,
+          WCCAutoMap<GRAPH_T, CONTEXT_T>::kernel_update, in_visited,
+          out_visited, this->msg_mngr_->GetVidMap(),
+          this->msg_mngr_->GetGlobalVdata(), &num_active_vertices);
       std::swap(in_visited, out_visited);
       out_visited->clear();
     }
 
     delete in_visited;
     delete out_visited;
-    return !visited.empty();
+    return num_active_vertices != 0;
   }
 
   bool Aggregate(void* a, void* b,
