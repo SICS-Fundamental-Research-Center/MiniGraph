@@ -50,7 +50,7 @@ class WCCAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
         if (write_min(&global_border_vdata[u.out_edges[j]],
                       global_border_vdata[graph->localid2globalid(i)])) {
           if(graph->IsInGraph(u.out_edges[j])){
-            vid_map[u.out_edges[j]];
+            out_visited->set_bit(vid_map[u.out_edges[j]]);
             visited->set_bit(i);
           }
         }
@@ -112,7 +112,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
   bool IncEval(GRAPH_T& graph,
                minigraph::executors::TaskRunner* task_runner) override {
     auto start_time = std::chrono::system_clock::now();
-
+    graph.ShowGraph(99);
     Bitmap visited(graph.get_num_vertexes());
     Bitmap output_visited(graph.get_num_vertexes());
     Bitmap* in_visited = new Bitmap(graph.get_num_vertexes());
@@ -131,6 +131,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
       std::swap(in_visited, out_visited);
       out_visited->clear();
     }
+
     delete in_visited;
     delete out_visited;
     return !visited.empty();

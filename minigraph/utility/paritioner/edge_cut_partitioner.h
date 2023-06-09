@@ -202,7 +202,6 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
         sizeof(graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>**) * num_partitions);
 
     for (size_t i = 0; i < num_partitions; i++) {
-      LOG_INFO(i);
       fragments[i] = (graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>**)malloc(
           sizeof(graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>*) *
           (this->aligned_max_vid_));
