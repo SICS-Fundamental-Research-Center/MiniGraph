@@ -42,17 +42,26 @@ class SSSPAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
   static void kernel_update(GRAPH_T* graph, const size_t tid, Bitmap* visited,
                             const size_t step, Bitmap* in_visited,
                             Bitmap* out_visited, VID_T* vid_map,
-                            VDATA_T* global_border_vdata) {
+                            VDATA_T* global_border_vdata,
+                            size_t* num_active_vertices) {
     for (size_t i = tid; i < graph->get_num_vertexes(); i += step) {
       if (!in_visited->get_bit(i)) continue;
       auto u = graph->GetVertexByIndex(i);
+
+      for (size_t j = 0; j < u.indegree; ++j) {
+        if (write_min(&global_border_vdata[graph->localid2globalid(i)],
+                      global_border_vdata[u.in_edges[j]] + 1)) {
+          out_visited->set_bit(i);
+          write_add(num_active_vertices, (size_t)1);
+        }
+      }
+
       for (size_t j = 0; j < u.outdegree; ++j) {
         if (write_min(&global_border_vdata[u.out_edges[j]],
                       global_border_vdata[graph->localid2globalid(i)] + 1)) {
-          if (graph->IsInGraph(u.out_edges[j])) {
+          if (graph->IsInGraph(u.out_edges[j]))
             out_visited->set_bit(vid_map[u.out_edges[j]]);
-            visited->set_bit(i);
-          }
+          write_add(num_active_vertices, (size_t)1);
         }
       }
     }
@@ -103,18 +112,20 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     auto vdata = this->msg_mngr_->GetGlobalVdata();
     vdata[this->context_.root_id] = 0;
 
+    size_t num_active_vertices = 0;
     in_visited->set_bit(vid_map[this->context_.root_id]);
     visited.set_bit(vid_map[this->context_.root_id]);
     while (!in_visited->empty()) {
-      this->auto_map_->ActiveMap(graph, task_runner, &visited,
-                                 SSSPAutoMap<GRAPH_T, CONTEXT_T>::kernel_update,
-                                 in_visited, out_visited,
-                                 this->msg_mngr_->GetVidMap(),
-                                 this->msg_mngr_->GetGlobalVdata());
+      this->auto_map_->ActiveMap(
+          graph, task_runner, &visited,
+          SSSPAutoMap<GRAPH_T, CONTEXT_T>::kernel_update, in_visited,
+          out_visited, this->msg_mngr_->GetVidMap(),
+          this->msg_mngr_->GetGlobalVdata(), &num_active_vertices);
       std::swap(in_visited, out_visited);
       out_visited->clear();
     }
 
+    LOG_INFO(visited.get_num_bit());
     delete in_visited;
     delete out_visited;
     return true;
@@ -131,19 +142,21 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     visited.clear();
     in_visited->fill();
 
+    size_t num_active_vertices = 0;
     while (!in_visited->empty()) {
-      this->auto_map_->ActiveMap(graph, task_runner, &visited,
-                                 SSSPAutoMap<GRAPH_T, CONTEXT_T>::kernel_update,
-                                 in_visited, out_visited,
-                                 this->msg_mngr_->GetVidMap(),
-                                 this->msg_mngr_->GetGlobalVdata());
+      this->auto_map_->ActiveMap(
+          graph, task_runner, &visited,
+          SSSPAutoMap<GRAPH_T, CONTEXT_T>::kernel_update, in_visited,
+          out_visited, this->msg_mngr_->GetVidMap(),
+          this->msg_mngr_->GetGlobalVdata(), &num_active_vertices);
       std::swap(in_visited, out_visited);
       out_visited->clear();
     }
 
+    LOG_INFO(visited.get_num_bit());
     delete in_visited;
     delete out_visited;
-    return !visited.empty();
+    return num_active_vertices != 0;
   }
 
   bool Aggregate(void* a, void* b,
