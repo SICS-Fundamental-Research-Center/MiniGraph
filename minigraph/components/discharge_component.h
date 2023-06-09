@@ -82,7 +82,6 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
         gid = que_gid.front();
         que_gid.pop();
         if (mode_ != "NoShort") CheckRTRule(gid);
-        LOG_INFO("XXXX");
         this->state_machine_->ShowAllState();
 
         ReleaseGraphX(gid);
