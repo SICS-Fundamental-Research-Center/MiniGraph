@@ -1,3 +1,11 @@
+#include <iostream>
+#include <math.h>
+#include <rapidcsv.h>
+#include <string.h>
+#include <string>
+
+#include <gflags/gflags.h>
+
 #include "graphs/edgelist.h"
 #include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
@@ -6,12 +14,6 @@
 #include "utility/io/edge_list_io_adapter.h"
 #include "utility/logging.h"
 #include "utility/thread_pool.h"
-#include <gflags/gflags.h>
-#include <iostream>
-#include <math.h>
-#include <rapidcsv.h>
-#include <string.h>
-#include <string>
 
 using EDGE_LIST_T = minigraph::graphs::EdgeList<gid_t, vid_t, vdata_t, edata_t>;
 using GRAPH_BASE_T = minigraph::graphs::Graph<gid_t, vid_t, vdata_t, edata_t>;
@@ -123,7 +125,7 @@ void CompressEdgelistCSV2EdgeListCSV(const std::string input_pt,
   }
 
   rapidcsv::Document doc_out(
-      "", rapidcsv::LabelParams(0, -1),
+      "", rapidcsv::LabelParams(-1, -1),
       rapidcsv::SeparatorParams(separator_params, false, false));
   doc_out.SetColumn<VID_T>(0, *out_src);
   doc_out.SetColumn<VID_T>(1, *out_dst);
@@ -140,9 +142,10 @@ void CompressEdgelistCSV2EdgeListCSV(const std::string input_pt,
 
 template <typename VID_T, typename VDATA_T>
 void CompressEdgelistCSV2EdgelistBin(const std::string input_pt,
-                                const std::string dst_pt, const size_t cores,
-                                char separator_params = ',',
-                                const size_t read_num_edges = 0) {
+                                     const std::string dst_pt,
+                                     const size_t cores,
+                                     char separator_params = ',',
+                                     const size_t read_num_edges = 0) {
   LOG_INFO("GraphReduce: CSV2Bin, read_edges:", read_num_edges);
   minigraph::utility::io::EdgeListIOAdapter<gid_t, vid_t, vdata_t, edata_t>
       edge_list_io_adapter;
@@ -302,7 +305,8 @@ void CompressEdgelistCSV2EdgelistBin(const std::string input_pt,
 
 template <typename VID_T, typename VDATA_T>
 void CompressEdgelistBin2EdgelistBin(const std::string input_pt,
-                                const std::string dst_pt, const size_t cores) {
+                                     const std::string dst_pt,
+                                     const size_t cores) {
   LOG_INFO("GraphReduce: Bin2Bin");
   minigraph::utility::io::EdgeListIOAdapter<gid_t, vid_t, vdata_t, edata_t>
       edgelist_io_adapter;
@@ -575,8 +579,8 @@ int main(int argc, char* argv[]) {
 
   if (FLAGS_frombin == false && FLAGS_tobin && FLAGS_in_type == "edgelist" &&
       FLAGS_out_type == "edgelist")
-    CompressEdgelistCSV2EdgelistBin<vid_t, vdata_t>(FLAGS_i, FLAGS_o, cores,
-                                               *FLAGS_sep.c_str(), FLAGS_edges);
+    CompressEdgelistCSV2EdgelistBin<vid_t, vdata_t>(
+        FLAGS_i, FLAGS_o, cores, *FLAGS_sep.c_str(), FLAGS_edges);
 
   if (FLAGS_frombin && FLAGS_tobin == false && FLAGS_in_type == "edgelist" &&
       FLAGS_out_type == "edgelist")
