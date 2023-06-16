@@ -30,7 +30,7 @@ void GetGraphStatisticFromCSV(const std::string input_pt,
   auto thread_pool = minigraph::utility::CPUThreadPool(cores, 1);
 
   rapidcsv::Document* doc =
-      new rapidcsv::Document(input_pt, rapidcsv::LabelParams(),
+      new rapidcsv::Document(input_pt, rapidcsv::LabelParams(-1, -1),
                              rapidcsv::SeparatorParams(separator_params));
   std::vector<VID_T>* src = new std::vector<VID_T>();
   std::vector<VID_T>* dst = new std::vector<VID_T>();

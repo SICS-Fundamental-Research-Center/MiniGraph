@@ -1,9 +1,9 @@
 #include <iostream>
 #include <math.h>
+#include <rapidcsv.h>
 #include <string.h>
 #include <string>
 
-#include <rapidcsv.h>
 #include <gflags/gflags.h>
 
 #include "graphs/edgelist.h"
@@ -33,7 +33,7 @@ void CompressEdgelistCSV2EdgeListCSV(const std::string input_pt,
   auto thread_pool = minigraph::utility::CPUThreadPool(cores, 1);
 
   rapidcsv::Document* doc =
-      new rapidcsv::Document(input_pt, rapidcsv::LabelParams(),
+      new rapidcsv::Document(input_pt, rapidcsv::LabelParams((-1, -1)),
                              rapidcsv::SeparatorParams(separator_params));
   std::vector<VID_T>* src = new std::vector<VID_T>();
   *src = doc->GetColumn<VID_T>(0);
@@ -176,7 +176,7 @@ void CompressEdgelistCSV2EdgelistBin(const std::string input_pt,
   const char* s = &separator_params;
   if (read_num_edges == 0) {
     rapidcsv::Document* doc =
-        new rapidcsv::Document(input_pt, rapidcsv::LabelParams(),
+        new rapidcsv::Document(input_pt, rapidcsv::LabelParams(-1, -1),
                                rapidcsv::SeparatorParams(separator_params));
     *src = doc->GetColumn<size_t>(0);
     *dst = doc->GetColumn<size_t>(1);
@@ -565,7 +565,7 @@ void CompressEdgeListBin2EdgelistCSV(const std::string input_pt,
   }
 
   rapidcsv::Document doc_out(
-      "", rapidcsv::LabelParams(0, -1),
+      "", rapidcsv::LabelParams(-1, -1),
       rapidcsv::SeparatorParams(separator_params, false, false));
   doc_out.SetColumn<VID_T>(0, *out_src);
   doc_out.SetColumn<VID_T>(1, *out_dst);
