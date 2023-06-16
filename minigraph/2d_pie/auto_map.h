@@ -1,16 +1,6 @@
 #ifndef MINIGRAPH_2D_PIE_AUTO_MAP_REDUCE_H
 #define MINIGRAPH_2D_PIE_AUTO_MAP_REDUCE_H
 
-#include <condition_variable>
-#include <functional>
-#include <future>
-#include <vector>
-
-#include <folly/MPMCQueue.h>
-#include <folly/ProducerConsumerQueue.h>
-#include <folly/concurrency/DynamicBoundedQueue.h>
-#include <folly/executors/ThreadPoolExecutor.h>
-
 #include "executors/task_runner.h"
 #include "graphs/graph.h"
 #include "graphs/immutable_csr.h"
@@ -19,6 +9,14 @@
 #include "utility/atomic.h"
 #include "utility/bitmap.h"
 #include "utility/thread_pool.h"
+#include <folly/MPMCQueue.h>
+#include <folly/ProducerConsumerQueue.h>
+#include <folly/concurrency/DynamicBoundedQueue.h>
+#include <folly/executors/ThreadPoolExecutor.h>
+#include <condition_variable>
+#include <functional>
+#include <future>
+#include <vector>
 
 namespace minigraph {
 
@@ -61,9 +59,9 @@ class AutoMapBase {
                             vid_map, visited, si);
       tasks.push_back(task);
     }
-    //LOG_INFO("ActiveEMap");
+    // LOG_INFO("ActiveEMap");
     task_runner->Run(tasks, false);
-    //LOG_INFO(global_visited);
+    // LOG_INFO(global_visited);
     return global_visited;
   };
 
@@ -107,6 +105,21 @@ class AutoMapBase {
     return;
   };
 
+  template <class F, class... Args>
+  auto ParallelDo(executors::TaskRunner* task_runner, F&& f, Args&&... args)
+      -> void {
+    assert(task_runner != nullptr);
+    std::vector<std::function<void()>> tasks;
+    for (size_t tid = 0; tid < task_runner->GetParallelism(); ++tid) {
+      auto task = std::bind(f, tid, task_runner->GetParallelism(), args...);
+      tasks.push_back(task);
+    }
+    // LOG_INFO("AutoMap ActiveMap Run");
+    task_runner->Run(tasks, false);
+    // LOG_INFO("# ");
+    return;
+  };
+
  private:
   void ActiveEReduce(GRAPH_T* graph, Bitmap* in_visited, Bitmap* out_visited,
                      const size_t tid, const size_t step, bool* global_visited,
@@ -123,7 +136,7 @@ class AutoMapBase {
     for (size_t index = tid; index < graph->get_num_vertexes(); index += step) {
       if (in_visited->get_bit(index) == 0) continue;
       VertexInfo&& u = graph->GetVertexByIndex(index);
-      //u.ShowVertexInfo();
+      // u.ShowVertexInfo();
       size_t dlv = 0;
       size_t dgv = u.outdegree;
       for (size_t i = 0; i < u.outdegree; ++i) {

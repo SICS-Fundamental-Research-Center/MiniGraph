@@ -1,15 +1,12 @@
 #ifndef MINIGRAPH_GRAPHS_IMMUTABLECSR_H
 #define MINIGRAPH_GRAPHS_IMMUTABLECSR_H
 
-#include <malloc.h>
-
-#include <fstream>
-#include <iostream>
-#include <map>
-#include <memory>
-#include <unordered_map>
-
-#include <jemalloc/jemalloc.h>
+#include "graphs/edgelist.h"
+#include "graphs/graph.h"
+#include "portability/sys_data_structure.h"
+#include "portability/sys_types.h"
+#include "utility/bitmap.h"
+#include "utility/logging.h"
 #include <folly/AtomicHashArray.h>
 #include <folly/AtomicHashMap.h>
 #include <folly/AtomicUnorderedMap.h>
@@ -21,13 +18,13 @@
 #include <folly/portability/Asm.h>
 #include <folly/portability/Atomic.h>
 #include <folly/portability/SysTime.h>
-
-#include "graphs/edgelist.h"
-#include "graphs/graph.h"
-#include "portability/sys_data_structure.h"
-#include "portability/sys_types.h"
-#include "utility/bitmap.h"
-#include "utility/logging.h"
+#include <jemalloc/jemalloc.h>
+#include <fstream>
+#include <iostream>
+#include <malloc.h>
+#include <map>
+#include <memory>
+#include <unordered_map>
 
 namespace minigraph {
 namespace graphs {
@@ -167,6 +164,9 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     vertexes_state_ = (char*)malloc(sizeof(char) * this->get_num_vertexes());
     memset(vertexes_state_, VERTEXDISMATCH,
            sizeof(char) * this->get_num_vertexes());
+    this->edata_ =
+        (EDATA_T*)malloc(sizeof(EDATA_T) * this->get_num_out_edges());
+    memset(this->edata_, 0, sizeof(EDATA_T) * this->get_num_out_edges());
 
     is_serialized_ = true;
   };
@@ -246,8 +246,8 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       free(this->vdata_);
       this->vdata_ = nullptr;
     }
-    vid_by_index_ = nullptr;
-    // index_by_vid_ = nullptr;
+    // vid_by_index_ = nullptr;
+    //  index_by_vid_ = nullptr;
     localid_by_globalid_ = nullptr;
     in_edges_ = nullptr;
     out_edges_ = nullptr;
@@ -290,132 +290,17 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     }
   }
 
-  bool Serialize() {
-    if (vertexes_info_ == nullptr) return false;
-    LOG_INFO("Serialize()  num_vertexes: ", this->get_num_vertexes());
-    LOG_INFO("sum in edges: ", sum_in_edges_,
-             " sum out edges: ", sum_out_edges_);
-    size_t size_localid = sizeof(VID_T) * this->get_num_vertexes();
-    size_t size_globalid = sizeof(VID_T) * this->get_num_vertexes();
-    size_t size_indegree = sizeof(size_t) * this->get_num_vertexes();
-    size_t size_outdegree = sizeof(size_t) * this->get_num_vertexes();
-    size_t size_in_offset = sizeof(size_t) * this->get_num_vertexes();
-    size_t size_out_offset = sizeof(size_t) * this->get_num_vertexes();
-    size_t size_in_edges = sizeof(VID_T) * sum_in_edges_;
-    size_t size_out_edges = sizeof(VID_T) * sum_out_edges_;
-    size_t size_index_by_vid = sizeof(size_t) * this->get_max_vid();
-
-    size_t total_size = size_localid + size_globalid + size_index_by_vid +
-                        size_indegree + size_outdegree + size_in_offset +
-                        size_out_offset + size_in_edges + size_out_edges;
-    size_t start_localid = 0;
-    size_t start_globalid = start_localid + size_localid;
-    size_t start_indegree = start_globalid + size_globalid;
-    size_t start_outdegree = start_indegree + size_indegree;
-    size_t start_in_offset = start_outdegree + size_outdegree;
-    size_t start_out_offset = start_in_offset + size_in_offset;
-    size_t start_in_edges = start_out_offset + size_out_offset;
-    size_t start_out_edges = start_in_edges + size_in_edges;
-    size_t start_localid_by_globalid = start_out_edges + size_out_edges;
-
-    this->vdata_ = (VDATA_T*)malloc(sizeof(VDATA_T) * this->get_num_vertexes());
-    memset(this->vdata_, 0, sizeof(VDATA_T) * this->get_num_vertexes());
-    this->buf_graph_ = (VID_T*)malloc(total_size);
-    memset(this->buf_graph_, 0, total_size);
-    size_t i = 0;
-    for (auto& iter_vertex : *vertexes_info_) {
-      iter_vertex.second->ShowVertexInfo();
-    }
-    for (auto& iter_vertex : *vertexes_info_) {
-      ((VID_T*)((char*)this->buf_graph_ + start_localid))[i] =
-          iter_vertex.second->vid;
-      ((VID_T*)((char*)this->buf_graph_ + start_globalid))[i] =
-          this->localid2globalid(iter_vertex.second->vid);
-      ((size_t*)((char*)this->buf_graph_ + start_indegree))[i] =
-          iter_vertex.second->indegree;
-      ((size_t*)((char*)this->buf_graph_ + start_outdegree))[i] =
-          iter_vertex.second->outdegree;
-      if (i == 0) {
-        ((size_t*)((char*)this->buf_graph_ + start_in_offset))[i] = 0;
-        iter_vertex.second->ShowVertexInfo();
-        if (iter_vertex.second->indegree > 0) {
-          memcpy((VID_T*)((char*)this->buf_graph_ + start_in_edges),
-                 iter_vertex.second->in_edges,
-                 sizeof(VID_T) * iter_vertex.second->indegree);
-        }
-        ((size_t*)((char*)this->buf_graph_ + start_out_offset))[i] = 0;
-        if (iter_vertex.second->outdegree > 0) {
-          memcpy((VID_T*)((char*)this->buf_graph_ + start_out_edges),
-                 iter_vertex.second->out_edges,
-                 sizeof(VID_T) * iter_vertex.second->outdegree);
-        }
-      } else {
-        ((size_t*)((char*)this->buf_graph_ + start_in_offset))[i] =
-            ((size_t*)((char*)this->buf_graph_ + start_indegree))[i - 1] +
-            ((size_t*)((char*)this->buf_graph_ + start_in_offset))[i - 1];
-        if (iter_vertex.second->indegree > 0) {
-          size_t start =
-              ((size_t*)((char*)this->buf_graph_ + start_in_offset))[i];
-          iter_vertex.second->ShowVertexInfo();
-          memcpy(((char*)this->buf_graph_ + start_in_edges +
-                  start * sizeof(VID_T)),
-                 iter_vertex.second->in_edges,
-                 sizeof(VID_T) * iter_vertex.second->indegree);
-        }
-        ((size_t*)((char*)this->buf_graph_ + start_out_offset))[i] =
-            ((size_t*)((char*)this->buf_graph_ + start_outdegree))[i - 1] +
-            ((size_t*)((char*)this->buf_graph_ + start_out_offset))[i - 1];
-
-        if (iter_vertex.second->outdegree > 0) {
-          size_t start =
-              ((size_t*)((char*)this->buf_graph_ + start_out_offset))[i];
-          memcpy(((char*)this->buf_graph_ + start_out_edges +
-                  start * sizeof(VID_T)),
-                 iter_vertex.second->out_edges,
-                 sizeof(VID_T) * iter_vertex.second->outdegree);
-        }
-      }
-      ++i;
-    }
-    vid_by_index_ = ((VID_T*)((char*)this->buf_graph_ + start_localid));
-    localid_by_globalid_ =
-        ((VID_T*)((char*)this->buf_graph_ + start_localid_by_globalid));
-    globalid_by_index_ = (VID_T*)((char*)this->buf_graph_ + start_globalid);
-    out_offset_ = (size_t*)((char*)this->buf_graph_ + start_out_offset);
-    in_offset_ = (size_t*)((char*)this->buf_graph_ + start_in_offset);
-    indegree_ = (size_t*)((char*)this->buf_graph_ + start_indegree);
-    outdegree_ = (size_t*)((char*)this->buf_graph_ + start_outdegree);
-    in_edges_ = (VID_T*)((char*)this->buf_graph_ + start_in_edges);
-    out_edges_ = (VID_T*)((char*)this->buf_graph_ + start_out_edges);
-
-    vertexes_state_ = (char*)malloc(sizeof(char) * this->get_num_vertexes());
-    memset(vertexes_state_, VERTEXDISMATCH,
-           sizeof(char) * this->get_num_vertexes());
-    is_serialized_ = true;
-    return true;
-  }
-
   graphs::VertexInfo<VID_T, VDATA_T, EDATA_T> GetVertexByIndex(
       const size_t index) {
     graphs::VertexInfo<VID_T, VDATA_T, EDATA_T> vertex_info;
     vertex_info.vid = index;
-    if (index != this->get_num_vertexes() - 1) {
-      vertex_info.outdegree = outdegree_[index];
-      vertex_info.indegree = indegree_[index];
-      // vertex_info.in_edges = (in_edges_ + in_offset_[index]);
-      // vertex_info.out_edges = (out_edges_ + out_offset_[index]);
-      vertex_info.in_edges = (in_edges_ + get_in_offset_by_index(index));
-      vertex_info.out_edges = (out_edges_ + get_out_offset_by_index(index));
-      vertex_info.vdata = (this->vdata_ + index);
-    } else {
-      vertex_info.outdegree = outdegree_[index];
-      vertex_info.indegree = indegree_[index];
-      // vertex_info.in_edges = (in_edges_ + in_offset_[index]);
-      // vertex_info.out_edges = (out_edges_ + out_offset_[index]);
-      vertex_info.in_edges = (in_edges_ + get_in_offset_by_index(index));
-      vertex_info.out_edges = (out_edges_ + get_out_offset_by_index(index));
-      vertex_info.vdata = (this->vdata_ + index);
-    }
+    vertex_info.outdegree = outdegree_[index];
+    vertex_info.indegree = indegree_[index];
+    vertex_info.in_edges = (in_edges_ + get_in_offset_by_index(index));
+    vertex_info.out_edges = (out_edges_ + get_out_offset_by_index(index));
+    vertex_info.vdata = (this->vdata_ + index);
+    vertex_info.edata = (this->edata_ + get_in_offset_by_index(index));
+
     vertex_info.state = (vertexes_state_ + index);
     return vertex_info;
   }
@@ -424,19 +309,12 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       const size_t index) {
     auto vertex_info = new graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>;
     vertex_info->vid = index;
-    if (index != this->get_num_vertexes() - 1) {
-      vertex_info->outdegree = outdegree_[index];
-      vertex_info->indegree = indegree_[index];
-      vertex_info->in_edges = (in_edges_ + in_offset_[index]);
-      vertex_info->out_edges = (out_edges_ + out_offset_[index]);
-      vertex_info->vdata = (this->vdata_ + index);
-    } else {
-      vertex_info->outdegree = outdegree_[index];
-      vertex_info->indegree = indegree_[index];
-      vertex_info->in_edges = (in_edges_ + in_offset_[index]);
-      vertex_info->out_edges = (out_edges_ + out_offset_[index]);
-      vertex_info->vdata = (this->vdata_ + index);
-    }
+    vertex_info->outdegree = outdegree_[index];
+    vertex_info->indegree = indegree_[index];
+    vertex_info->in_edges = (in_edges_ + in_offset_[index]);
+    vertex_info->out_edges = (out_edges_ + out_offset_[index]);
+    vertex_info->vdata = (this->vdata_ + index);
+    vertex_info->edata = (this->edata_ + in_offset_[index]);
     vertex_info->state = (vertexes_state_ + index);
     return vertex_info;
   }
@@ -444,45 +322,14 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
   graphs::VertexInfo<VID_T, VDATA_T, EDATA_T> GetVertexByVid(const VID_T vid) {
     graphs::VertexInfo<VID_T, VDATA_T, EDATA_T> vertex_info;
     vertex_info.vid = vid;
-    // size_t index = index_by_vid_[vid];
     size_t index = vid;
-    if (index != this->get_num_vertexes() - 1) {
-      vertex_info.outdegree = outdegree_[index];
-      vertex_info.indegree = indegree_[index];
-      vertex_info.in_edges = (in_edges_ + in_offset_[index]);
-      vertex_info.out_edges = (out_edges_ + out_offset_[index]);
-      vertex_info.vdata = (this->vdata_ + index);
-    } else {
-      vertex_info.outdegree = outdegree_[index];
-      vertex_info.indegree = indegree_[index];
-      vertex_info.in_edges = (in_edges_ + in_offset_[index]);
-      vertex_info.out_edges = (out_edges_ + out_offset_[index]);
-      vertex_info.vdata = (this->vdata_ + index);
-    }
+    vertex_info.outdegree = outdegree_[index];
+    vertex_info.indegree = indegree_[index];
+    vertex_info.in_edges = (in_edges_ + in_offset_[index]);
+    vertex_info.out_edges = (out_edges_ + out_offset_[index]);
+    vertex_info.edata = (this->edata_ + in_offset_[index]);
+    vertex_info.vdata = (this->vdata_ + index);
     vertex_info.state = (vertexes_state_ + index);
-    return vertex_info;
-  }
-
-  graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>* GetPVertexByVid(
-      const VID_T vid) {
-    auto vertex_info = new graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>;
-    vertex_info->vid = vid;
-    // size_t index = index_by_vid_[vid];
-    auto index = vid;
-    if (index != this->get_num_vertexes() - 1) {
-      vertex_info->outdegree = outdegree_[index];
-      vertex_info->indegree = indegree_[index];
-      vertex_info->in_edges = (in_edges_ + in_offset_[index]);
-      vertex_info->out_edges = (out_edges_ + out_offset_[index]);
-      vertex_info->vdata = (this->vdata_ + index);
-    } else {
-      vertex_info->outdegree = outdegree_[index];
-      vertex_info->indegree = indegree_[index];
-      vertex_info->in_edges = (in_edges_ + in_offset_[index]);
-      vertex_info->out_edges = (out_edges_ + out_offset_[index]);
-      vertex_info->vdata = (this->vdata_ + index);
-    }
-    vertex_info->state = (vertexes_state_ + index);
     return vertex_info;
   }
 
@@ -552,9 +399,7 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
   void set_out_offset_base(size_t base) { out_offset_base_ = base; };
   void set_in_offset_base(size_t base) { in_offset_base_ = base; };
 
-  ImmutableCSR* GetClassType(void) override {
-      return this;       
-  }
+  ImmutableCSR* GetClassType(void) override { return this; }
 
  public:
   size_t sum_in_edges_ = 0;
@@ -563,7 +408,6 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
   bool is_serialized_ = false;
 
   // serialized data in CSR format.
-  VID_T* vid_by_index_ = nullptr;
   VID_T* localid_by_globalid_ = nullptr;
   VID_T* globalid_by_index_ = nullptr;
   VID_T* in_edges_ = nullptr;

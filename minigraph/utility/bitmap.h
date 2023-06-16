@@ -1,11 +1,10 @@
 #ifndef BITMAP_H
 #define BITMAP_H
 
+#include "utility/logging.h"
 #include <cassert>
 #include <cstring>
 #include <stdio.h>
-
-#include "utility/logging.h"
 
 #define WORD_OFFSET(i) (i >> 6)
 #define BIT_OFFSET(i) (i & 0x3f)
@@ -81,12 +80,7 @@ class Bitmap {
   }
 
   unsigned long get_bit(size_t i) {
-    if (i > size_) {
-      // LOG_INFO("Bitmap: query point ", i,
-      //          " beyound the scope of get_bit that size of ", size_);
-      return 0;
-    }
-    // assert(i <= size_);
+    if (i > size_) return 0;
     return data_[WORD_OFFSET(i)] & (1ul << BIT_OFFSET(i));
   }
 
@@ -95,21 +89,9 @@ class Bitmap {
   }
 
   void set_bit(size_t i) {
-    if (i > size_) {
-      return;
-    }
-    __sync_fetch_and_or(data_ + WORD_OFFSET(i), 1ul << BIT_OFFSET(i));
-    return;
-  }
+    if (i > size_) return;
 
-  void try_set_bit(size_t i) {
-    //__sync_fetch_and_or(data_ + WORD_OFFSET(i), 1ul << BIT_OFFSET(i));
-    if (i > size_) {
-      LOG_INFO("i:", i, " size_: ", size_);
-    }
-    assert(i <= size_);
-    *(data_ + WORD_OFFSET(i)) =
-        *(data_ + WORD_OFFSET(i)) | (1ul << BIT_OFFSET(i));
+    __sync_fetch_and_or(data_ + WORD_OFFSET(i), 1ul << BIT_OFFSET(i));
     return;
   }
 
@@ -132,7 +114,7 @@ class Bitmap {
     if (size_ != b.size_) return false;
     size_t bm_size = WORD_OFFSET(size_);
     for (size_t i = 0; i <= bm_size; i++)
-      *(data_ + WORD_OFFSET(i)) = *(data_ + WORD_OFFSET(i)) & ~(b.data_[i]);
+      *(data_ + i) = *(data_ + i) & ~(b.data_[i]);
     return true;
   }
 
@@ -140,16 +122,7 @@ class Bitmap {
     if (size_ != b.size_) return false;
     size_t bm_size = WORD_OFFSET(size_);
     for (size_t i = 0; i <= bm_size; i++) {
-      __sync_fetch_and_or(data_ + WORD_OFFSET(i), b.data_[i]);
-    }
-    return true;
-  }
-
-  bool try_batch_or_bit(Bitmap& b) {
-    if (size_ != b.size_) return false;
-    size_t bm_size = WORD_OFFSET(size_);
-    for (size_t i = 0; i <= bm_size; i++) {
-      __sync_fetch_and_or(data_ + WORD_OFFSET(i), b.data_[i]);
+      __sync_fetch_and_or(data_ + i, b.data_[i]);
     }
     return true;
   }

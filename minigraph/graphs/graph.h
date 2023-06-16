@@ -1,16 +1,14 @@
 #ifndef MINIGRAPH_GRAPHS_GRAPH_H
 #define MINIGRAPH_GRAPHS_GRAPH_H
 
-#include <iostream>
-#include <string>
-#include <unordered_map>
-
+#include "portability/sys_types.h"
+#include "utility/bitmap.h"
 #include <folly/AtomicHashMap.h>
 #include <folly/FBString.h>
 #include <folly/Range.h>
-
-#include "portability/sys_types.h"
-#include "utility/bitmap.h"
+#include <iostream>
+#include <string>
+#include <unordered_map>
 
 namespace minigraph {
 namespace graphs {
@@ -86,6 +84,11 @@ class VertexInfo {
     else
       return out_edges[rand() % outdegree];
   }
+
+  VDATA_T && get_vdata(size_t i){
+    LOG_INFO("get_vdata:", i);
+    return edata[i];
+  }
 };
 
 template <typename GID_T, typename VID_T, typename VDATA_T, typename EDATA_T>
@@ -156,6 +159,7 @@ class Graph {
   VID_T aligned_max_vid_ = 0;
   size_t num_edges_ = 0;
   VDATA_T* vdata_ = nullptr;
+  EDATA_T* edata_ = nullptr;
   Bitmap* bitmap_ = nullptr;
   VID_T* buf_graph_ = nullptr;
 };
