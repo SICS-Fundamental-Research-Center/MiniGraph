@@ -162,7 +162,6 @@ void CSRBin2CSRText(std::string src_pt, std::string dst_pt, std::size_t cores,
 
   std::ofstream out_file(dst_pt, std::ios::binary | std::ios::app);
 
-  LOG_INFO("XXXXX");
 
   out_file << "AdjacencyGraph" << std::endl;
   out_file << graph->get_num_vertexes() << std::endl;

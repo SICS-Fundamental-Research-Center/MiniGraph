@@ -1,9 +1,9 @@
 #include <iostream>
 #include <math.h>
-#include <rapidcsv.h>
 #include <string.h>
 #include <string>
 
+#include <rapidcsv.h>
 #include <gflags/gflags.h>
 
 #include "graphs/edgelist.h"
@@ -74,13 +74,15 @@ void CompressEdgelistCSV2EdgeListCSV(const std::string input_pt,
 
   LOG_INFO("Run: transfer");
   VID_T local_id = 0;
+
   pending_packages.store(cores);
   for (size_t i = 0; i < cores; i++) {
     size_t tid = i;
     thread_pool.Commit([tid, &cores, &src_v, &dst_v, &num_edges,
-                        &pending_packages, &finish_cv, &max_vid, &visited,
+                        &pending_packages, &finish_cv, &max_vid, &visited, &mtx,
                         &vid_map, &local_id]() {
       for (size_t j = tid; j < num_edges; j += cores) {
+        mtx.lock();
         if (!visited->get_bit(src_v[j])) {
           auto vid = __sync_fetch_and_add(&local_id, 1);
           visited->set_bit(src_v[j]);
@@ -91,6 +93,7 @@ void CompressEdgelistCSV2EdgeListCSV(const std::string input_pt,
           visited->set_bit(dst_v[j]);
           vid_map[dst_v[j]] = vid;
         }
+        mtx.unlock();
       }
       if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
       return;
@@ -248,8 +251,9 @@ void CompressEdgelistCSV2EdgelistBin(const std::string input_pt,
     size_t tid = i;
     thread_pool.Commit([tid, &cores, &src_v, &dst_v, &num_edges,
                         &pending_packages, &finish_cv, &visited, &vid_map,
-                        &local_id]() {
+                        &local_id, &mtx]() {
       for (size_t j = tid; j < num_edges; j += cores) {
+        mtx.lock();
         if (!visited->get_bit(src_v[j])) {
           auto vid = __sync_fetch_and_add(&local_id, 1);
           visited->set_bit(src_v[j]);
@@ -260,6 +264,7 @@ void CompressEdgelistCSV2EdgelistBin(const std::string input_pt,
           visited->set_bit(dst_v[j]);
           __sync_bool_compare_and_swap(vid_map + dst_v[j], 0, vid);
         }
+        mtx.unlock();
       }
       if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
       return;
@@ -376,8 +381,9 @@ void CompressEdgelistBin2EdgelistBin(const std::string input_pt,
     size_t tid = i;
     thread_pool.Commit([tid, &cores, &src_v, &dst_v, &num_edges,
                         &pending_packages, &finish_cv, &visited, &vid_map,
-                        &local_id]() {
+                        &local_id, &mtx]() {
       for (size_t j = tid; j < num_edges; j += cores) {
+        mtx.lock();
         if (!visited->get_bit(src_v[j])) {
           auto vid = __sync_fetch_and_add(&local_id, 1);
           visited->set_bit(src_v[j]);
@@ -388,6 +394,7 @@ void CompressEdgelistBin2EdgelistBin(const std::string input_pt,
           visited->set_bit(dst_v[j]);
           __sync_bool_compare_and_swap(vid_map + dst_v[j], 0, vid);
         }
+        mtx.unlock();
       }
       if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
       return;
@@ -499,8 +506,9 @@ void CompressEdgeListBin2EdgelistCSV(const std::string input_pt,
     size_t tid = i;
     thread_pool.Commit([tid, &cores, &src_v, &dst_v, &num_edges,
                         &pending_packages, &finish_cv, &visited, &vid_map,
-                        &local_id]() {
+                        &local_id, &mtx]() {
       for (size_t j = tid; j < num_edges; j += cores) {
+        mtx.lock();
         if (!visited->get_bit(src_v[j])) {
           auto vid = __sync_fetch_and_add(&local_id, 1);
           visited->set_bit(src_v[j]);
@@ -511,6 +519,7 @@ void CompressEdgeListBin2EdgelistCSV(const std::string input_pt,
           visited->set_bit(dst_v[j]);
           __sync_bool_compare_and_swap(vid_map + dst_v[j], 0, vid);
         }
+        mtx.unlock();
       }
       if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
       return;
