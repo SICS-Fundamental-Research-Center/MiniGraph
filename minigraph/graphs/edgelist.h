@@ -7,6 +7,12 @@
 #include <memory>
 #include <unordered_map>
 
+#include <jemalloc/jemalloc.h>
+
+#include "graphs/graph.h"
+#include "portability/sys_data_structure.h"
+#include "portability/sys_types.h"
+#include "utility/logging.h"
 #include <folly/AtomicHashArray.h>
 #include <folly/AtomicHashMap.h>
 #include <folly/AtomicUnorderedMap.h>
@@ -18,12 +24,6 @@
 #include <folly/portability/Asm.h>
 #include <folly/portability/Atomic.h>
 #include <folly/portability/SysTime.h>
-#include <jemalloc/jemalloc.h>
-
-#include "graphs/graph.h"
-#include "portability/sys_data_structure.h"
-#include "portability/sys_types.h"
-#include "utility/logging.h"
 
 namespace minigraph {
 namespace graphs {
@@ -45,8 +45,10 @@ class EdgeList : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
 
     if (num_vertexes != 0) {
       this->num_vertexes_ = num_vertexes;
-      this->vdata_ = (VDATA_T*)malloc(sizeof(VDATA_T) * this->get_num_vertexes());
-      memset((char*)this->vdata_, 0, sizeof(VDATA_T) * this->get_num_vertexes());
+      this->vdata_ =
+          (VDATA_T*)malloc(sizeof(VDATA_T) * this->get_num_vertexes());
+      memset((char*)this->vdata_, 0,
+             sizeof(VDATA_T) * this->get_num_vertexes());
       globalid_by_localid_ =
           (VID_T*)malloc(sizeof(VID_T) * this->get_num_vertexes());
       memset((char*)globalid_by_localid_, 0,
@@ -119,7 +121,6 @@ class EdgeList : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     }
   }
 
-
   VID_T globalid2localid(const VID_T vid) const {
     auto local_id_iter = map_globalid2localid_->find(vid);
     if (local_id_iter != map_globalid2localid_->end()) {
@@ -156,9 +157,7 @@ class EdgeList : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     return border_vertexes;
   }
 
-  EdgeList* GetClassType(void) override {
-      return this;
-  }
+  EdgeList* GetClassType(void) override { return this; }
 
  public:
   size_t* index_by_vid_ = nullptr;

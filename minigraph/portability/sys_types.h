@@ -9,8 +9,9 @@ using vid_t = unsigned;
 using vdata_t = unsigned;
 using edata_t = size_t;
 
-#define VID_MAX 0XFFFFFFFF
+#define VID_MAX 16843009
 #define VDATA_MAX 0XFFFFFFF
+#define EDATA_MAX 0XFFFFFFF
 #define GID_MAX 0XFFFFFFF
 #define MINIGRAPH_GID_MAX (((unsigned)(-1)) >> 1)
 #define ALIGNMENT_FACTOR 1024.0
@@ -66,7 +67,7 @@ DEFINE_string(in_type, "edgelist", "type");
 DEFINE_string(out_type, "edgelist", "type");
 DEFINE_string(sep, "seperator", ",");
 DEFINE_uint64(n, 1, "the number of fragments");
-DEFINE_uint64(vertexes, 1, "the number of vertexes");
+DEFINE_uint64(vertexes, 0, "the number of vertexes");
 DEFINE_uint64(edges, 0, "the number of edges");
 DEFINE_uint64(power, 1, "the power of 2");
 DEFINE_uint64(lc, 1, "the number of executors in LoadComponent");

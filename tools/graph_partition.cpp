@@ -132,7 +132,8 @@ void GraphPartitionEdgeList2CSR(std::string src_pt, std::string dst_pt,
   auto fragments = partitioner->GetFragments();
   delete partitioner;
   LOG_INFO("Write StatisticInfo.");
-  size_t count = 0;
+
+  // Might used in generating training data.
   // for (auto& iter_fragments : *fragments) {
   //   auto fragment = (CSR_T*)iter_fragments;
   //   std::string meta_pt =

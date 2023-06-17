@@ -181,7 +181,7 @@ class RMAT final : public GraphGen {
   void WriteEdgeList(
       const std::pair<std::vector<size_t>, std::vector<size_t>>& data,
       const std::string& out_pt) {
-    rapidcsv::Document doc("", rapidcsv::LabelParams(0, -1),
+    rapidcsv::Document doc("", rapidcsv::LabelParams(-1, -1),
                            rapidcsv::SeparatorParams(',', false, false));
     doc.SetColumnName(0, "src");
     doc.SetColumnName(1, "dst");

@@ -1,3 +1,11 @@
+#include <iostream>
+#include <math.h>
+#include <rapidcsv.h>
+#include <string.h>
+#include <string>
+
+#include <gflags/gflags.h>
+
 #include "graphs/edgelist.h"
 #include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
@@ -6,12 +14,6 @@
 #include "utility/io/edge_list_io_adapter.h"
 #include "utility/logging.h"
 #include "utility/thread_pool.h"
-#include <gflags/gflags.h>
-#include <iostream>
-#include <math.h>
-#include <rapidcsv.h>
-#include <string.h>
-#include <string>
 
 using EDGE_LIST_T = minigraph::graphs::EdgeList<gid_t, vid_t, vdata_t, edata_t>;
 using GRAPH_BASE_T = minigraph::graphs::Graph<gid_t, vid_t, vdata_t, edata_t>;
@@ -31,7 +33,7 @@ void CompressEdgelistCSV2EdgeListCSV(const std::string input_pt,
   auto thread_pool = minigraph::utility::CPUThreadPool(cores, 1);
 
   rapidcsv::Document* doc =
-      new rapidcsv::Document(input_pt, rapidcsv::LabelParams(),
+      new rapidcsv::Document(input_pt, rapidcsv::LabelParams((-1, -1)),
                              rapidcsv::SeparatorParams(separator_params));
   std::vector<VID_T>* src = new std::vector<VID_T>();
   *src = doc->GetColumn<VID_T>(0);
@@ -72,13 +74,15 @@ void CompressEdgelistCSV2EdgeListCSV(const std::string input_pt,
 
   LOG_INFO("Run: transfer");
   VID_T local_id = 0;
+
   pending_packages.store(cores);
   for (size_t i = 0; i < cores; i++) {
     size_t tid = i;
     thread_pool.Commit([tid, &cores, &src_v, &dst_v, &num_edges,
-                        &pending_packages, &finish_cv, &max_vid, &visited,
+                        &pending_packages, &finish_cv, &max_vid, &visited, &mtx,
                         &vid_map, &local_id]() {
       for (size_t j = tid; j < num_edges; j += cores) {
+        mtx.lock();
         if (!visited->get_bit(src_v[j])) {
           auto vid = __sync_fetch_and_add(&local_id, 1);
           visited->set_bit(src_v[j]);
@@ -89,6 +93,7 @@ void CompressEdgelistCSV2EdgeListCSV(const std::string input_pt,
           visited->set_bit(dst_v[j]);
           vid_map[dst_v[j]] = vid;
         }
+        mtx.unlock();
       }
       if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
       return;
@@ -123,7 +128,7 @@ void CompressEdgelistCSV2EdgeListCSV(const std::string input_pt,
   }
 
   rapidcsv::Document doc_out(
-      "", rapidcsv::LabelParams(0, -1),
+      "", rapidcsv::LabelParams(-1, -1),
       rapidcsv::SeparatorParams(separator_params, false, false));
   doc_out.SetColumn<VID_T>(0, *out_src);
   doc_out.SetColumn<VID_T>(1, *out_dst);
@@ -140,9 +145,10 @@ void CompressEdgelistCSV2EdgeListCSV(const std::string input_pt,
 
 template <typename VID_T, typename VDATA_T>
 void CompressEdgelistCSV2EdgelistBin(const std::string input_pt,
-                                const std::string dst_pt, const size_t cores,
-                                char separator_params = ',',
-                                const size_t read_num_edges = 0) {
+                                     const std::string dst_pt,
+                                     const size_t cores,
+                                     char separator_params = ',',
+                                     const size_t read_num_edges = 0) {
   LOG_INFO("GraphReduce: CSV2Bin, read_edges:", read_num_edges);
   minigraph::utility::io::EdgeListIOAdapter<gid_t, vid_t, vdata_t, edata_t>
       edge_list_io_adapter;
@@ -170,7 +176,7 @@ void CompressEdgelistCSV2EdgelistBin(const std::string input_pt,
   const char* s = &separator_params;
   if (read_num_edges == 0) {
     rapidcsv::Document* doc =
-        new rapidcsv::Document(input_pt, rapidcsv::LabelParams(),
+        new rapidcsv::Document(input_pt, rapidcsv::LabelParams(-1, -1),
                                rapidcsv::SeparatorParams(separator_params));
     *src = doc->GetColumn<size_t>(0);
     *dst = doc->GetColumn<size_t>(1);
@@ -245,8 +251,9 @@ void CompressEdgelistCSV2EdgelistBin(const std::string input_pt,
     size_t tid = i;
     thread_pool.Commit([tid, &cores, &src_v, &dst_v, &num_edges,
                         &pending_packages, &finish_cv, &visited, &vid_map,
-                        &local_id]() {
+                        &local_id, &mtx]() {
       for (size_t j = tid; j < num_edges; j += cores) {
+        mtx.lock();
         if (!visited->get_bit(src_v[j])) {
           auto vid = __sync_fetch_and_add(&local_id, 1);
           visited->set_bit(src_v[j]);
@@ -257,6 +264,7 @@ void CompressEdgelistCSV2EdgelistBin(const std::string input_pt,
           visited->set_bit(dst_v[j]);
           __sync_bool_compare_and_swap(vid_map + dst_v[j], 0, vid);
         }
+        mtx.unlock();
       }
       if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
       return;
@@ -302,7 +310,8 @@ void CompressEdgelistCSV2EdgelistBin(const std::string input_pt,
 
 template <typename VID_T, typename VDATA_T>
 void CompressEdgelistBin2EdgelistBin(const std::string input_pt,
-                                const std::string dst_pt, const size_t cores) {
+                                     const std::string dst_pt,
+                                     const size_t cores) {
   LOG_INFO("GraphReduce: Bin2Bin");
   minigraph::utility::io::EdgeListIOAdapter<gid_t, vid_t, vdata_t, edata_t>
       edgelist_io_adapter;
@@ -372,8 +381,9 @@ void CompressEdgelistBin2EdgelistBin(const std::string input_pt,
     size_t tid = i;
     thread_pool.Commit([tid, &cores, &src_v, &dst_v, &num_edges,
                         &pending_packages, &finish_cv, &visited, &vid_map,
-                        &local_id]() {
+                        &local_id, &mtx]() {
       for (size_t j = tid; j < num_edges; j += cores) {
+        mtx.lock();
         if (!visited->get_bit(src_v[j])) {
           auto vid = __sync_fetch_and_add(&local_id, 1);
           visited->set_bit(src_v[j]);
@@ -384,6 +394,7 @@ void CompressEdgelistBin2EdgelistBin(const std::string input_pt,
           visited->set_bit(dst_v[j]);
           __sync_bool_compare_and_swap(vid_map + dst_v[j], 0, vid);
         }
+        mtx.unlock();
       }
       if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
       return;
@@ -495,8 +506,9 @@ void CompressEdgeListBin2EdgelistCSV(const std::string input_pt,
     size_t tid = i;
     thread_pool.Commit([tid, &cores, &src_v, &dst_v, &num_edges,
                         &pending_packages, &finish_cv, &visited, &vid_map,
-                        &local_id]() {
+                        &local_id, &mtx]() {
       for (size_t j = tid; j < num_edges; j += cores) {
+        mtx.lock();
         if (!visited->get_bit(src_v[j])) {
           auto vid = __sync_fetch_and_add(&local_id, 1);
           visited->set_bit(src_v[j]);
@@ -507,6 +519,7 @@ void CompressEdgeListBin2EdgelistCSV(const std::string input_pt,
           visited->set_bit(dst_v[j]);
           __sync_bool_compare_and_swap(vid_map + dst_v[j], 0, vid);
         }
+        mtx.unlock();
       }
       if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
       return;
@@ -552,7 +565,7 @@ void CompressEdgeListBin2EdgelistCSV(const std::string input_pt,
   }
 
   rapidcsv::Document doc_out(
-      "", rapidcsv::LabelParams(0, -1),
+      "", rapidcsv::LabelParams(-1, -1),
       rapidcsv::SeparatorParams(separator_params, false, false));
   doc_out.SetColumn<VID_T>(0, *out_src);
   doc_out.SetColumn<VID_T>(1, *out_dst);
@@ -575,8 +588,8 @@ int main(int argc, char* argv[]) {
 
   if (FLAGS_frombin == false && FLAGS_tobin && FLAGS_in_type == "edgelist" &&
       FLAGS_out_type == "edgelist")
-    CompressEdgelistCSV2EdgelistBin<vid_t, vdata_t>(FLAGS_i, FLAGS_o, cores,
-                                               *FLAGS_sep.c_str(), FLAGS_edges);
+    CompressEdgelistCSV2EdgelistBin<vid_t, vdata_t>(
+        FLAGS_i, FLAGS_o, cores, *FLAGS_sep.c_str(), FLAGS_edges);
 
   if (FLAGS_frombin && FLAGS_tobin == false && FLAGS_in_type == "edgelist" &&
       FLAGS_out_type == "edgelist")
