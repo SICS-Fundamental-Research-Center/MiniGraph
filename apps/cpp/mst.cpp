@@ -1,4 +1,5 @@
 #include <folly/concurrency/DynamicBoundedQueue.h>
+#include "jemalloc/jemalloc.h"
 
 #include "2d_pie/auto_app_base.h"
 #include "executors/task_runner.h"
@@ -63,6 +64,8 @@ class MST {
     }
     return;
   }
+
+  const inline size_t get_num_edges() { return curr_offset_; }
 };
 
 template <typename GRAPH_T, typename CONTEXT_T>
@@ -90,10 +93,9 @@ class MSTAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
   }
 
   static void kernel_init(GRAPH_T* graph, const size_t tid, Bitmap* visited,
-                          const size_t step, VDATA_T* vdata,
-                          EDATA_T* fragment_moe_val) {
+                          const size_t step) {
     for (size_t i = tid; i < graph->get_num_in_edges(); i += step)
-      graph->edata_[i] = std::rand() % 10;
+      graph->edata_[i] = Hash(i) % 10;
     return;
   }
 
@@ -178,23 +180,22 @@ class MSTPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
   bool Init(GRAPH_T& graph,
             minigraph::executors::TaskRunner* task_runner) override {
+    LOG_INFO("Init:", graph.get_gid());
     auto local_t = this->context_.t;
     write_add(&this->context_.t, 1);
     if (local_t == 0) {
+      LOG_INFO("Init vdata");
       auto vdata = this->msg_mngr_->GetGlobalVdata();
       memset(vdata, 0, sizeof(VID_T) * this->context_.num_vertexes);
       this->auto_map_->template ParallelDo(
           task_runner, MSTAutoMap<GRAPH_T, CONTEXT_T>::kernel_global_init,
           this->context_.num_vertexes, this->msg_mngr_->GetGlobalVdata());
     }
-    Bitmap* visited = new Bitmap(graph.max_vid_);
-    visited->fill();
-    this->auto_map_->ActiveMap(graph, task_runner, visited,
-                               MSTAutoMap<GRAPH_T, CONTEXT_T>::kernel_init,
-                               this->msg_mngr_->GetGlobalVdata(),
-                               fragment_moe_val_);
 
-    delete visited;
+    LOG_INFO(graph.get_num_in_edges());
+    this->auto_map_->ActiveMap(graph, task_runner, nullptr,
+                               MSTAutoMap<GRAPH_T, CONTEXT_T>::kernel_init);
+
     return true;
   }
 
@@ -213,13 +214,13 @@ class MSTPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     size_t num_new_edges = 0;
     while (active_vertexes != 0) {
       in_visited->clear();
+      LOG_INFO(active_vertexes);
       active_vertexes = 0;
       this->auto_map_->ActiveMap(
           graph, task_runner, &visited,
           MSTAutoMap<GRAPH_T, CONTEXT_T>::kernel_choose_minimum, in_visited,
           &active_vertexes, this->msg_mngr_->GetGlobalVdata(), moe_,
           fragment_moe_val_);
-
       while (!in_visited->empty()) {
         this->auto_map_->ParallelDo(
             task_runner, MSTAutoMap<GRAPH_T, CONTEXT_T>::kernel_label_prop,
@@ -230,8 +231,10 @@ class MSTPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
         std::swap(in_visited, out_visited);
         out_visited->clear();
       }
+      LOG_INFO("#");
     }
 
+    LOG_INFO("Size MST: ", mst_->get_num_edges());
     delete in_visited;
     delete out_visited;
     return true;
@@ -269,7 +272,7 @@ class MSTPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
         out_visited->clear();
       }
     }
-    //this->mst_->ShowMST();
+    // this->mst_->ShowMST();
     delete in_visited;
     delete out_visited;
     return num_new_edges > 0;
