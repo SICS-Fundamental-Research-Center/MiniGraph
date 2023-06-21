@@ -107,13 +107,14 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
     size_t num_active_vertices = 0;
 
+    size_t count = 0;
     while (!in_visited->empty()) {
       this->auto_map_->ActiveMap(
           graph, task_runner, &visited,
           WCCAutoMap<GRAPH_T, CONTEXT_T>::kernel_update, in_visited,
           out_visited, this->msg_mngr_->GetVidMap(),
           this->msg_mngr_->GetGlobalVdata(), &num_active_vertices);
-      LOG_INFO(out_visited->get_num_bit());
+      LOG_INFO("#", count++);
       std::swap(in_visited, out_visited);
       out_visited->clear();
     }
@@ -123,8 +124,8 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     LOG_INFO("End PEval: elapsed ",
              std::chrono::duration_cast<std::chrono::microseconds>(end_time -
                                                                    start_time)
-                 .count() /
-             (double)CLOCKS_PER_SEC);
+                     .count() /
+                 (double)CLOCKS_PER_SEC);
 
     delete in_visited;
     delete out_visited;

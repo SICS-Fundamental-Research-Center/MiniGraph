@@ -134,7 +134,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     Bitmap visited(graph.get_num_vertexes());
     visited.clear();
     bool run = true;
-    size_t count_iters = 0;
+    size_t count = 0;
     std::vector<StatisticInfo> vec_si;
     while (run) {
       auto iter_start_time = std::chrono::system_clock::now();
@@ -143,7 +143,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
                                         &global_si);
       auto iter_end_time = std::chrono::system_clock::now();
       count_iters++;
-      LOG_INFO(out_visited->get_num_bit());
+      LOG_INFO("#", count++);
       std::swap(in_visited, out_visited);
     }
 

@@ -83,14 +83,16 @@ class ColoringPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     LOG_INFO("PEval() - Processing gid: ", graph.gid_,
              " num_vertexes: ", graph.get_num_vertexes());
 
-    Bitmap *in_visited = new Bitmap(graph.get_num_vertexes());
-    Bitmap *out_visited= new Bitmap(graph.get_num_vertexes());
+    auto start_time = std::chrono::system_clock::now();
+    Bitmap* in_visited = new Bitmap(graph.get_num_vertexes());
+    Bitmap* out_visited = new Bitmap(graph.get_num_vertexes());
     Bitmap visited(graph.get_num_vertexes());
     in_visited->fill();
     out_visited->clear();
     visited.clear();
 
     typename GRAPH_T::vid_t local_upper_bound = 0;
+    size_t count = 0;
     while (!in_visited->empty()) {
       LOG_INFO(in_visited->get_num_bit());
       this->auto_map_->ActiveMap(
@@ -100,8 +102,15 @@ class ColoringPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
           this->context_.upper_bound);
       std::swap(in_visited, out_visited);
       out_visited->clear();
+      LOG_INFO("#", count++);
     }
     write_add(&this->context_.num_graphs, 1);
+    auto end_time = std::chrono::system_clock::now();
+    LOG_INFO("End PEval: elapsed ",
+             std::chrono::duration_cast<std::chrono::microseconds>(end_time -
+                                                                   start_time)
+                     .count() /
+                 (double)CLOCKS_PER_SEC);
     delete in_visited;
     delete out_visited;
     return true;
@@ -110,8 +119,8 @@ class ColoringPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
   bool IncEval(GRAPH_T& graph,
                minigraph::executors::TaskRunner* task_runner) override {
     LOG_INFO("IncEval: ", graph.get_gid());
-    Bitmap *in_visited = new Bitmap(graph.get_num_vertexes());
-    Bitmap *out_visited= new Bitmap(graph.get_num_vertexes());
+    Bitmap* in_visited = new Bitmap(graph.get_num_vertexes());
+    Bitmap* out_visited = new Bitmap(graph.get_num_vertexes());
     Bitmap visited(graph.get_num_vertexes());
     in_visited->fill();
     out_visited->clear();
