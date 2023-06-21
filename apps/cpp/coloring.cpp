@@ -94,7 +94,6 @@ class ColoringPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     typename GRAPH_T::vid_t local_upper_bound = 0;
     size_t count = 0;
     while (!in_visited->empty()) {
-      LOG_INFO(in_visited->get_num_bit());
       this->auto_map_->ActiveMap(
           graph, task_runner, &visited,
           ColoringAutoMap<GRAPH_T, CONTEXT_T>::kernel_update,
