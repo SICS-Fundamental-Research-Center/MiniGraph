@@ -113,6 +113,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
           WCCAutoMap<GRAPH_T, CONTEXT_T>::kernel_update, in_visited,
           out_visited, this->msg_mngr_->GetVidMap(),
           this->msg_mngr_->GetGlobalVdata(), &num_active_vertices);
+      LOG_INFO(out_visited->get_num_bit());
       std::swap(in_visited, out_visited);
       out_visited->clear();
     }
