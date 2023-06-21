@@ -193,7 +193,7 @@ int main(int argc, char* argv[]) {
 
   if (FLAGS_frombin && FLAGS_tobin == false && FLAGS_out_type == "csr" &&
       FLAGS_in_type == "csr")
-    CSRBin2CSRText(src_pt, dst_pt, cores, *FLAGS_sep.c_str());
+    CSRBin2CSRText(src_pt, dst_pt, cores);
 
   gflags::ShutDownCommandLineFlags();
 }
