@@ -22,9 +22,6 @@ class WCCAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
 
   bool F(const VertexInfo& u, VertexInfo& v,
          GRAPH_T* graph = nullptr) override {
-    auto tag = false;
-    auto origin = v.vdata[0];
-    if (write_min(v.vdata, u.vdata[0])) tag = true;
     return write_min(v.vdata, u.vdata[0]);
   }
 
@@ -146,6 +143,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
                                         &global_si);
       auto iter_end_time = std::chrono::system_clock::now();
       count_iters++;
+      LOG_INFO(out_visited->get_num_bit());
       std::swap(in_visited, out_visited);
     }
 
