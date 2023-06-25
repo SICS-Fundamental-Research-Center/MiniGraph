@@ -142,7 +142,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
                                         task_runner, vid_map, &visited,
                                         &global_si);
       auto iter_end_time = std::chrono::system_clock::now();
-      LOG_INFO("#", count++);
+      LOG_INFO("#", count++, " ", out_visited->get_num_bit());
       std::swap(in_visited, out_visited);
     }
 
