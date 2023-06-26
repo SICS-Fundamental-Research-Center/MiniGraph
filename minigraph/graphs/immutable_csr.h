@@ -55,10 +55,9 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     sum_in_edges_ = sum_in_edges;
     sum_out_edges_ = sum_out_edges;
     this->max_vid_ = max_vid;
-    LOG_INFO(this->get_max_vid());
+    LOG_INFO("max_vid: ", this->get_max_vid());
     this->aligned_max_vid_ =
         ceil((float)this->get_max_vid() / ALIGNMENT_FACTOR) * ALIGNMENT_FACTOR;
-    LOG_INFO(this->get_aligned_max_vid());
     assert(this->get_max_vid() > 0);
     assert(this->get_aligned_max_vid() > 0);
     this->bitmap_ = new Bitmap(this->get_aligned_max_vid());
@@ -150,7 +149,6 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
                  sizeof(VID_T) * set_vertexes[global_id]->outdegree);
         }
       }
-
       local_id++;
     }
 
@@ -168,14 +166,12 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     this->gid_ = gid;
     this->vdata_ = (VDATA_T*)malloc(sizeof(VDATA_T) * this->get_num_vertexes());
     memset(this->vdata_, 0, sizeof(VDATA_T) * this->get_num_vertexes());
-    // vertexes_state_ = (char*)malloc(sizeof(char) * this->get_num_vertexes());
-    // memset(vertexes_state_, VERTEXDISMATCH,
-    //        sizeof(char) * this->get_num_vertexes());
     this->edata_ =
         (EDATA_T*)malloc(sizeof(EDATA_T) * this->get_num_out_edges());
     memset(this->edata_, 0, sizeof(EDATA_T) * this->get_num_out_edges());
 
     is_serialized_ = true;
+    LOG_INFO("Construct ", gid);
     return;
   };
 

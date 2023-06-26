@@ -82,6 +82,7 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       que_gid.push(gid);
       while (!que_gid.empty()) {
         gid = que_gid.front();
+        LOG_INFO(gid);
         que_gid.pop();
         // sem.try_wait();
         auto task = std::bind(
