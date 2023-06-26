@@ -1,15 +1,6 @@
 #ifndef MINIGRAPH_UTILITY_EDGE_CUT_PARTITIONER_H
 #define MINIGRAPH_UTILITY_EDGE_CUT_PARTITIONER_H
 
-#include <atomic>
-#include <cstring>
-#include <stdio.h>
-#include <unordered_map>
-#include <vector>
-
-#include <folly/AtomicHashMap.h>
-#include <folly/FBVector.h>
-
 #include "portability/sys_types.h"
 #include "utility/bitmap.h"
 #include "utility/io/csr_io_adapter.h"
@@ -17,6 +8,13 @@
 #include "utility/io/io_adapter_base.h"
 #include "utility/paritioner/partitioner_base.h"
 #include "utility/thread_pool.h"
+#include <folly/AtomicHashMap.h>
+#include <folly/FBVector.h>
+#include <atomic>
+#include <cstring>
+#include <stdio.h>
+#include <unordered_map>
+#include <vector>
 
 namespace minigraph {
 namespace utility {
@@ -55,7 +53,12 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
                          const size_t cores = 1, const std::string dst_pt = "",
                          bool delete_graph = false) override {
     LOG_INFO("ParallelPartition(): EdgeCut");
-    edgelist_graph->ShowGraph(10);
+    LOG_INFO(edgelist_graph->get_aligned_max_vid());
+    assert(edgelist_graph->get_aligned_max_vid() > 0);
+    assert(edgelist_graph->get_num_vertexes() > 0);
+    assert(edgelist_graph->get_num_edges() > 0);
+    assert(edgelist_graph->get_max_vid() > 0);
+
     auto thread_pool = CPUThreadPool(cores, 1);
     std::mutex mtx;
     std::condition_variable finish_cv;
@@ -377,7 +380,6 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
 
     LOG_INFO("Run: Construct sub-graphs");
     pending_packages.store(cores);
-
     for (size_t gid = 0; gid < num_partitions; gid++) {
       if (gid == bucket_id_to_be_splitted) continue;
       auto local_gid = __sync_fetch_and_add(&atom_gid, 1);

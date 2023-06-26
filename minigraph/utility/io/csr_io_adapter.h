@@ -1,6 +1,17 @@
 #ifndef MINIGRAPH_UTILITY_IO_CSR_IO_ADAPTER_H
 #define MINIGRAPH_UTILITY_IO_CSR_IO_ADAPTER_H
 
+#include <sys/stat.h>
+
+#include <fstream>
+#include <iostream>
+#include <string>
+#include <unordered_map>
+
+#include <folly/AtomicHashArray.h>
+#include <folly/AtomicHashMap.h>
+#include <folly/FileUtil.h>
+
 #include "graphs/immutable_csr.h"
 #include "io_adapter_base.h"
 #include "portability/sys_data_structure.h"
@@ -8,14 +19,6 @@
 #include "rapidcsv.h"
 #include "utility/bitmap.h"
 #include "utility/logging.h"
-#include <folly/AtomicHashArray.h>
-#include <folly/AtomicHashMap.h>
-#include <folly/FileUtil.h>
-#include <sys/stat.h>
-#include <fstream>
-#include <iostream>
-#include <string>
-#include <unordered_map>
 
 namespace minigraph {
 namespace utility {
@@ -326,6 +329,7 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     auto graph = (CSR_T*)graph_base;
     size_t total_size = 0;
     size_t* buf_meta = (size_t*)malloc(sizeof(size_t) * 3);
+    size_t buff_metta[3] = {0};
     {
       std::ifstream meta_file(meta_pt, std::ios::binary | std::ios::app);
 
@@ -336,10 +340,13 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       graph->sum_out_edges_ = buf_meta[2];
       graph->num_edges_ = buf_meta[1] + buf_meta[2];
 
+      assert(graph->get_num_edges() > 0);
+      assert(graph->get_num_vertexes() > 0);
       // read bitmap
       meta_file.read((char*)&graph->max_vid_, sizeof(VID_T));
       graph->aligned_max_vid_ =
-          int(ceil((float)graph->get_max_vid() / 64)) * 64;
+          ceil(graph->get_max_vid() / ALIGNMENT_FACTOR) * ALIGNMENT_FACTOR;
+      assert(graph->get_aligned_max_vid() > 0);
       graph->bitmap_ = new Bitmap(graph->get_aligned_max_vid());
       graph->bitmap_->clear();
       meta_file.close();
@@ -347,7 +354,6 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
 
     {
       // read data
-      // size_t size_localid = sizeof(VID_T) * buf_meta[0];
       size_t size_globalid = sizeof(VID_T) * buf_meta[0];
       size_t size_localid_by_globalid =
           sizeof(VID_T) * graph->get_aligned_max_vid();
@@ -397,16 +403,15 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       memset(graph->vdata_, 0, sizeof(VDATA_T) * graph->get_num_vertexes());
       vdata_file.read((char*)graph->vdata_,
                       sizeof(VDATA_T) * graph->get_num_vertexes());
-      graph->vertexes_state_ =
-          (char*)malloc(sizeof(char) * graph->get_num_vertexes());
-      memset(graph->vertexes_state_, VERTEXDISMATCH,
-             sizeof(char) * graph->get_num_vertexes());
-      vdata_file.read((char*)graph->vertexes_state_,
-                      sizeof(char*) * graph->get_num_vertexes());
-      graph->edata_ =
-          (EDATA_T*)malloc(sizeof(EDATA_T) *
-                           ceil(graph->get_num_in_edges() / ALIGNMENT_FACTOR) *
-                           ALIGNMENT_FACTOR);
+      // graph->vertexes_state_ =
+      //     (char*)malloc(sizeof(char) * graph->get_num_vertexes());
+      // memset(graph->vertexes_state_, VERTEXDISMATCH,
+      //        sizeof(char) * graph->get_num_vertexes());
+      // vdata_file.read((char*)graph->vertexes_state_,
+      //                 sizeof(char*) * graph->get_num_vertexes());
+      graph->edata_ = (EDATA_T*)malloc(
+          sizeof(EDATA_T) * ceil(graph->get_num_in_edges() / ALIGNMENT_FACTOR) *
+          ALIGNMENT_FACTOR);
       memset(graph->edata_, 0,
              sizeof(EDATA_T) *
                  ceil(graph->get_num_in_edges() / ALIGNMENT_FACTOR) *
@@ -419,7 +424,6 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
 
     graph->is_serialized_ = true;
     graph->gid_ = gid;
-    free(buf_meta);
     return true;
   }
 
@@ -476,9 +480,9 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       if (this->Exist(vdata_pt)) remove(vdata_pt.c_str());
       std::ofstream vdata_file(vdata_pt, std::ios::binary | std::ios::app);
       vdata_file.write((char*)graph.vdata_,
-                       sizeof(VDATA_T) * graph.num_vertexes_);
-      vdata_file.write((char*)graph.vertexes_state_,
-                       sizeof(char) * graph.num_vertexes_);
+                       sizeof(VDATA_T) * graph.get_num_vertexes());
+      // vdata_file.write((char*)graph.vertexes_state_,
+      //                  sizeof(char) * graph.num_vertexes_);
 
       // write edata
       vdata_file.write((char*)graph.edata_,

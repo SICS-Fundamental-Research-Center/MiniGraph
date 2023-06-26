@@ -24,8 +24,7 @@ class ColoringAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
   // Push vdata from u to v.
   bool F(const VertexInfo& u, VertexInfo& v,
          GRAPH_T* graph = nullptr) override {
-    auto tag = false;
-    return tag;
+    return false;
   }
 
   bool F(VertexInfo& u, GRAPH_T* graph = nullptr,
@@ -45,8 +44,9 @@ class ColoringAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
         if (graph->localid2globalid(i) < u.out_edges[j]) {
           if (global_border_vdata[graph->localid2globalid(i)] ==
               global_border_vdata[u.out_edges[j]]) {
-            ++global_border_vdata[graph->localid2globalid(i)];
-            ++u.vdata[0];
+            //++global_border_vdata[graph->localid2globalid(i)];
+            write_add(&global_border_vdata[graph->localid2globalid(i)],
+                      (VDATA_T)1);
             write_max(&local_upper_bound, graph->localid2globalid(i));
             out_visited->set_bit(i);
           }
@@ -70,11 +70,17 @@ class ColoringPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
   bool Init(GRAPH_T& graph,
             minigraph::executors::TaskRunner* task_runner) override {
+    LOG_INFO("Init()", graph.get_gid());
     graph.InitVdata2AllX(0);
     write_max(&this->context_.upper_bound, graph.get_max_vid());
-    auto vdata = this->msg_mngr_->GetGlobalVdata();
-    memset(vdata, 0,
-           sizeof(typename GRAPH_T::vdata_t) * graph.get_aligned_max_vid());
+    auto local_t = this->context_.t;
+    write_add(&this->context_.t, (size_t)1);
+
+    if (local_t == 0) {
+      auto vdata = this->msg_mngr_->GetGlobalVdata();
+      memset(vdata, 0,
+             sizeof(typename GRAPH_T::vdata_t) * graph.get_aligned_max_vid());
+    }
     return true;
   }
 
@@ -83,6 +89,7 @@ class ColoringPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     LOG_INFO("PEval() - Processing gid: ", graph.gid_,
              " num_vertexes: ", graph.get_num_vertexes());
 
+    graph.ShowGraph();
     auto start_time = std::chrono::system_clock::now();
     Bitmap* in_visited = new Bitmap(graph.get_num_vertexes());
     Bitmap* out_visited = new Bitmap(graph.get_num_vertexes());
@@ -99,9 +106,9 @@ class ColoringPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
           ColoringAutoMap<GRAPH_T, CONTEXT_T>::kernel_update,
           this->msg_mngr_->GetGlobalVdata(), out_visited, local_upper_bound,
           this->context_.upper_bound);
+      LOG_INFO("#", count++, " active: ", out_visited->get_num_bit());
       std::swap(in_visited, out_visited);
       out_visited->clear();
-      LOG_INFO("#", count++);
     }
     write_add(&this->context_.num_graphs, 1);
     auto end_time = std::chrono::system_clock::now();
@@ -157,12 +164,12 @@ class ColoringPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 };
 
 struct Context {
-  std::vector<Bitmap*> vec_T;
   int inc_step = 0;
   int num_graphs = 0;
   int inc_vote = 0;
   vid_t upper_bound = 0;
   vid_t sync_bound = 0;
+  size_t t = 0;
 };
 
 using CSR_T = minigraph::graphs::ImmutableCSR<gid_t, vid_t, vdata_t, edata_t>;
@@ -180,11 +187,6 @@ int main(int argc, char* argv[]) {
 
   assert(FLAGS_vertexes != 0);
   Context context;
-  for (size_t i = 0; i < FLAGS_niters; i++) {
-    auto bitmap = new Bitmap(num_vertexes);
-    bitmap->clear();
-    context.vec_T.push_back(bitmap);
-  }
 
   auto coloring_auto_map = new ColoringAutoMap<CSR_T, Context>();
   auto coloring_pie =

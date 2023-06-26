@@ -1,8 +1,9 @@
 #ifndef MINIGRAPH_MINIGRAPH_SYS_H
 #define MINIGRAPH_MINIGRAPH_SYS_H
 
-#include <condition_variable>
 #include <dirent.h>
+
+#include <condition_variable>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -11,6 +12,7 @@
 #include <sstream>
 #include <string>
 #include <thread>
+#include <unistd.h>
 #include <vector>
 
 #include <folly/AtomicHashMap.h>
@@ -65,7 +67,9 @@ class MiniGraphSys {
         data_mngr_.get(), work_space, false);
     msg_mngr_->Init(work_space);
 
-    pt_by_gid_ = new folly::AtomicHashMap<GID_T, Path>(8096);
+    // pt_by_gid_ = new folly::AtomicHashMap<GID_T, Path>(8096);
+    pt_by_gid_ = std::make_unique<std::unordered_map<GID_T, Path>>();
+    //        new folly::AtomicHashMap<GID_T, Path>(8096);
     InitPtByGid(work_space);
 
     // init global superstep
@@ -133,7 +137,7 @@ class MiniGraphSys {
     load_component_ = std::make_unique<components::LoadComponent<GRAPH_T>>(
         num_workers_lc, lc_thread_pool_.get(), superstep_by_gid_,
         global_superstep_, state_machine_, read_trigger_.get(),
-        task_queue_.get(), partial_result_queue_.get(), pt_by_gid_,
+        task_queue_.get(), partial_result_queue_.get(), pt_by_gid_.get(),
         data_mngr_.get(), msg_mngr_.get(), read_trigger_lck_.get(),
         read_trigger_cv_.get(), task_queue_cv_.get(), partial_result_cv_.get(),
         mode, scheduler);
@@ -148,7 +152,7 @@ class MiniGraphSys {
         std::make_unique<components::DischargeComponent<GRAPH_T>>(
             num_workers_dc, dc_thread_pool_.get(), superstep_by_gid_,
             global_superstep_, state_machine_, partial_result_queue_.get(),
-            task_queue_.get(), read_trigger_.get(), pt_by_gid_,
+            task_queue_.get(), read_trigger_.get(), pt_by_gid_.get(),
             data_mngr_.get(), msg_mngr_.get(), partial_result_lck_.get(),
             partial_result_cv_.get(), task_queue_cv_.get(),
             read_trigger_cv_.get(), system_switch_.get(),
@@ -182,10 +186,11 @@ class MiniGraphSys {
     auto task_dc = std::bind(&components::DischargeComponent<GRAPH_T>::Run,
                              discharge_component_.get());
 
-    this->thread_pool_->Commit(task_lc);
-    this->thread_pool_->Commit(task_cc);
     this->thread_pool_->Commit(task_dc);
-
+    sleep(0.5);
+    this->thread_pool_->Commit(task_cc);
+    sleep(0.5);
+    this->thread_pool_->Commit(task_lc);
     auto start_time = std::chrono::system_clock::now();
     read_trigger_cv_->notify_all();
     task_queue_cv_->notify_all();
@@ -228,13 +233,15 @@ class MiniGraphSys {
     }
     if (msg_mngr_->GetPartialMatch() != nullptr)
       msg_mngr_->GetPartialMatch()->ShowMatchingSolutions();
+    return;
   }
 
   utility::io::DataMngr<GRAPH_T>* GetDataMngr() { return data_mngr_.get(); }
 
  private:
   // file path by gid.
-  folly::AtomicHashMap<GID_T, Path>* pt_by_gid_ = nullptr;
+  // folly::AtomicHashMap<GID_T, Path>* pt_by_gid_ = nullptr;
+  std::unique_ptr<std::unordered_map<GID_T, Path>> pt_by_gid_ = nullptr;
 
   // thread pool.
   size_t num_threads_ = 0;
@@ -317,7 +324,8 @@ class MiniGraphSys {
       if (iter == pt_by_gid_->end()) {
         Path _path;
         _path.meta_pt = path;
-        pt_by_gid_->insert(gid, _path);
+        // pt_by_gid_->insert(gid, _path);
+        pt_by_gid_->insert(std::make_pair(gid, _path));
       } else {
         iter->second.meta_pt = path;
       }
@@ -335,7 +343,8 @@ class MiniGraphSys {
       if (iter == pt_by_gid_->end()) {
         Path _path;
         _path.data_pt = path;
-        pt_by_gid_->insert(gid, _path);
+        // pt_by_gid_->insert(gid, _path);
+        pt_by_gid_->insert(std::make_pair(gid, _path));
       } else {
         iter->second.data_pt = path;
       }
@@ -352,7 +361,8 @@ class MiniGraphSys {
       if (iter == pt_by_gid_->end()) {
         Path _path;
         _path.vdata_pt = path;
-        pt_by_gid_->insert(gid, _path);
+        // pt_by_gid_->insert(gid, _path);
+        pt_by_gid_->insert(std::make_pair(gid, _path));
       } else {
         iter->second.vdata_pt = path;
       }

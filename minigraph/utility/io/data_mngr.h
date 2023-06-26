@@ -3,8 +3,8 @@
 
 #include <memory>
 
-#include <folly/AtomicHashMap.h>
 #include "yaml-cpp/yaml.h"
+#include <folly/AtomicHashMap.h>
 
 #include "utility/io/csr_io_adapter.h"
 #include "utility/io/edge_list_io_adapter.h"
@@ -319,6 +319,7 @@ class DataMngr {
   }
 
   void EraseGraph(const GID_T& gid) {
+    LOG_INFO("Erase", gid);
     pgraph_mtx_->lock();
     if (pgraph_by_gid_->count(gid)) {
       auto iter = pgraph_by_gid_->find(gid);

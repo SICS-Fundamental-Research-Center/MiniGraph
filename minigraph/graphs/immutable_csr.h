@@ -1,12 +1,13 @@
 #ifndef MINIGRAPH_GRAPHS_IMMUTABLECSR_H
 #define MINIGRAPH_GRAPHS_IMMUTABLECSR_H
 
-#include "graphs/edgelist.h"
-#include "graphs/graph.h"
-#include "portability/sys_data_structure.h"
-#include "portability/sys_types.h"
-#include "utility/bitmap.h"
-#include "utility/logging.h"
+#include <fstream>
+#include <iostream>
+#include <malloc.h>
+#include <map>
+#include <memory>
+#include <unordered_map>
+
 #include <folly/AtomicHashArray.h>
 #include <folly/AtomicHashMap.h>
 #include <folly/AtomicUnorderedMap.h>
@@ -19,12 +20,13 @@
 #include <folly/portability/Atomic.h>
 #include <folly/portability/SysTime.h>
 #include <jemalloc/jemalloc.h>
-#include <fstream>
-#include <iostream>
-#include <malloc.h>
-#include <map>
-#include <memory>
-#include <unordered_map>
+
+#include "graphs/edgelist.h"
+#include "graphs/graph.h"
+#include "portability/sys_data_structure.h"
+#include "portability/sys_types.h"
+#include "utility/bitmap.h"
+#include "utility/logging.h"
 
 namespace minigraph {
 namespace graphs {
@@ -53,8 +55,12 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     sum_in_edges_ = sum_in_edges;
     sum_out_edges_ = sum_out_edges;
     this->max_vid_ = max_vid;
+    LOG_INFO(this->get_max_vid());
     this->aligned_max_vid_ =
         ceil((float)this->get_max_vid() / ALIGNMENT_FACTOR) * ALIGNMENT_FACTOR;
+    LOG_INFO(this->get_aligned_max_vid());
+    assert(this->get_max_vid() > 0);
+    assert(this->get_aligned_max_vid() > 0);
     this->bitmap_ = new Bitmap(this->get_aligned_max_vid());
     this->bitmap_->clear();
 
@@ -92,6 +98,7 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
          global_id++) {
       if (set_vertexes[global_id] == nullptr) continue;
       if (vid_map != nullptr) vid_map[global_id] = local_id;
+
       this->bitmap_->set_bit(global_id);
       ((VID_T*)((char*)this->buf_graph_ +
                 start_localid_by_globalid))[global_id] = local_id;
@@ -161,14 +168,15 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     this->gid_ = gid;
     this->vdata_ = (VDATA_T*)malloc(sizeof(VDATA_T) * this->get_num_vertexes());
     memset(this->vdata_, 0, sizeof(VDATA_T) * this->get_num_vertexes());
-    vertexes_state_ = (char*)malloc(sizeof(char) * this->get_num_vertexes());
-    memset(vertexes_state_, VERTEXDISMATCH,
-           sizeof(char) * this->get_num_vertexes());
+    // vertexes_state_ = (char*)malloc(sizeof(char) * this->get_num_vertexes());
+    // memset(vertexes_state_, VERTEXDISMATCH,
+    //        sizeof(char) * this->get_num_vertexes());
     this->edata_ =
         (EDATA_T*)malloc(sizeof(EDATA_T) * this->get_num_out_edges());
     memset(this->edata_, 0, sizeof(EDATA_T) * this->get_num_out_edges());
 
     is_serialized_ = true;
+    return;
   };
 
   ~ImmutableCSR() {
@@ -202,7 +210,8 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       delete this->bitmap_;
       this->bitmap_ = nullptr;
     }
-    malloc_trim(0);
+    // malloc_trim(0);
+    return;
   };
 
   // size_t get_num_vertexes() const override { return num_vertexes_; }
@@ -212,24 +221,6 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
   // }
 
   void CleanUp() override {
-    // if (map_localid2globalid_ != nullptr) {
-    //   LOG_INFO("Free map_localid2globalid: ", gid_);
-    //   std::unordered_map<VID_T, VID_T> tmp;
-    //   map_localid2globalid_->swap(tmp);
-    //   tmp.clear();
-    //   map_localid2globalid_->clear();
-    //   delete map_localid2globalid_;
-    //   map_localid2globalid_ = nullptr;
-    // }
-    // if (map_globalid2localid_ != nullptr) {
-    //   LOG_INFO("Free map_globalid2localid: ", gid_);
-    //   std::unordered_map<VID_T, VID_T> tmp;
-    //   map_globalid2localid_->swap(tmp);
-    //   tmp.clear();
-    //   map_globalid2localid_->clear();
-    //   delete map_globalid2localid_;
-    //   map_globalid2localid_ = nullptr;
-    // }
     if (this->buf_graph_ != nullptr) {
       LOG_INFO("Free:  buf_graph", this->gid_);
       free(this->buf_graph_);
@@ -246,8 +237,6 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       free(this->vdata_);
       this->vdata_ = nullptr;
     }
-    // vid_by_index_ = nullptr;
-    //  index_by_vid_ = nullptr;
     localid_by_globalid_ = nullptr;
     in_edges_ = nullptr;
     out_edges_ = nullptr;

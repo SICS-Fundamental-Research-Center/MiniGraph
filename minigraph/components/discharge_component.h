@@ -30,7 +30,8 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       std::queue<GID_T>* partial_result_queue,
       folly::ProducerConsumerQueue<GID_T>* task_queue,
       std::queue<GID_T>* read_trigger,
-      folly::AtomicHashMap<GID_T, Path>* pt_by_gid,
+      // folly::AtomicHashMap<GID_T, Path>* pt_by_gid,
+      std::unordered_map<GID_T, Path>* pt_by_gid,
       utility::io::DataMngr<GRAPH_T>* data_mngr,
       message::DefaultMessageManager<GRAPH_T>* msg_mngr,
       std::unique_lock<std::mutex>* partial_result_lck,
@@ -114,7 +115,8 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   std::queue<GID_T>* read_trigger_ = nullptr;
   utility::io::DataMngr<GRAPH_T>* data_mngr_ = nullptr;
   message::DefaultMessageManager<GRAPH_T>* msg_mngr_ = nullptr;
-  folly::AtomicHashMap<GID_T, Path>* pt_by_gid_ = nullptr;
+  // folly::AtomicHashMap<GID_T, Path>* pt_by_gid_ = nullptr;
+  std::unordered_map<GID_T, Path>* pt_by_gid_ = nullptr;
   std::unique_lock<std::mutex>* partial_result_lck_ = nullptr;
   folly::ProducerConsumerQueue<GID_T>* task_queue_ = nullptr;
   std::condition_variable* read_trigger_cv_ = nullptr;

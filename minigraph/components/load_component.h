@@ -46,7 +46,8 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       std::queue<GID_T>* read_trigger,
       folly::ProducerConsumerQueue<GID_T>* task_queue,
       std::queue<GID_T>* partial_result_queue,
-      folly::AtomicHashMap<GID_T, Path>* pt_by_gid,
+      // folly::AtomicHashMap<GID_T, Path>* pt_by_gid,
+      std::unordered_map<GID_T, Path>* pt_by_gid,
       utility::io::DataMngr<GRAPH_T>* data_mngr,
       message::DefaultMessageManager<GRAPH_T>* msg_mngr,
       std::unique_lock<std::mutex>* read_trigger_lck,
@@ -107,10 +108,12 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       }
       while (!vec_gid.empty()) {
         gid = scheduler_->ChooseOne(vec_gid);
-        sem.try_wait();
-        auto task = std::bind(&components::LoadComponent<GRAPH_T>::ProcessGraph,
-                              this, gid, sem, mode_);
-        this->thread_pool_->Commit(task);
+        // sem.try_wait();
+        // auto task =
+        // std::bind(&components::LoadComponent<GRAPH_T>::ProcessGraph,
+        //                       this, gid, sem, mode_);
+        // this->thread_pool_->Commit(task);
+        ProcessGraph(gid, sem, mode_);
       }
     }
   }
@@ -122,7 +125,8 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   std::queue<GID_T>* read_trigger_ = nullptr;
   folly::ProducerConsumerQueue<GID_T>* task_queue_ = nullptr;
   std::queue<GID_T>* partial_result_queue_ = nullptr;
-  folly::AtomicHashMap<GID_T, Path>* pt_by_gid_ = nullptr;
+  // folly::AtomicHashMap<GID_T, Path>* pt_by_gid_ = nullptr;
+  std::unordered_map<GID_T, Path>* pt_by_gid_ = nullptr;
   utility::io::DataMngr<GRAPH_T>* data_mngr_ = nullptr;
   message::DefaultMessageManager<GRAPH_T>* msg_mngr_ = nullptr;
   bool switch_ = true;
@@ -137,6 +141,7 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
 
   void ProcessGraph(GID_T gid, folly::NativeSemaphore& sem,
                     std::string mode = "default") {
+    LOG_INFO("ProcessGraph", gid);
     auto read = false;
     if (this->get_global_superstep() == 0) {
       read = true;
@@ -179,6 +184,8 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       this->state_machine_->ProcessEvent(gid, SHORTCUTREAD);
       partial_result_cv_->notify_all();
     }
+    LOG_INFO("finished");
+    return;
   }
 };
 

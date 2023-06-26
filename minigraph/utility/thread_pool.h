@@ -92,7 +92,9 @@ class IOThreadPool : virtual public ThreadPool {
   }
   ~IOThreadPool() = default;
   size_t get_max_threads() const;
+
   size_t get_min_threads() const;
+
   template <class F, class... Args>
   void Commit(F&& f, Args&&... args) {
     auto task = std::bind(std::forward<F>(f), std::forward<Args>(args)...);
