@@ -14,7 +14,7 @@ using edata_t = size_t;
 #define EDATA_MAX 0XFFFFFFF
 #define GID_MAX 0XFFFFFFF
 #define MINIGRAPH_GID_MAX (((unsigned)(-1)) >> 1)
-#define ALIGNMENT_FACTOR 1024.0
+#define ALIGNMENT_FACTOR (double)64
 #define NUM_NEW_BUCKETS 0
 
 

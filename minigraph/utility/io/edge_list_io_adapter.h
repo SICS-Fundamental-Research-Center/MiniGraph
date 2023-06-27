@@ -522,7 +522,7 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
 
     ((EDGE_LIST_T*)graph)->max_vid_ = max_vid;
     ((EDGE_LIST_T*)graph)->aligned_max_vid_ =
-        ceil((float)max_vid / ALIGNMENT_FACTOR) * ALIGNMENT_FACTOR;
+        ceil(max_vid / ALIGNMENT_FACTOR) * ALIGNMENT_FACTOR;
     ((EDGE_LIST_T*)graph)->gid_ = gid;
 
     LOG_INFO("Traverse the entire graph again to fill the vertex_indicator.");
@@ -536,20 +536,18 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
         for (size_t j = tid; j < graph->get_num_edges(); j += cores) {
           auto src_vid = ((EDGE_LIST_T*)graph)->buf_graph_[j * 2];
           auto dst_vid = ((EDGE_LIST_T*)graph)->buf_graph_[j * 2 + 1];
-          if (!vertex_indicator.get_bit(src_vid)) {
+          if (!vertex_indicator.get_bit(src_vid))
             vertex_indicator.set_bit(src_vid);
-            __sync_add_and_fetch(&((EDGE_LIST_T*)graph)->num_vertexes_, 1);
-          }
-          if (!vertex_indicator.get_bit(dst_vid)) {
+          if (!vertex_indicator.get_bit(dst_vid))
             vertex_indicator.set_bit(dst_vid);
-            __sync_add_and_fetch(&((EDGE_LIST_T*)graph)->num_vertexes_, 1);
-          }
         }
         if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
         return;
       });
     }
     finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
+
+    ((EDGE_LIST_T*)graph)->set_num_vertexes(vertex_indicator.get_num_bit());
 
     ((EDGE_LIST_T*)graph)->vdata_ =
         (VDATA_T*)malloc(sizeof(VDATA_T) * graph->get_num_vertexes());

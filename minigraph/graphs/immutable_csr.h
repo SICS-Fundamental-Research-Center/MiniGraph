@@ -190,6 +190,10 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       free(this->vdata_);
       this->vdata_ = nullptr;
     }
+    if (this->edata_ != nullptr) {
+      free(this->edata_);
+      this->edata_ = nullptr;
+    }
     in_edges_ = nullptr;
     out_edges_ = nullptr;
     indegree_ = nullptr;
@@ -209,12 +213,6 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     malloc_trim(0);
     return;
   };
-
-  // size_t get_num_vertexes() const override { return num_vertexes_; }
-
-  // size_t get_num_edges() const override {
-  //   return sum_in_edges_ + sum_out_edges_;
-  // }
 
   void CleanUp() override {
     if (this->buf_graph_ != nullptr) {

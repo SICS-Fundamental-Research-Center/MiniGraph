@@ -1,16 +1,6 @@
 #ifndef MINIGRAPH_UTILITY_VERTEXCUT_PARTITIONER_H
 #define MINIGRAPH_UTILITY_VERTEXCUT_PARTITIONER_H
 
-#include <atomic>
-#include <cstring>
-#include <stdio.h>
-#include <string.h>
-#include <unordered_map>
-#include <vector>
-
-#include <folly/AtomicHashMap.h>
-#include <folly/FBVector.h>
-
 #include "graphs/graph.h"
 #include "portability/sys_types.h"
 #include "utility/bitmap.h"
@@ -19,6 +9,14 @@
 #include "utility/io/io_adapter_base.h"
 #include "utility/paritioner/partitioner_base.h"
 #include "utility/thread_pool.h"
+#include <folly/AtomicHashMap.h>
+#include <folly/FBVector.h>
+#include <atomic>
+#include <cstring>
+#include <stdio.h>
+#include <string.h>
+#include <unordered_map>
+#include <vector>
 
 namespace minigraph {
 namespace utility {
@@ -53,8 +51,7 @@ class VertexCutPartitioner : public PartitionerBase<GRAPH_T> {
 
     minigraph::utility::io::DataMngr<CSR_T> data_mngr;
     VID_T aligned_max_vid =
-        ceil((float)edgelist_graph->max_vid_ / ALIGNMENT_FACTOR) *
-        ALIGNMENT_FACTOR;
+        ceil(edgelist_graph->max_vid_ / ALIGNMENT_FACTOR) * ALIGNMENT_FACTOR;
     this->vid_map_ = (VID_T*)malloc(sizeof(VID_T) * aligned_max_vid);
     memset(this->vid_map_, 0, sizeof(VID_T) * aligned_max_vid);
     size_t* num_in_edges = (size_t*)malloc(sizeof(size_t) * aligned_max_vid);
