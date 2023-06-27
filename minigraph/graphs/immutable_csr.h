@@ -206,7 +206,7 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       delete this->bitmap_;
       this->bitmap_ = nullptr;
     }
-    // malloc_trim(0);
+    malloc_trim(0);
     return;
   };
 
