@@ -118,10 +118,10 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
   bool PEval(GRAPH_T& graph,
              minigraph::executors::TaskRunner* task_runner) override {
-    // LOG_INFO("PEval() - Processing gid: ", graph.gid_,
-    //          " num_vertexes: ", graph.get_num_vertexes());
+    LOG_INFO("PEval() - Processing gid: ", graph.gid_,
+             " num_vertexes: ", graph.get_num_vertexes());
     // graph.ShowGraph();
-    // if (!graph.IsInGraph(0)) return true;
+    if (!graph.IsInGraph(0)) return true;
     auto vid_map = this->msg_mngr_->GetVidMap();
     auto start_time = std::chrono::system_clock::now();
 
