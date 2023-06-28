@@ -1,19 +1,22 @@
 #ifndef MINIGRAPH_UTILITY_IO_EDGE_LIST_IO_ADAPTER_H
 #define MINIGRAPH_UTILITY_IO_EDGE_LIST_IO_ADAPTER_H
 
-#include "graphs/edgelist.h"
-#include "io_adapter_base.h"
-#include "portability/sys_data_structure.h"
-#include "portability/sys_types.h"
-#include "rapidcsv.h"
-#include "utility/atomic.h"
-#include "utility/thread_pool.h"
 #include <sys/stat.h>
+
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <string>
 #include <unordered_map>
+
+#include "rapidcsv.h"
+
+#include "graphs/edgelist.h"
+#include "io_adapter_base.h"
+#include "portability/sys_data_structure.h"
+#include "portability/sys_types.h"
+#include "utility/atomic.h"
+#include "utility/thread_pool.h"
 
 namespace minigraph {
 namespace utility {
@@ -260,7 +263,7 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     meta_file.read((char*)meta_buff, sizeof(size_t) * 2);
     meta_file.read((char*)&edge_list_graph->max_vid_, sizeof(VID_T));
     edge_list_graph->aligned_max_vid_ =
-        ceil((float)edge_list_graph->max_vid_ / ALIGNMENT_FACTOR) *
+        ceil(edge_list_graph->max_vid_ / ALIGNMENT_FACTOR) *
         ALIGNMENT_FACTOR;
 
     edge_list_graph->buf_graph_ =
@@ -288,7 +291,7 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       }
       edge_list_graph->max_vid_ = max_vid;
       edge_list_graph->aligned_max_vid_ =
-          ceil((float)max_vid / ALIGNMENT_FACTOR) * ALIGNMENT_FACTOR;
+          ceil(max_vid / ALIGNMENT_FACTOR) * ALIGNMENT_FACTOR;
     }
 
     LOG_INFO("Read ", data_pt, " successful", ", num vertexes: ", meta_buff[0],
@@ -355,7 +358,7 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     ((EDGE_LIST_T*)graph)->num_edges_ = src.size();
     ((EDGE_LIST_T*)graph)->max_vid_ = max_vid;
     ((EDGE_LIST_T*)graph)->aligned_max_vid_ =
-        ceil((float)max_vid / ALIGNMENT_FACTOR) * ALIGNMENT_FACTOR;
+        ceil(max_vid / ALIGNMENT_FACTOR) * ALIGNMENT_FACTOR;
     LOG_INFO(
 
         ((EDGE_LIST_T*)graph)->get_aligned_max_vid()

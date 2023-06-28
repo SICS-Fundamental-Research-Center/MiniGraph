@@ -2,7 +2,6 @@
 #define MINIGRAPH_UTILITY_IO_CSR_IO_ADAPTER_H
 
 #include <sys/stat.h>
-
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -96,7 +95,8 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     std::unique_lock<std::mutex> lck(mtx);
 
     VID_T aligned_max_vid =
-        ceil((float)edgelist_graph->get_aligned_max_vid() / 64) * 64;
+        ceil(edgelist_graph->get_aligned_max_vid() / ALIGNMENT_FACTOR) *
+        ALIGNMENT_FACTOR;
 
     std::atomic<size_t> pending_packages(cores);
     LOG_INFO("Aligned max vid: ", aligned_max_vid, "  ",
