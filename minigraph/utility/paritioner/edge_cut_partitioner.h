@@ -71,7 +71,7 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
     auto max_vid = edgelist_graph->get_max_vid();
     this->max_vid_ = edgelist_graph->get_max_vid();
     this->aligned_max_vid_ =
-        ceil((float)edgelist_graph->get_aligned_max_vid() / ALIGNMENT_FACTOR) *
+        ceil(edgelist_graph->get_aligned_max_vid() / ALIGNMENT_FACTOR) *
         ALIGNMENT_FACTOR;
     auto aligned_max_vid = this->aligned_max_vid_;
     auto num_vertexes = edgelist_graph->get_num_vertexes();
@@ -225,9 +225,6 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
     auto set_graphs = (graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>**)malloc(
         sizeof(graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>*) *
         (num_partitions + num_new_buckets));
-    // auto set_graphs = new CSR_T [num_partitions+num_new_buckets];
-    // new graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>[num_partitions +
-    //                                                   num_new_buckets];
 
     for (size_t i = 0; i < num_partitions + num_new_buckets; i++)
       set_graphs[i] = nullptr;
@@ -285,23 +282,25 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
       this->fragments_->push_back(graph);
     }
 
-     LOG_INFO("Run: Set communication matrix: ", num_partitions, " X ",
-              num_partitions);
+    LOG_INFO("Run: Set communication matrix: ", num_partitions, " X ",
+             num_partitions);
 
-     this->communication_matrix_ =
-         (bool*)malloc(sizeof(bool) * num_partitions * num_partitions);
-     memset(this->communication_matrix_, 0,
-            sizeof(bool) * (num_partitions) * (num_partitions));
-     for (size_t i = 0; i < (num_partitions) * (num_partitions); i++)
-       this->communication_matrix_[i] = 1;
+    this->communication_matrix_ =
+        (bool*)malloc(sizeof(bool) * num_partitions * num_partitions);
+    memset(this->communication_matrix_, 0,
+           sizeof(bool) * (num_partitions) * (num_partitions));
+    for (size_t i = 0; i < (num_partitions) * (num_partitions); i++)
+      this->communication_matrix_[i] = 1;
+    for (size_t i = 0; i < num_partitions; i++)
+      *(this->communication_matrix_ + i * num_partitions + i) = 0;
 
-     LOG_INFO("Run: Set global_border_vid_map");
-     for (auto& iter_fragments : *this->fragments_) {
-       auto fragment = (CSR_T*)iter_fragments;
-       fragment->InitVdata2AllX(0);
-       fragment->SetGlobalBorderVidMap(this->global_border_vid_map_,
-                                       is_in_bucketX, (num_partitions));
-     }
+    LOG_INFO("Run: Set global_border_vid_map");
+    for (auto& iter_fragments : *this->fragments_) {
+      auto fragment = (CSR_T*)iter_fragments;
+      fragment->InitVdata2AllX(0);
+      fragment->SetGlobalBorderVidMap(this->global_border_vid_map_,
+                                      is_in_bucketX, (num_partitions));
+    }
 
     return false;
   }
