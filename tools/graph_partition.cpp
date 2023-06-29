@@ -1,10 +1,3 @@
-#include <sys/stat.h>
-#include <iostream>
-#include <string>
-
-#include "yaml-cpp/yaml.h"
-#include <gflags/gflags.h>
-
 #include "graphs/edgelist.h"
 #include "graphs/immutable_csr.h"
 #include "portability/sys_data_structure.h"
@@ -16,6 +9,11 @@
 #include "utility/paritioner/partitioner_base.h"
 #include "utility/paritioner/vertex_cut_partitioner.h"
 #include "utility/thread_pool.h"
+#include "yaml-cpp/yaml.h"
+#include <gflags/gflags.h>
+#include <sys/stat.h>
+#include <iostream>
+#include <string>
 
 using CSR_T = minigraph::graphs::ImmutableCSR<gid_t, vid_t, vdata_t, edata_t>;
 using GRAPH_BASE_T = minigraph::graphs::Graph<gid_t, vid_t, vdata_t, edata_t>;
@@ -145,10 +143,10 @@ void GraphPartitionEdgeList2CSR(std::string src_pt, std::string dst_pt,
         dst_pt + "minigraph_vdata/" + std::to_string(count) + ".bin";
     data_mngr.csr_io_adapter_->Write(*fragment, csr_bin, false, meta_pt,
                                      data_pt, vdata_pt);
-    // StatisticInfo&& si = ParallelSetStatisticInfo(*fragment, cores);
-    // std::string si_pt =
-    //     dst_pt + "minigraph_si/" + std::to_string(count) + ".yaml";
-    // data_mngr.WriteStatisticInfo(si, si_pt);
+    //StatisticInfo&& si = ParallelSetStatisticInfo(*fragment, cores);
+    //std::string si_pt =
+    //    dst_pt + "minigraph_si/" + std::to_string(count) + ".yaml";
+    //data_mngr.WriteStatisticInfo(si, si_pt);
     count++;
   }
 
