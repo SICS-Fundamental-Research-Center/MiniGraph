@@ -125,7 +125,6 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
       out_visited->clear();
     }
 
-    LOG_INFO(visited.get_num_bit());
     delete in_visited;
     delete out_visited;
     return true;
@@ -153,7 +152,6 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
       out_visited->clear();
     }
 
-    LOG_INFO(visited.get_num_bit());
     delete in_visited;
     delete out_visited;
     return num_active_vertices != 0;
@@ -166,7 +164,7 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 };
 
 struct Context {
-  size_t root_id = 12;
+  size_t root_id = 0;
 };
 
 using CSR_T = minigraph::graphs::ImmutableCSR<gid_t, vid_t, vdata_t, edata_t>;
@@ -192,7 +190,6 @@ int main(int argc, char* argv[]) {
       work_space, num_workers_lc, num_workers_cc, num_workers_dc, num_cores,
       buffer_size, app_wrapper, FLAGS_mode);
   minigraph_sys.RunSys();
-  // minigraph_sys.ShowResult(3);
   gflags::ShutDownCommandLineFlags();
   exit(0);
 }
