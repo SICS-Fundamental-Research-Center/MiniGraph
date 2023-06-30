@@ -48,13 +48,13 @@ class SSSPAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
       if (!in_visited->get_bit(i)) continue;
       auto u = graph->GetVertexByIndex(i);
 
-      for (size_t j = 0; j < u.indegree; ++j) {
-        if (write_min(&global_border_vdata[graph->localid2globalid(i)],
-                      global_border_vdata[u.in_edges[j]] + 1)) {
-          out_visited->set_bit(i);
-          write_add(num_active_vertices, (size_t)1);
-        }
-      }
+      //for (size_t j = 0; j < u.indegree; ++j) {
+      //  if (write_min(&global_border_vdata[graph->localid2globalid(i)],
+      //                global_border_vdata[u.in_edges[j]] + 1)) {
+      //    out_visited->set_bit(i);
+      //    write_add(num_active_vertices, (size_t)1);
+      //  }
+      //}
 
       for (size_t j = 0; j < u.outdegree; ++j) {
         if (write_min(&global_border_vdata[u.out_edges[j]],
