@@ -53,7 +53,8 @@ class MiniGraphSys {
     // configure sys.
     LOG_INFO("WorkSpace: ", work_space, " num_workers_lc: ", num_workers_lc,
              ", num_workers_cc: ", num_workers_cc,
-             ", num_worker_dc: ", num_workers_dc, ", num_threads: ", num_cores);
+             ", num_worker_dc: ", num_workers_dc, ", num_threads: ", num_cores,
+             ", buffer size: ", buffer_size);
 
     num_threads_ = 3;
     InitWorkList(work_space);
