@@ -21,11 +21,11 @@ class RWAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
   RWAutoMap() : minigraph::AutoMapBase<GRAPH_T, CONTEXT_T>() {}
 
   // static inline size_t walks_per_source() { return 100; }
-  static inline bool is_source(VID_T vid) { return (Hash(vid) % 2 == 0); }
+  static inline bool is_source(VID_T vid) { return (Hash(vid) % 50 == 0); }
 
   bool F(const VertexInfo& u, VertexInfo& v,
          GRAPH_T* graph = nullptr) override {
-    return write_min(v.vdata, u.vdata[0]);
+    return false;
   }
 
   bool F(VertexInfo& u, GRAPH_T* graph = nullptr,
@@ -92,9 +92,7 @@ class RWPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     LOG_INFO("PEval() - Processing gid: ", graph.gid_,
              " num_vertexes: ", graph.get_num_vertexes());
     auto start_time = std::chrono::system_clock::now();
-    //graph.ShowGraph(3);
-    Bitmap* in_visited = new Bitmap(graph.get_num_vertexes());
-    Bitmap* out_visited = new Bitmap(graph.get_num_vertexes());
+    // graph.ShowGraph(3);
     Bitmap* visited = new Bitmap(graph.get_num_vertexes());
     visited->clear();
     in_visited->clear();
@@ -108,7 +106,8 @@ class RWPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
                                  this->msg_mngr_->GetGlobalVdata(),
                                  this->context_.walks_count, i,
                                  this->context_.walks_per_source, &active);
-      LOG_INFO(i, "-th active vertices: ", visited->get_num_bit());
+      // LOG_INFO(i, "-th active vertices: ", visited->get_num_bit());
+      LOG_INFO(i, "-th active vertices: ");
       visited->clear();
       if (!active) {
         break;
@@ -116,8 +115,6 @@ class RWPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     }
 
     delete visited;
-    delete in_visited;
-    delete out_visited;
     auto end_time = std::chrono::system_clock::now();
     std::cout << "Gid " << graph.gid_ << ":  PEval elapse time "
               << std::chrono::duration_cast<std::chrono::microseconds>(
@@ -134,12 +131,8 @@ class RWPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
              " num_vertexes: ", graph.get_num_vertexes());
     auto start_time = std::chrono::system_clock::now();
 
-    Bitmap* in_visited = new Bitmap(graph.get_num_vertexes());
-    Bitmap* out_visited = new Bitmap(graph.get_num_vertexes());
     Bitmap* visited = new Bitmap(graph.get_num_vertexes());
     visited->clear();
-    in_visited->clear();
-    out_visited->clear();
 
     bool active = false;
     for (size_t i = 0; i < this->context_.niters; i++) {
@@ -148,7 +141,8 @@ class RWPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
                                  this->msg_mngr_->GetGlobalVdata(),
                                  this->context_.walks_count, i,
                                  this->context_.walks_per_source, &active);
-      LOG_INFO(i, "-th active vertices: ", visited->get_num_bit());
+      // LOG_INFO(i, "-th active vertices: ", visited->get_num_bit());
+      LOG_INFO(i, "-th active vertices: ");
       visited->clear();
       if (!active) break;
     }
@@ -161,8 +155,6 @@ class RWPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
                      (double)CLOCKS_PER_SEC
               << std::endl;
     delete visited;
-    delete in_visited;
-    delete out_visited;
     return active;
   }
 
