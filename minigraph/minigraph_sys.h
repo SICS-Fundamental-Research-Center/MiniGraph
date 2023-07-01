@@ -1,9 +1,8 @@
 #ifndef MINIGRAPH_MINIGRAPH_SYS_H
 #define MINIGRAPH_MINIGRAPH_SYS_H
 
-#include <dirent.h>
-
 #include <condition_variable>
+#include <dirent.h>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -92,7 +91,7 @@ class MiniGraphSys {
 
     // init task queue
     task_queue_ = std::make_unique<folly::ProducerConsumerQueue<GID_T>>(
-        num_workers_cc + 2);
+        buffer_size >= 2 ? buffer_size : 2);
 
     // init partial result queue
     partial_result_queue_ = std::make_unique<std::queue<GID_T>>();
