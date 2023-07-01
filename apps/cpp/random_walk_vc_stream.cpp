@@ -95,8 +95,6 @@ class RWPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     // graph.ShowGraph(3);
     Bitmap* visited = new Bitmap(graph.get_num_vertexes());
     visited->clear();
-    in_visited->clear();
-    out_visited->clear();
 
     bool active = false;
 
