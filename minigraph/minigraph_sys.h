@@ -1,6 +1,16 @@
 #ifndef MINIGRAPH_MINIGRAPH_SYS_H
 #define MINIGRAPH_MINIGRAPH_SYS_H
 
+#include "2d_pie/auto_app_base.h"
+#include "components/computing_component.h"
+#include "components/discharge_component.h"
+#include "components/load_component.h"
+#include "message_manager/default_message_manager.h"
+#include "utility/io/data_mngr.h"
+#include "utility/paritioner/edge_cut_partitioner.h"
+#include "utility/state_machine.h"
+#include <folly/AtomicHashMap.h>
+#include <folly/synchronization/NativeSemaphore.h>
 #include <condition_variable>
 #include <dirent.h>
 #include <filesystem>
@@ -13,18 +23,6 @@
 #include <thread>
 #include <unistd.h>
 #include <vector>
-
-#include <folly/AtomicHashMap.h>
-#include <folly/synchronization/NativeSemaphore.h>
-
-#include "2d_pie/auto_app_base.h"
-#include "components/computing_component.h"
-#include "components/discharge_component.h"
-#include "components/load_component.h"
-#include "message_manager/default_message_manager.h"
-#include "utility/io/data_mngr.h"
-#include "utility/paritioner/edge_cut_partitioner.h"
-#include "utility/state_machine.h"
 
 namespace minigraph {
 
@@ -49,6 +47,7 @@ class MiniGraphSys {
                const size_t num_iter = 30, std::string scheduler = "FIFO") {
     assert(num_workers_dc > 0 && num_workers_cc > 0 && num_workers_dc > 0 &&
            num_cores / num_workers_cc >= 1);
+    assert(buffer_size >= 1);
 
     // configure sys.
     LOG_INFO("WorkSpace: ", work_space, " num_workers_lc: ", num_workers_lc,
@@ -88,6 +87,9 @@ class MiniGraphSys {
     for (auto& iter : vec_gid) {
       read_trigger_->push(iter);
     }
+
+    // init load sem
+    load_sem_ = std::make_unique<folly::NativeSemaphore>(buffer_size);
 
     // init task queue
     task_queue_ = std::make_unique<folly::ProducerConsumerQueue<GID_T>>(
@@ -134,12 +136,12 @@ class MiniGraphSys {
 
     // init components
     load_component_ = std::make_unique<components::LoadComponent<GRAPH_T>>(
-        num_workers_lc, buffer_size, lc_thread_pool_.get(), superstep_by_gid_,
-        global_superstep_, state_machine_, read_trigger_.get(),
-        task_queue_.get(), partial_result_queue_.get(), pt_by_gid_.get(),
-        data_mngr_.get(), msg_mngr_.get(), read_trigger_lck_.get(),
-        read_trigger_cv_.get(), task_queue_cv_.get(), partial_result_cv_.get(),
-        mode, scheduler);
+        num_workers_lc, buffer_size, load_sem_.get(), lc_thread_pool_.get(),
+        superstep_by_gid_, global_superstep_, state_machine_,
+        read_trigger_.get(), task_queue_.get(), partial_result_queue_.get(),
+        pt_by_gid_.get(), data_mngr_.get(), msg_mngr_.get(),
+        read_trigger_lck_.get(), read_trigger_cv_.get(), task_queue_cv_.get(),
+        partial_result_cv_.get(), mode, scheduler);
     computing_component_ =
         std::make_unique<components::ComputingComponent<GRAPH_T, AUTOAPP_T>>(
             num_workers_cc, num_cores, cc_thread_pool_.get(), superstep_by_gid_,
@@ -149,12 +151,12 @@ class MiniGraphSys {
             partial_result_cv_.get());
     discharge_component_ =
         std::make_unique<components::DischargeComponent<GRAPH_T>>(
-            num_workers_dc, dc_thread_pool_.get(), superstep_by_gid_,
-            global_superstep_, state_machine_, partial_result_queue_.get(),
-            task_queue_.get(), read_trigger_.get(), pt_by_gid_.get(),
-            data_mngr_.get(), msg_mngr_.get(), partial_result_lck_.get(),
-            partial_result_cv_.get(), task_queue_cv_.get(),
-            read_trigger_cv_.get(), system_switch_.get(),
+            num_workers_dc, load_sem_.get(), dc_thread_pool_.get(),
+            superstep_by_gid_, global_superstep_, state_machine_,
+            partial_result_queue_.get(), task_queue_.get(), read_trigger_.get(),
+            pt_by_gid_.get(), data_mngr_.get(), msg_mngr_.get(),
+            partial_result_lck_.get(), partial_result_cv_.get(),
+            task_queue_cv_.get(), read_trigger_cv_.get(), system_switch_.get(),
             system_switch_lck_.get(), system_switch_cv_.get(), num_iter, mode);
     LOG_INFO("Init MiniGraphSys: Finish.");
   };
@@ -255,6 +257,9 @@ class MiniGraphSys {
 
   // state machine.
   utility::StateMachine<GID_T>* state_machine_ = nullptr;
+
+  // load semaphore
+  std::unique_ptr<folly::NativeSemaphore> load_sem_;
 
   // task queue.
   std::unique_ptr<folly::ProducerConsumerQueue<GID_T>> task_queue_ = nullptr;
