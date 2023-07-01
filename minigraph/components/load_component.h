@@ -1,14 +1,6 @@
 #ifndef MINIGRAPH_LOAD_COMPONENT_H
 #define MINIGRAPH_LOAD_COMPONENT_H
 
-#include <condition_variable>
-#include <memory>
-#include <queue>
-#include <string>
-
-#include <folly/ProducerConsumerQueue.h>
-#include <folly/synchronization/NativeSemaphore.h>
-
 #include "components/component_base.h"
 #include "portability/sys_data_structure.h"
 #include "scheduler/fifo_scheduler.h"
@@ -21,6 +13,12 @@
 #include "utility/io/data_mngr.h"
 #include "utility/state_machine.h"
 #include "utility/thread_pool.h"
+#include <folly/ProducerConsumerQueue.h>
+#include <folly/synchronization/NativeSemaphore.h>
+#include <condition_variable>
+#include <memory>
+#include <queue>
+#include <string>
 
 namespace minigraph {
 namespace components {
@@ -39,14 +37,14 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
 
  public:
   LoadComponent(
-      const size_t num_workers, utility::EDFThreadPool* thread_pool,
+      const size_t num_workers, const size_t buffer_size,
+      utility::EDFThreadPool* thread_pool,
       std::unordered_map<GID_T, std::atomic<size_t>*>* superstep_by_gid,
       std::atomic<size_t>* global_superstep,
       utility::StateMachine<GID_T>* state_machine,
       std::queue<GID_T>* read_trigger,
       folly::ProducerConsumerQueue<GID_T>* task_queue,
       std::queue<GID_T>* partial_result_queue,
-      // folly::AtomicHashMap<GID_T, Path>* pt_by_gid,
       std::unordered_map<GID_T, Path>* pt_by_gid,
       utility::io::DataMngr<GRAPH_T>* data_mngr,
       message::DefaultMessageManager<GRAPH_T>* msg_mngr,
@@ -58,6 +56,7 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       : ComponentBase<GID_T>(thread_pool, superstep_by_gid, global_superstep,
                              state_machine) {
     num_workers_ = num_workers;
+    buffer_size_ = buffer_size;
     pt_by_gid_ = pt_by_gid;
     data_mngr_ = data_mngr;
     msg_mngr_ = msg_mngr;
@@ -91,7 +90,7 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
 
   void Run() override {
     LOG_INFO("Run LC");
-    folly::NativeSemaphore sem(num_workers_);
+    folly::NativeSemaphore sem(buffer_size_);
     while (switch_) {
       GID_T gid = MINIGRAPH_GID_MAX;
       read_trigger_cv_->wait(*read_trigger_lck_,
@@ -108,11 +107,8 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       }
       while (!vec_gid.empty()) {
         gid = scheduler_->ChooseOne(vec_gid);
-        // sem.try_wait();
-        // auto task =
-        // std::bind(&components::LoadComponent<GRAPH_T>::ProcessGraph,
-        //                       this, gid, sem, mode_);
-        // this->thread_pool_->Commit(task);
+        sem.try_wait();
+        LOG_INFO("sem");
         ProcessGraph(gid, sem, mode_);
       }
     }
@@ -121,7 +117,8 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   void Stop() override { switch_ = false; }
 
  private:
-  size_t num_workers_;
+  size_t num_workers_ = 1;
+  size_t buffer_size_ = 1;
   std::queue<GID_T>* read_trigger_ = nullptr;
   folly::ProducerConsumerQueue<GID_T>* task_queue_ = nullptr;
   std::queue<GID_T>* partial_result_queue_ = nullptr;
@@ -177,6 +174,7 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
         LOG_ERROR("Read graph fault: ", gid);
       }
       sem.post();
+      LOG_INFO("post", gid);
     } else {
       LOG_INFO("LC ShortCut", gid);
       this->add_superstep_via_gid(gid);

@@ -134,7 +134,7 @@ class MiniGraphSys {
 
     // init components
     load_component_ = std::make_unique<components::LoadComponent<GRAPH_T>>(
-        num_workers_lc, lc_thread_pool_.get(), superstep_by_gid_,
+        num_workers_lc, buffer_size, lc_thread_pool_.get(), superstep_by_gid_,
         global_superstep_, state_machine_, read_trigger_.get(),
         task_queue_.get(), partial_result_queue_.get(), pt_by_gid_.get(),
         data_mngr_.get(), msg_mngr_.get(), read_trigger_lck_.get(),
