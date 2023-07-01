@@ -189,6 +189,7 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
     free(offset_in_edges);
     free(offset_out_edges);
 
+    LOG_INFO("  Init");
     size_t* offset_fragments = (size_t*)malloc(sizeof(size_t) * num_partitions);
     memset(offset_fragments, 0, sizeof(size_t) * num_partitions);
     size_t* sum_in_edges_by_fragments =
@@ -244,7 +245,7 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
           // LOG_INFO(gid);
           fragments[gid][global_vid] = u;
           if (max_vid_per_bucket[gid] < global_vid)
-            max_vid_per_bucket[gid] = global_vid;
+            write_max(max_vid_per_bucket + gid, (VID_T)global_vid);
           is_in_bucketX[gid]->set_bit(global_vid);
           u->vid = global_vid;
           __sync_fetch_and_add(sum_in_edges_by_fragments + gid, u->indegree);
@@ -272,7 +273,7 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
       LOG_INFO("Run: Split the biggest bucket.");
       auto max_degree = 0;
       for (size_t i = 0; i < num_partitions; i++) {
-        LOG_INFO("GID: ", i, " num_vertexes: ", num_vertexes_per_bucket[i],
+        LOG_INFO("  GID: ", i, " num_vertexes: ", num_vertexes_per_bucket[i],
                  " sum_inedges: ", sum_in_edges_by_fragments[i],
                  " sum_out_edges: ", sum_out_edges_by_fragments[i]);
         if (max_degree <
@@ -283,8 +284,7 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
         }
       }
 
-      LOG_INFO("Split gid: ", bucket_id_to_be_splitted);
-
+      LOG_INFO("  Split gid: ", bucket_id_to_be_splitted);
       is_in_bucketX[bucket_id_to_be_splitted] = nullptr;
       size_t* sum_in_edges_by_new_fragments =
           (size_t*)malloc(sizeof(size_t) * num_new_buckets);
@@ -309,7 +309,8 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
         for (size_t j = 0; j < this->aligned_max_vid_; j++)
           new_fragments[i][j] = nullptr;
       }
-      LOG_INFO("XXX");
+
+      LOG_INFO("Run: Prepare splitting");
 
       pending_packages.store(cores);
       for (size_t tid = 0; tid < cores; tid++) {
@@ -350,8 +351,10 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
             sum_in_edges_by_new_fragments[gid],
             sum_out_edges_by_new_fragments[gid],
             max_vid_per_bucket[bucket_id_to_be_splitted], vid_map);
-        for (size_t i = 0; i < max_vid_per_bucket[gid]; i++) {
-          delete new_fragments[gid][i];
+
+        for (size_t i = 0; i < max_vid_per_bucket[bucket_id_to_be_splitted];
+             i++) {
+          if (new_fragments[gid][i] != nullptr) delete new_fragments[gid][i];
         }
         free(new_fragments[gid]);
         if (!delete_graph) {
