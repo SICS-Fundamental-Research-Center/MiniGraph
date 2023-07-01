@@ -39,8 +39,8 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
 
  public:
   LoadComponent(
-      const size_t num_workers, const size_t buffer_size,
-      folly::NativeSemaphore* load_sem, utility::EDFThreadPool* thread_pool,
+      const size_t buffer_size, folly::NativeSemaphore* load_sem,
+      utility::EDFThreadPool* thread_pool,
       std::unordered_map<GID_T, std::atomic<size_t>*>* superstep_by_gid,
       std::atomic<size_t>* global_superstep,
       utility::StateMachine<GID_T>* state_machine,
@@ -57,7 +57,6 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       std::string scheduler = "FIFO")
       : ComponentBase<GID_T>(thread_pool, superstep_by_gid, global_superstep,
                              state_machine) {
-    num_workers_ = num_workers;
     load_sem_ = load_sem;
     buffer_size_ = buffer_size;
     pt_by_gid_ = pt_by_gid;

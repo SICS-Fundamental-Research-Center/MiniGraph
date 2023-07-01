@@ -14,7 +14,6 @@
 #include <unistd.h>
 #include <vector>
 
-#include <folly/AtomicHashMap.h>
 #include <folly/synchronization/NativeSemaphore.h>
 
 #include "2d_pie/auto_app_base.h"
@@ -138,12 +137,12 @@ class MiniGraphSys {
 
     // init components
     load_component_ = std::make_unique<components::LoadComponent<GRAPH_T>>(
-        num_workers_lc, buffer_size, load_sem_.get(), lc_thread_pool_.get(),
-        superstep_by_gid_, global_superstep_, state_machine_,
-        read_trigger_.get(), task_queue_.get(), partial_result_queue_.get(),
-        pt_by_gid_.get(), data_mngr_.get(), msg_mngr_.get(),
-        read_trigger_lck_.get(), read_trigger_cv_.get(), task_queue_cv_.get(),
-        partial_result_cv_.get(), mode, scheduler);
+        buffer_size, load_sem_.get(), lc_thread_pool_.get(), superstep_by_gid_,
+        global_superstep_, state_machine_, read_trigger_.get(),
+        task_queue_.get(), partial_result_queue_.get(), pt_by_gid_.get(),
+        data_mngr_.get(), msg_mngr_.get(), read_trigger_lck_.get(),
+        read_trigger_cv_.get(), task_queue_cv_.get(), partial_result_cv_.get(),
+        mode, scheduler);
     computing_component_ =
         std::make_unique<components::ComputingComponent<GRAPH_T, AUTOAPP_T>>(
             num_workers_cc, num_cores, cc_thread_pool_.get(), superstep_by_gid_,
@@ -330,7 +329,6 @@ class MiniGraphSys {
       if (iter == pt_by_gid_->end()) {
         Path _path;
         _path.meta_pt = path;
-        // pt_by_gid_->insert(gid, _path);
         pt_by_gid_->insert(std::make_pair(gid, _path));
       } else {
         iter->second.meta_pt = path;
@@ -349,7 +347,6 @@ class MiniGraphSys {
       if (iter == pt_by_gid_->end()) {
         Path _path;
         _path.data_pt = path;
-        // pt_by_gid_->insert(gid, _path);
         pt_by_gid_->insert(std::make_pair(gid, _path));
       } else {
         iter->second.data_pt = path;
@@ -367,7 +364,6 @@ class MiniGraphSys {
       if (iter == pt_by_gid_->end()) {
         Path _path;
         _path.vdata_pt = path;
-        // pt_by_gid_->insert(gid, _path);
         pt_by_gid_->insert(std::make_pair(gid, _path));
       } else {
         iter->second.vdata_pt = path;
