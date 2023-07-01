@@ -13,6 +13,10 @@ inline bool cas(ET* ptr, ET oldv, ET newv) {
   } else if (sizeof(ET) == 4) {
     return __sync_bool_compare_and_swap((int*)ptr, *((int*)&oldv),
                                         *((int*)&newv));
+  } else if (sizeof(ET) == 2) {
+    return __sync_bool_compare_and_swap((unsigned short*)ptr,
+                                        *((unsigned short*)&oldv),
+                                        *((unsigned short*)&newv));
   } else {
     assert(false);
   }

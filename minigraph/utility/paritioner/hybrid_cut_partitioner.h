@@ -50,9 +50,8 @@ class HybridCutPartitioner : public PartitionerBase<GRAPH_T> {
     std::atomic<size_t> pending_packages(cores);
 
     this->vid_map_ = nullptr;
-    LOG_INFO(
-        ceil((float)edgelist_graph->get_aligned_max_vid() / ALIGNMENT_FACTOR) *
-        ALIGNMENT_FACTOR);
+    LOG_INFO(ceil(edgelist_graph->get_aligned_max_vid() / ALIGNMENT_FACTOR) *
+             ALIGNMENT_FACTOR);
     size_t num_new_buckets = NUM_NEW_BUCKETS;
 
     auto set_graphs = (graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>**)malloc(

@@ -90,7 +90,6 @@ class Bitmap {
 
   void set_bit(size_t i) {
     if (i > size_) return;
-
     __sync_fetch_and_or(data_ + WORD_OFFSET(i), 1ul << BIT_OFFSET(i));
     return;
   }

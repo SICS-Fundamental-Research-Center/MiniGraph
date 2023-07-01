@@ -1,6 +1,16 @@
 #ifndef MINIGRAPH_UTILITY_VERTEXCUT_PARTITIONER_H
 #define MINIGRAPH_UTILITY_VERTEXCUT_PARTITIONER_H
 
+#include <atomic>
+#include <cstring>
+#include <stdio.h>
+#include <string.h>
+#include <unordered_map>
+#include <vector>
+
+#include <folly/AtomicHashMap.h>
+#include <folly/FBVector.h>
+
 #include "graphs/graph.h"
 #include "portability/sys_types.h"
 #include "utility/bitmap.h"
@@ -9,14 +19,6 @@
 #include "utility/io/io_adapter_base.h"
 #include "utility/paritioner/partitioner_base.h"
 #include "utility/thread_pool.h"
-#include <folly/AtomicHashMap.h>
-#include <folly/FBVector.h>
-#include <atomic>
-#include <cstring>
-#include <stdio.h>
-#include <string.h>
-#include <unordered_map>
-#include <vector>
 
 namespace minigraph {
 namespace utility {
