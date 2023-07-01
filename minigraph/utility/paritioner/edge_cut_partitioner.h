@@ -1,10 +1,9 @@
 #ifndef MINIGRAPH_UTILITY_EDGE_CUT_PARTITIONER_H
 #define MINIGRAPH_UTILITY_EDGE_CUT_PARTITIONER_H
 
-#include <stdio.h>
-
 #include <atomic>
 #include <cstring>
+#include <stdio.h>
 #include <unordered_map>
 #include <vector>
 
@@ -203,7 +202,6 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
         sizeof(graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>**) * num_partitions);
 
     for (size_t i = 0; i < num_partitions; i++) {
-      LOG_INFO(i);
       fragments[i] = (graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>**)malloc(
           sizeof(graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>*) *
           (this->aligned_max_vid_));
@@ -242,7 +240,7 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
           if (!vertex_indicator->get_bit(global_vid)) continue;
           auto u = vertexes[global_vid];
 
-          GID_T gid = (Hash(global_vid) % num_partitions);
+          GID_T gid = (global_vid % num_partitions);
           // LOG_INFO(gid);
           fragments[gid][global_vid] = u;
           if (max_vid_per_bucket[gid] < global_vid)
@@ -298,11 +296,13 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
              sizeof(size_t) * num_new_buckets);
       size_t num_vertexes_per_new_bucket[num_new_buckets] = {0};
 
+      LOG_INFO("XXXX");
       auto new_fragments =
           (graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>***)malloc(
               sizeof(graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>**) *
               num_new_buckets);
 
+      LOG_INFO("XXXX");
       for (size_t i = 0; i < num_new_buckets; i++) {
         new_fragments[i] =
             (graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>**)malloc(
@@ -329,11 +329,13 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
                 GID_T gid = (Hash(global_vid) % num_new_buckets);
                 is_in_bucketX[gid + num_partitions]->set_bit(global_vid);
                 new_fragments[gid][u->vid] = u;
-                __sync_fetch_and_add(sum_in_edges_by_new_fragments + gid,
-                                     u->indegree);
-                __sync_fetch_and_add(sum_out_edges_by_new_fragments + gid,
-                                     u->outdegree);
-                __sync_fetch_and_add(num_vertexes_per_new_bucket + gid, 1);
+                write_add(sum_in_edges_by_new_fragments + gid,
+                          (size_t)u->indegree);
+                write_add(sum_out_edges_by_new_fragments + gid,
+                          (size_t)u->outdegree);
+                write_add(num_vertexes_per_new_bucket + gid, (size_t)1);
+                // LOG_INFO(sum_in_edges_by_new_fragments[gid], " ",
+                // sum_out_edges_by_new_fragments[gid]);
               }
 
               if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
@@ -351,6 +353,9 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
             sum_in_edges_by_new_fragments[gid],
             sum_out_edges_by_new_fragments[gid],
             max_vid_per_bucket[bucket_id_to_be_splitted], vid_map);
+        LOG_INFO(sum_in_edges_by_new_fragments[gid], " ",
+                 sum_out_edges_by_new_fragments[gid]);
+        graph->ShowGraph();
         for (size_t i = 0; i < max_vid_per_bucket[gid]; i++) {
           delete new_fragments[gid][i];
         }
