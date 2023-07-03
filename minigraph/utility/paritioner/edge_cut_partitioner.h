@@ -242,8 +242,9 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
           auto u = vertexes[global_vid];
 
           // GID_T gid = (global_vid % num_partitions);
-          GID_T gid = (unsigned)floor((double)global_vid /
-                                      (double)(num_vertexes / num_partitions)) %
+          GID_T gid = (unsigned)floor(
+                          ((double)global_vid / ceil((double)num_vertexes /
+                                                     (double)num_partitions))) %
                       num_partitions;
           fragments[gid][global_vid] = u;
           if (max_vid_per_bucket[gid] < global_vid)
