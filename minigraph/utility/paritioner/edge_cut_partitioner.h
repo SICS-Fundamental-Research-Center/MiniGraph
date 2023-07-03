@@ -229,10 +229,10 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
     GID_T gid = 0;
     pending_packages.store(cores);
     for (size_t tid = 0; tid < cores; tid++) {
-      thread_pool.Commit([tid, &cores, &is_in_bucketX, aligned_max_vid,
-                          &vertexes, &fragments, &max_vid_per_bucket,
-                          &num_partitions, &local_id_for_each_bucket,
-                          &sum_in_edges_by_fragments,
+      thread_pool.Commit([tid, &cores, &is_in_bucketX, &aligned_max_vid,
+                          &num_vertexes, &vertexes, &fragments,
+                          &max_vid_per_bucket, &num_partitions,
+                          &local_id_for_each_bucket, &sum_in_edges_by_fragments,
                           &sum_out_edges_by_fragments, &vertex_indicator,
                           &num_vertexes_per_bucket, &num_vertexes,
                           &pending_packages, &finish_cv]() {
@@ -241,8 +241,10 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
           if (!vertex_indicator->get_bit(global_vid)) continue;
           auto u = vertexes[global_vid];
 
-          GID_T gid = (global_vid % num_partitions);
-          // LOG_INFO(gid);
+          // GID_T gid = (global_vid % num_partitions);
+          GID_T gid = (unsigned)floor((double)global_vid /
+                                      (double)(num_vertexes / num_partitions)) %
+                      num_partitions;
           fragments[gid][global_vid] = u;
           if (max_vid_per_bucket[gid] < global_vid)
             write_max(max_vid_per_bucket + gid, (VID_T)global_vid);
