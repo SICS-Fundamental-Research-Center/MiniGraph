@@ -104,8 +104,8 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
   bool PEval(GRAPH_T& graph,
              minigraph::executors::TaskRunner* task_runner) override {
-    LOG_INFO("PEval() - Processing gid: ", graph.gid_);
     if (!graph.IsInGraph(this->context_.root_id)) return false;
+    LOG_INFO("PEval() - Processing gid: ", graph.gid_);
     auto vid_map = this->msg_mngr_->GetVidMap();
 
     Bitmap* in_visited = new Bitmap(graph.get_num_vertexes());
