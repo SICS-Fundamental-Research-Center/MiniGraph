@@ -170,14 +170,12 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
           auto dst_vid = edgelist_graph->buf_graph_[j * 2 + 1];
           assert(vertexes[src_vid] != nullptr);
           assert(vertexes[dst_vid] != nullptr);
-          lck.lock();
           vertexes[src_vid]
               ->out_edges[__sync_fetch_and_add(offset_out_edges + src_vid, 1)] =
               dst_vid;
           vertexes[dst_vid]
               ->in_edges[__sync_fetch_and_add(offset_in_edges + dst_vid, 1)] =
               src_vid;
-          lck.unlock();
         }
 
         if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
