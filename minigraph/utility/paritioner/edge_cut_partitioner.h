@@ -106,8 +106,8 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
           if (!vertex_indicator->get_bit(dst_vid)) {
             vertex_indicator->set_bit(dst_vid);
           }
-          __sync_add_and_fetch(num_out_edges + src_vid, 1);
-          __sync_add_and_fetch(num_in_edges + dst_vid, 1);
+          write_add(num_out_edges + src_vid, (size_t)1);
+          write_add(num_in_edges + dst_vid, (size_t)1);
         }
         if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
         return;
