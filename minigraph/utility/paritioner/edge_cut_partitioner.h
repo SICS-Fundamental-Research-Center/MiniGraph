@@ -163,21 +163,21 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
     pending_packages.store(cores);
     for (size_t tid = 0; tid < cores; tid++) {
       thread_pool.Commit([tid, &cores, &edgelist_graph, &vertexes, &num_edges,
-                          &offset_in_edges, &offset_out_edges,
+                          &offset_in_edges, &offset_out_edges, &lck,
                           &pending_packages, &finish_cv]() {
         for (size_t j = tid; j < num_edges; j += cores) {
           auto src_vid = edgelist_graph->buf_graph_[j * 2];
           auto dst_vid = edgelist_graph->buf_graph_[j * 2 + 1];
           assert(vertexes[src_vid] != nullptr);
           assert(vertexes[dst_vid] != nullptr);
-          lck->lock();
+          lck.lock();
           vertexes[src_vid]
               ->out_edges[__sync_fetch_and_add(offset_out_edges + src_vid, 1)] =
               dst_vid;
           vertexes[dst_vid]
               ->in_edges[__sync_fetch_and_add(offset_in_edges + dst_vid, 1)] =
               src_vid;
-          lck->unlock();
+          lck.unlock();
         }
 
         if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
@@ -255,7 +255,7 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
           u->vid = global_vid;
           write_add(sum_in_edges_by_fragments + gid, u->indegree);
           write_add(sum_out_edges_by_fragments + gid, u->outdegree);
-          write_add(num_vertexes_per_bucket + gid, 1);
+          write_add(num_vertexes_per_bucket + gid, (size_t)1);
         }
         if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
         return;
