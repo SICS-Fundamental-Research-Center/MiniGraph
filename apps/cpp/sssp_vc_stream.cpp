@@ -38,8 +38,14 @@ class SSSPAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
                           const size_t step, VDATA_T* vdata) {
     for (size_t i = tid; i < graph->get_num_vertexes(); i += step) {
       graph->vdata_[i] = VDATA_MAX;
-      //vdata[graph->localid2globalid(i)] = VDATA_MAX;
+      // vdata[graph->localid2globalid(i)] = VDATA_MAX;
     }
+    return true;
+  }
+
+  static bool kernel_init_vdata(const size_t tid, const size_t step,
+                                const size_t scope, VDATA_T* vdata) {
+    for (size_t i = tid; i < scope; i += step) vdata[i] = VDATA_MAX;
     return true;
   }
 
@@ -88,6 +94,9 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
       memset(
           vdata, 1,
           sizeof(typename GRAPH_T::vdata_t) * this->msg_mngr_->get_max_vid());
+      this->auto_map_->template ParallelDo(
+          task_runner, SSSPAutoMap<GRAPH_T, CONTEXT_T>::kernel_init_vdata,
+          this->msg_mngr_->get_max_vid(), this->msg_mngr_->GetGlobalVdata());
     }
     delete visited;
     return true;
