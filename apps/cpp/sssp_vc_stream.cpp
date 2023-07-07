@@ -1,6 +1,4 @@
 #include "2d_pie/auto_app_base.h"
-//#include "2d_pie/edge_map_reduce.h"
-//#include "2d_pie/vertex_map_reduce.h"
 #include "executors/task_runner.h"
 #include "graphs/graph.h"
 #include "minigraph_sys.h"
@@ -137,7 +135,27 @@ class SSSPPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
                minigraph::executors::TaskRunner* task_runner) override {
     LOG_INFO("IncEval() - Processing gid: ", graph.gid_);
 
-    return false;
+    auto vid_map = this->msg_mngr_->GetVidMap();
+
+    Bitmap* in_visited = new Bitmap(graph.get_num_vertexes());
+    Bitmap* out_visited = new Bitmap(graph.get_num_vertexes());
+    in_visited->fill();
+    out_visited->clear();
+    Bitmap visited(graph.get_num_vertexes());
+    visited.clear();
+
+    while (!in_visited->empty()) {
+      this->auto_map_->ActiveMap(graph, task_runner, &visited,
+                                 SSSPAutoMap<GRAPH_T, CONTEXT_T>::kernel_update,
+                                 out_visited,
+                                 this->msg_mngr_->GetGlobalVdata());
+      std::swap(in_visited, out_visited);
+      out_visited->clear();
+    }
+
+    delete in_visited;
+    delete out_visited;
+    return !visited.empty();
   }
 
   bool Aggregate(void* a, void* b,

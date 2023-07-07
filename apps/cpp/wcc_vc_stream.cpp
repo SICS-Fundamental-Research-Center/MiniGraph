@@ -49,13 +49,13 @@ class WCCAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
       if (!in_visited->get_bit(i)) continue;
       auto u = graph->GetVertexByIndex(i);
 
-      for (size_t j = 0; j < u.indegree; ++j) {
-        if (write_min(&global_border_vdata[graph->localid2globalid(i)],
-                      global_border_vdata[u.in_edges[j]])) {
-          out_visited->set_bit(i);
-          write_add(num_active_vertices, (size_t)1);
-        }
-      }
+      // for (size_t j = 0; j < u.indegree; ++j) {
+      //   if (write_min(&global_border_vdata[graph->localid2globalid(i)],
+      //                 global_border_vdata[u.in_edges[j]])) {
+      //     out_visited->set_bit(i);
+      //     write_add(num_active_vertices, (size_t)1);
+      //   }
+      // }
 
       for (size_t j = 0; j < u.outdegree; ++j) {
         if (write_min(&global_border_vdata[u.out_edges[j]],
@@ -97,7 +97,7 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
              minigraph::executors::TaskRunner* task_runner) override {
     LOG_INFO("PEval() - Processing gid: ", graph.gid_,
              " num_vertexes: ", graph.get_num_vertexes());
-    if(!graph.IsInGraph(0)) return true;
+    if (!graph.IsInGraph(0)) return true;
     auto start_time = std::chrono::system_clock::now();
     Bitmap* in_visited = new Bitmap(graph.get_num_vertexes());
     Bitmap* out_visited = new Bitmap(graph.get_num_vertexes());
