@@ -100,6 +100,7 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
         for (size_t j = tid; j < edgelist_graph->get_num_edges(); j += cores) {
           auto src_vid = edgelist_graph->buf_graph_[j * 2];
           auto dst_vid = edgelist_graph->buf_graph_[j * 2 + 1];
+	  if(src_vid == dst_vid) continue;
           if (!vertex_indicator->get_bit(src_vid)) {
             vertex_indicator->set_bit(src_vid);
           }
@@ -168,6 +169,7 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
         for (size_t j = tid; j < num_edges; j += cores) {
           auto src_vid = edgelist_graph->buf_graph_[j * 2];
           auto dst_vid = edgelist_graph->buf_graph_[j * 2 + 1];
+	  if(src_vid == dst_vid) continue;
           assert(vertexes[src_vid] != nullptr);
           assert(vertexes[dst_vid] != nullptr);
           auto offset_out = __sync_fetch_and_add(offset_out_edges + src_vid, 1);

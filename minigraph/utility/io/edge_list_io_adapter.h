@@ -344,6 +344,7 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       thread_pool.Commit([tid, &cores, &src, &dst, &graph, &pending_packages,
                           &finish_cv, &max_vid]() {
         for (size_t j = tid; j < src.size(); j += cores) {
+	  if(src.at(j) == dst.at(j)) continue;
           *(graph->buf_graph_ + j * 2) = src.at(j);
           *(graph->buf_graph_ + j * 2 + 1) = dst.at(j);
           write_max(&max_vid, src.at(j));
@@ -497,6 +498,7 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
         thread_pool.Commit([tid, &cores, &src, &dst, &graph, &pending_packages,
                             &finish_cv, &max_vid, &buff]() {
           for (size_t j = tid; j < src.size(); j += cores) {
+	    if(src.at(j) == dst.at(j)) continue;
             *(buff + j * 2) = src.at(j);
             *(buff + j * 2 + 1) = dst.at(j);
             write_max(&max_vid, src.at(j));
