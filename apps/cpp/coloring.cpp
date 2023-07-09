@@ -78,8 +78,9 @@ class ColoringPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
     if (local_t == 0) {
       auto vdata = this->msg_mngr_->GetGlobalVdata();
-      memset(vdata, 0,
-             sizeof(typename GRAPH_T::vdata_t) * graph.get_aligned_max_vid());
+      memset(
+          vdata, 0,
+          sizeof(typename GRAPH_T::vdata_t) * this->msg_mngr_->get_max_vid());
     }
     return true;
   }
@@ -183,9 +184,7 @@ int main(int argc, char* argv[]) {
   size_t num_workers_dc = FLAGS_dc;
   size_t num_cores = FLAGS_cores;
   size_t buffer_size = FLAGS_buffer_size;
-  size_t num_vertexes = FLAGS_vertexes;
 
-  assert(FLAGS_vertexes != 0);
   Context context;
 
   auto coloring_auto_map = new ColoringAutoMap<CSR_T, Context>();
