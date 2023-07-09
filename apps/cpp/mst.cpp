@@ -22,7 +22,7 @@ class MST {
 
  public:
   MST(size_t num_vertexes) {
-    buffer_ = (VID_T*)malloc(sizeof(VID_T) * 4 *
+    buffer_ = (VID_T*)malloc(sizeof(VID_T) * 3 *
                              ceil(num_vertexes / ALIGNMENT_FACTOR) *
                              ALIGNMENT_FACTOR);
     offset_ =
@@ -45,10 +45,13 @@ class MST {
     if (offset_[dst] != 0 &&
         *(buffer_ + 2 * sizeof(VID_T) * offset_[dst]) != src) {
       // change spanning tree structure by set original val to src.
+      // LOG_INFO(*(buffer_ + 2 * sizeof(VID_T) * offset_[dst]), "->", dst,
+      //         " change to ", src, "->", dst);
       *(buffer_ + 2 * sizeof(VID_T) * offset_[dst]) = src;
     } else if (*(buffer_ + 2 * sizeof(VID_T) * offset_[dst]) == src &&
                *(buffer_ + 2 * sizeof(VID_T) * offset_[dst] + 1) == dst) {
     } else {
+      // LOG_INFO("append", src, "->", dst);
       auto local_offset = __sync_fetch_and_add(&curr_offset_, 1);
       offset_[dst] = local_offset;
       *(buffer_ + 2 * sizeof(VID_T) * local_offset) = src;
@@ -125,6 +128,8 @@ class MSTAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
         if (write_min(fragment_moe_val + vdata[graph->localid2globalid(i)],
                       u.edata[j])) {
           moe[graph->localid2globalid(i)] = u.in_edges[j];
+          // LOG_INFO(" vid: ", graph->localid2globalid(i),
+          //          " moe: ", moe[graph->localid2globalid(i)]);
           in_visited->set_bit(graph->localid2globalid(i));
         }
       }
@@ -139,7 +144,6 @@ class MSTAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
                                 VDATA_T* vdata, VID_T* moe, MST* mst,
                                 size_t* num_new_edges) {
     for (size_t i = tid; i < niters; i += step) {
-      // LOG_INFO(i);
       if (!in_visited->get_bit(i)) continue;
       if (moe[i] == VID_MAX) continue;
       // if i and moe[i] is not the same component, then merge i and moe[i].
@@ -212,9 +216,8 @@ class MSTPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
   bool PEval(GRAPH_T& graph,
              minigraph::executors::TaskRunner* task_runner) override {
-    LOG_INFO("PEval() - Processing gid: ", graph.gid_,
+    LOG_INFO("PEval() - Processing gid: ", graph.get_gid(),
              " num_vertexes: ", graph.get_num_vertexes());
-    graph.ShowGraph();
 
     Bitmap visited(graph.get_num_vertexes());
     Bitmap* in_visited = new Bitmap(this->msg_mngr_->get_max_vid());
@@ -224,20 +227,20 @@ class MSTPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     out_visited->clear();
     visited.clear();
     size_t num_new_edges = 0;
+    auto vdata = this->msg_mngr_->GetGlobalVdata();
     while (active_vertexes != 0) {
       in_visited->clear();
-      LOG_INFO(active_vertexes);
       active_vertexes = 0;
-      LOG_INFO("Choose moe");
+      LOG_INFO("Find moe.");
       this->auto_map_->ActiveMap(
           graph, task_runner, &visited,
           MSTAutoMap<GRAPH_T, CONTEXT_T>::kernel_choose_minimum, in_visited,
           &active_vertexes, this->msg_mngr_->GetGlobalVdata(), moe_,
           fragment_moe_val_);
-      LOG_INFO("label prop");
-      size_t kk = 0;
+      size_t niters = 0;
+      LOG_INFO("Append edges.");
       while (!in_visited->empty()) {
-        LOG_INFO("while ", kk++);
+        LOG_INFO("niters: ", niters++);
         this->auto_map_->ParallelDo(
             task_runner, MSTAutoMap<GRAPH_T, CONTEXT_T>::kernel_label_prop,
             this->msg_mngr_->get_max_vid(), in_visited, out_visited,
@@ -250,7 +253,8 @@ class MSTPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
       LOG_INFO("#");
     }
 
-    LOG_INFO("Size MST: ", mst_->get_num_edges());
+    LOG_INFO("Size MST: ", mst_->get_num_edges(), " / ",
+             this->msg_mngr_->get_max_vid());
     delete in_visited;
     delete out_visited;
     return true;
