@@ -1,14 +1,13 @@
-#include <folly/concurrency/DynamicBoundedQueue.h>
-#include "jemalloc/jemalloc.h"
-
 #include "2d_pie/auto_app_base.h"
 #include "executors/task_runner.h"
 #include "graphs/graph.h"
+#include "jemalloc/jemalloc.h"
 #include "minigraph_sys.h"
 #include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
 #include "utility/bitmap.h"
 #include "utility/logging.h"
+#include <folly/concurrency/DynamicBoundedQueue.h>
 
 class MST {
   using GID_T = gid_t;
@@ -23,7 +22,7 @@ class MST {
 
  public:
   MST(size_t num_vertexes) {
-    buffer_ = (VID_T*)malloc(sizeof(VID_T) * 2 *
+    buffer_ = (VID_T*)malloc(sizeof(VID_T) * 4 *
                              ceil(num_vertexes / ALIGNMENT_FACTOR) *
                              ALIGNMENT_FACTOR);
     offset_ =
@@ -45,6 +44,7 @@ class MST {
   void Append(const VID_T& src, const VID_T& dst) {
     if (offset_[dst] != 0 &&
         *(buffer_ + 2 * sizeof(VID_T) * offset_[dst]) != src) {
+      // change spanning tree structure by set original val to src.
       *(buffer_ + 2 * sizeof(VID_T) * offset_[dst]) = src;
     } else if (*(buffer_ + 2 * sizeof(VID_T) * offset_[dst]) == src &&
                *(buffer_ + 2 * sizeof(VID_T) * offset_[dst] + 1) == dst) {
@@ -68,6 +68,9 @@ class MST {
   const inline size_t get_num_edges() { return curr_offset_; }
 };
 
+// An implementation of paper "The Distributed Minimum Spanning Tree Problem" -
+// Gopal Pandurangan.
+//
 template <typename GRAPH_T, typename CONTEXT_T>
 class MSTAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
   using GID_T = typename GRAPH_T::gid_t;
@@ -100,8 +103,12 @@ class MSTAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
   }
 
   static void kernel_global_init(const size_t tid, const size_t step,
-                                 const size_t niters, VDATA_T* vdata) {
-    for (size_t i = tid; i < niters; i += step) vdata[i] = i;
+                                 const size_t niters, VDATA_T* vdata,
+                                 VID_T* moe) {
+    for (size_t i = tid; i < niters; i += step) {
+      vdata[i] = i;
+      moe[i] = VID_MAX;
+    }
     return;
   }
 
@@ -132,8 +139,10 @@ class MSTAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
                                 VDATA_T* vdata, VID_T* moe, MST* mst,
                                 size_t* num_new_edges) {
     for (size_t i = tid; i < niters; i += step) {
+      // LOG_INFO(i);
       if (!in_visited->get_bit(i)) continue;
       if (moe[i] == VID_MAX) continue;
+      // if i and moe[i] is not the same component, then merge i and moe[i].
       if (write_min(vdata + i, vdata[moe[i]])) {
         out_visited->set_bit(moe[i]);
         mst->Append(moe[i], i);
@@ -166,15 +175,6 @@ class MSTPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
   MSTPIE(minigraph::AutoMapBase<GRAPH_T, CONTEXT_T>* auto_map,
          const CONTEXT_T& context)
       : minigraph::AutoAppBase<GRAPH_T, CONTEXT_T>(auto_map, context) {
-    moe_ = (VID_T*)malloc(sizeof(VID_T) * this->context_.num_vertexes);
-    memset(moe_, 1, sizeof(VID_T) * this->context_.num_vertexes);
-
-    fragment_moe_val_ =
-        (EDATA_T*)malloc(sizeof(EDATA_T) * this->context_.num_vertexes);
-    memset(fragment_moe_val_, 1, sizeof(EDATA_T) * this->context_.num_vertexes);
-
-    mst_ = new MST(this->context_.num_vertexes);
-
     return;
   }
 
@@ -184,12 +184,23 @@ class MSTPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     auto local_t = this->context_.t;
     write_add(&this->context_.t, 1);
     if (local_t == 0) {
-      LOG_INFO("Init vdata");
+      LOG_INFO("Init global vdata: ", this->msg_mngr_->get_max_vid());
       auto vdata = this->msg_mngr_->GetGlobalVdata();
-      memset(vdata, 0, sizeof(VID_T) * this->context_.num_vertexes);
+      memset(vdata, 0, sizeof(VID_T) * this->msg_mngr_->get_max_vid());
+      moe_ = (VID_T*)malloc(sizeof(VID_T) * this->msg_mngr_->get_max_vid());
+      memset(moe_, 1, sizeof(VID_T) * this->msg_mngr_->get_max_vid());
+
+      fragment_moe_val_ =
+          (EDATA_T*)malloc(sizeof(EDATA_T) * this->msg_mngr_->get_max_vid());
+      memset(fragment_moe_val_, 1,
+             sizeof(EDATA_T) * this->msg_mngr_->get_max_vid());
+
+      mst_ = new MST(this->msg_mngr_->get_max_vid());
       this->auto_map_->template ParallelDo(
           task_runner, MSTAutoMap<GRAPH_T, CONTEXT_T>::kernel_global_init,
-          this->context_.num_vertexes, this->msg_mngr_->GetGlobalVdata());
+          this->msg_mngr_->get_max_vid(), this->msg_mngr_->GetGlobalVdata(),
+          moe_);
+      return true;
     }
 
     LOG_INFO(graph.get_num_in_edges());
@@ -203,10 +214,11 @@ class MSTPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
              minigraph::executors::TaskRunner* task_runner) override {
     LOG_INFO("PEval() - Processing gid: ", graph.gid_,
              " num_vertexes: ", graph.get_num_vertexes());
+    graph.ShowGraph();
 
     Bitmap visited(graph.get_num_vertexes());
-    Bitmap* in_visited = new Bitmap(this->context_.num_vertexes);
-    Bitmap* out_visited = new Bitmap(this->context_.num_vertexes);
+    Bitmap* in_visited = new Bitmap(this->msg_mngr_->get_max_vid());
+    Bitmap* out_visited = new Bitmap(this->msg_mngr_->get_max_vid());
     size_t active_vertexes = 1;
     in_visited->fill();
     out_visited->clear();
@@ -216,15 +228,19 @@ class MSTPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
       in_visited->clear();
       LOG_INFO(active_vertexes);
       active_vertexes = 0;
+      LOG_INFO("Choose moe");
       this->auto_map_->ActiveMap(
           graph, task_runner, &visited,
           MSTAutoMap<GRAPH_T, CONTEXT_T>::kernel_choose_minimum, in_visited,
           &active_vertexes, this->msg_mngr_->GetGlobalVdata(), moe_,
           fragment_moe_val_);
+      LOG_INFO("label prop");
+      size_t kk = 0;
       while (!in_visited->empty()) {
+        LOG_INFO("while ", kk++);
         this->auto_map_->ParallelDo(
             task_runner, MSTAutoMap<GRAPH_T, CONTEXT_T>::kernel_label_prop,
-            this->context_.num_vertexes, in_visited, out_visited,
+            this->msg_mngr_->get_max_vid(), in_visited, out_visited,
             &active_vertexes, this->msg_mngr_->GetGlobalVdata(), moe_, mst_,
             &num_new_edges);
 
@@ -245,8 +261,8 @@ class MSTPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     LOG_INFO("IncEval() - Processing gid: ", graph.gid_,
              " num_vertexes: ", graph.get_num_vertexes());
     Bitmap visited(graph.get_num_vertexes());
-    Bitmap* in_visited = new Bitmap(this->context_.num_vertexes);
-    Bitmap* out_visited = new Bitmap(this->context_.num_vertexes);
+    Bitmap* in_visited = new Bitmap(this->msg_mngr_->get_max_vid());
+    Bitmap* out_visited = new Bitmap(this->msg_mngr_->get_max_vid());
     size_t active_vertexes = 1;
     in_visited->fill();
     out_visited->clear();
@@ -264,7 +280,7 @@ class MSTPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
       while (!in_visited->empty()) {
         this->auto_map_->ParallelDo(
             task_runner, MSTAutoMap<GRAPH_T, CONTEXT_T>::kernel_label_prop,
-            this->context_.num_vertexes, in_visited, out_visited,
+            this->msg_mngr_->get_max_vid(), in_visited, out_visited,
             &active_vertexes, this->msg_mngr_->GetGlobalVdata(), moe_, mst_,
             &num_new_edges);
 
@@ -285,7 +301,6 @@ class MSTPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 };
 
 struct Context {
-  size_t num_vertexes;
   int t = 0;
 };
 
@@ -301,9 +316,7 @@ int main(int argc, char* argv[]) {
   size_t num_cores = FLAGS_cores;
   size_t buffer_size = FLAGS_buffer_size;
 
-  assert(FLAGS_vertexes > 0);
   Context context;
-  context.num_vertexes = FLAGS_vertexes;
 
   auto mst_auto_map = new MSTAutoMap<CSR_T, Context>();
   auto mst_pie = new MSTPIE<CSR_T, Context>(mst_auto_map, context);
