@@ -26,6 +26,7 @@ class MST {
   MST(size_t num_vertexes, std::string file_path) {
     LOG_INFO("MST(): num_vertexes - ", num_vertexes, " path - ", file_path);
 
+    num_vertexes_ = num_vertexes;
     buffer_ = (VID_T*)malloc(sizeof(VID_T) * 2 *
                              ceil(num_vertexes / ALIGNMENT_FACTOR) *
                              ALIGNMENT_FACTOR);
@@ -49,17 +50,21 @@ class MST {
   }
 
   // Append an edge with minimum-weight outgoing edge.
-  void Append(const VID_T& src, const VID_T& dst) {
-    //if(curr_offset_ > num_vertexes_) return;
+  bool Append(const VID_T& src, const VID_T& dst) {
+    if(curr_offset_ > num_vertexes_) {
+      //Write();
+      return false;
+    }
     if (*(buffer_ + 2 * sizeof(VID_T) * offset_[dst]) == src &&
         *(buffer_ + 2 * sizeof(VID_T) * offset_[dst] + 1) == dst) {
+      return  false;
     } else {
       auto local_offset = __sync_fetch_and_add(&curr_offset_, 1);
       offset_[dst] = local_offset;
       *(buffer_ + 2 * sizeof(VID_T) * local_offset) = src;
       *(buffer_ + 2 * sizeof(VID_T) * local_offset + 1) = dst;
+      return true;
     }
-    return;
   }
 
   void ShowMST() {
@@ -133,6 +138,7 @@ class MSTAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
                                     EDATA_T* fragment_moe_val) {
     for (size_t i = tid; i < graph->get_num_vertexes(); i += step) {
       auto u_root_id = vdata[graph->localid2globalid(i)];
+      if(!graph->IsInGraph(u_root_id)) continue;
       auto u_root = graph->GetVertexByIndex(vid_map[u_root_id]);
       for (size_t j = 0; j < u_root.indegree; j++) {
         if (vdata[u_root.in_edges[j]] >= u_root_id) continue;
