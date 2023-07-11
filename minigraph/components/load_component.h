@@ -95,8 +95,9 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
     folly::NativeSemaphore sem(buffer_size_);
     while (switch_) {
       GID_T gid = MINIGRAPH_GID_MAX;
-      read_trigger_cv_->wait(*read_trigger_lck_,
-                             [&] { return !read_trigger_->empty(); });
+      read_trigger_cv_->wait(*read_trigger_lck_, [&] {
+        return !read_trigger_->empty() || !switch_;
+      });
       if (!switch_) return;
 
       std::queue<GID_T> que_gid;

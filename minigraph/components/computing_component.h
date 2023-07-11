@@ -1,9 +1,10 @@
 #ifndef MINIGRAPH_COMPUTING_COMPONENT_H
 #define MINIGRAPH_COMPUTING_COMPONENT_H
 
-#include <folly/ProducerConsumerQueue.h>
 #include <condition_variable>
 #include <memory>
+
+#include <folly/ProducerConsumerQueue.h>
 
 #include "components/component_base.h"
 #include "executors/scheduled_executor.h"
@@ -70,12 +71,13 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
     LOG_INFO("Run CC");
     folly::NativeSemaphore sem(num_workers_);
     std::queue<GID_T> que_gid;
-    while (this->switch_.load()) {
+    while (this->switch_) {
       std::vector<GID_T> vec_gid;
       GID_T gid = MINIGRAPH_GID_MAX;
-      task_queue_cv_->wait(*task_queue_lck_,
-                           [&] { return !task_queue_->isEmpty(); });
-      if (!this->switch_.load()) return;
+      task_queue_cv_->wait(*task_queue_lck_, [&] {
+        return !task_queue_->isEmpty() || !this->switch_;
+      });
+      if (!this->switch_) return;
       while (!task_queue_->read(gid))
         ;
       vec_gid.push_back(gid);
@@ -93,32 +95,9 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
     }
   }
 
-  void Stop() override { this->switch_.store(false); }
+  void Stop() override { this->switch_ = false; }
 
  private:
-  size_t num_workers_ = 0;
-  size_t num_cores_ = 0;
-  size_t* p_ = nullptr;
-  std::atomic<bool> switch_ = true;
-
-  // task_queue.
-  folly::ProducerConsumerQueue<GID_T>* task_queue_ = nullptr;
-  std::queue<GID_T>* partial_result_queue_ = nullptr;
-
-  // data manager.
-  utility::io::DataMngr<GRAPH_T>* data_mngr_ = nullptr;
-
-  // 2D-PIE app wrapper.
-  APP_WARP* app_wrapper_ = nullptr;
-
-  // cv && lck.
-  std::unique_ptr<executors::ScheduledExecutor> scheduled_executor_ = nullptr;
-  std::unique_lock<std::mutex>* task_queue_lck_;
-  std::condition_variable* partial_result_cv_ = nullptr;
-  std::condition_variable* task_queue_cv_ = nullptr;
-
-  std::unique_ptr<std::mutex> executor_mtx_;
-
   void ProcessGraph(const GID_T& gid, folly::NativeSemaphore& sem) {
     LOG_INFO("ProcessGraph", gid);
     GRAPH_T* graph = (GRAPH_T*)data_mngr_->GetGraph(gid);
@@ -140,6 +119,28 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
     // sem.post();
     return;
   }
+
+  size_t num_workers_ = 0;
+  size_t num_cores_ = 0;
+  size_t* p_ = nullptr;
+  bool switch_ = true;
+
+  // task_queue.
+  folly::ProducerConsumerQueue<GID_T>* task_queue_ = nullptr;
+  std::queue<GID_T>* partial_result_queue_ = nullptr;
+
+  // data manager.
+  utility::io::DataMngr<GRAPH_T>* data_mngr_ = nullptr;
+
+  // 2D-PIE app wrapper.
+  APP_WARP* app_wrapper_ = nullptr;
+  // cv && lck.
+  std::unique_ptr<executors::ScheduledExecutor> scheduled_executor_ = nullptr;
+  std::unique_lock<std::mutex>* task_queue_lck_;
+  std::condition_variable* partial_result_cv_ = nullptr;
+  std::condition_variable* task_queue_cv_ = nullptr;
+
+  std::unique_ptr<std::mutex> executor_mtx_;
 };
 
 }  // namespace components

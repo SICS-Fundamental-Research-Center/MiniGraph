@@ -190,9 +190,7 @@ class MiniGraphSys {
                              discharge_component_.get());
 
     this->thread_pool_->Commit(task_dc);
-    sleep(0.5);
     this->thread_pool_->Commit(task_cc);
-    sleep(0.5);
     this->thread_pool_->Commit(task_lc);
     auto start_time = std::chrono::system_clock::now();
     read_trigger_cv_->notify_all();
@@ -201,7 +199,6 @@ class MiniGraphSys {
     system_switch_cv_->wait(*system_switch_lck_,
                             [&] { return !system_switch_->load(); });
     auto end_time = std::chrono::system_clock::now();
-    // data_mngr_->CleanUp();
 
     std::cout << "         #### RUNSYS(): Finish"
               << ", Elapse time: "
@@ -214,32 +211,6 @@ class MiniGraphSys {
     this->Stop();
     return true;
   }
-
-  void ShowResult(const size_t num_vertexes_to_show = 20,
-                  char separator_params = ',') {
-    LOG_INFO("**************Show Result****************");
-    for (auto& iter : *pt_by_gid_) {
-      GID_T gid = iter.first;
-      Path path = iter.second;
-      auto graph = new GRAPH_T;
-      if (IsSameType<GRAPH_T, CSR_T>()) {
-        data_mngr_->csr_io_adapter_->Read((GRAPH_BASE_T*)graph, csr_bin, gid,
-                                          path.meta_pt, path.data_pt,
-                                          path.vdata_pt);
-        ((CSR_T*)graph)->ShowGraph(num_vertexes_to_show);
-      } else if (IsSameType<GRAPH_T, EDGE_LIST_T>()) {
-        data_mngr_->edge_list_io_adapter_->Read(
-            (GRAPH_BASE_T*)graph, edgelist_bin, separator_params, gid,
-            path.meta_pt, path.data_pt, path.vdata_pt);
-        ((EDGE_LIST_T*)graph)->ShowGraph(num_vertexes_to_show);
-      }
-    }
-    if (msg_mngr_->GetPartialMatch() != nullptr)
-      msg_mngr_->GetPartialMatch()->ShowMatchingSolutions();
-    return;
-  }
-
-  utility::io::DataMngr<GRAPH_T>* GetDataMngr() { return data_mngr_.get(); }
 
  private:
   // file path by gid.
