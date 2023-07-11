@@ -51,13 +51,13 @@ class MST {
 
   // Append an edge with minimum-weight outgoing edge.
   bool Append(const VID_T& src, const VID_T& dst) {
-    if(curr_offset_ > num_vertexes_) {
-      //Write();
+    if (curr_offset_ > num_vertexes_) {
+      // Write();
       return false;
     }
     if (*(buffer_ + 2 * sizeof(VID_T) * offset_[dst]) == src &&
         *(buffer_ + 2 * sizeof(VID_T) * offset_[dst] + 1) == dst) {
-      return  false;
+      return false;
     } else {
       auto local_offset = __sync_fetch_and_add(&curr_offset_, 1);
       offset_[dst] = local_offset;
@@ -138,7 +138,7 @@ class MSTAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
                                     EDATA_T* fragment_moe_val) {
     for (size_t i = tid; i < graph->get_num_vertexes(); i += step) {
       auto u_root_id = vdata[graph->localid2globalid(i)];
-      if(!graph->IsInGraph(u_root_id)) continue;
+      if (!graph->IsInGraph(u_root_id)) continue;
       auto u_root = graph->GetVertexByIndex(vid_map[u_root_id]);
       for (size_t j = 0; j < u_root.indegree; j++) {
         if (vdata[u_root.in_edges[j]] >= u_root_id) continue;
@@ -163,9 +163,10 @@ class MSTAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
       // if i and moe[i] is not the same component, then merge i and moe[i].
       if (write_min(vdata + i, vdata[moe[i]])) {
         out_visited->set_bit(moe[i]);
-        mst->Append(moe[i], i);
-        write_add(num_new_edges, (size_t)1);
-        write_add(active_vertexes, (size_t)1);
+        if (mst->Append(moe[i], i)) {
+          write_add(num_new_edges, (size_t)1);
+          write_add(active_vertexes, (size_t)1);
+        }
       }
     }
     return;
