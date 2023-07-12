@@ -68,6 +68,8 @@ class HybridCutPartitioner : public PartitionerBase<GRAPH_T> {
     size_t* size_per_bucket = new size_t[num_partitions];
     memset(size_per_bucket, 0, sizeof(size_t) * num_partitions);
     size_t num_edges = edgelist_graph->num_edges_;
+    minigraph::utility::io::CSRIOAdapter<GID_T, VID_T, VDATA_T, EDATA_T>
+        csr_io_adapter;
 
     LOG_INFO("Compute the number of edges for each bucket.");
     pending_packages.store(cores);
@@ -119,14 +121,8 @@ class HybridCutPartitioner : public PartitionerBase<GRAPH_T> {
           auto dst_vid = edgelist_graph->buf_graph_[j * 2 + 1];
           auto bucket_id = Hash(src_vid) % num_partitions;
 
-          if (max_vid_per_bucket[bucket_id] < src_vid)
-            __sync_bool_compare_and_swap(&max_vid_per_bucket[bucket_id],
-                                         max_vid_per_bucket[bucket_id],
-                                         src_vid);
-          if (max_vid_per_bucket[bucket_id] < dst_vid)
-            __sync_bool_compare_and_swap(&max_vid_per_bucket[bucket_id],
-                                         max_vid_per_bucket[bucket_id],
-                                         dst_vid);
+          write_max(max_vid_per_bucket + bucket_id, (VID_T)src_vid);
+          write_max(max_vid_per_bucket + bucket_id, (VID_T)dst_vid);
 
           auto offset = __sync_fetch_and_add(buckets_offset + bucket_id, 1);
           edges_buckets[bucket_id][offset * 2] = src_vid;
@@ -134,11 +130,11 @@ class HybridCutPartitioner : public PartitionerBase<GRAPH_T> {
 
           if (is_in_bucketX[bucket_id]->get_bit(src_vid) == 0) {
             is_in_bucketX[bucket_id]->set_bit(src_vid);
-            __sync_add_and_fetch(num_vertexes_per_bucket + bucket_id, 1);
+            write_add(num_vertexes_per_bucket + bucket_id, (size_t)1);
           }
           if (is_in_bucketX[bucket_id]->get_bit(dst_vid) == 0) {
             is_in_bucketX[bucket_id]->set_bit(dst_vid);
-            __sync_add_and_fetch(num_vertexes_per_bucket + bucket_id, 1);
+            write_add(num_vertexes_per_bucket + bucket_id, (size_t)1);
           }
         }
         if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
@@ -146,9 +142,6 @@ class HybridCutPartitioner : public PartitionerBase<GRAPH_T> {
       });
     }
     finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
-
-    minigraph::utility::io::CSRIOAdapter<GID_T, VID_T, VDATA_T, EDATA_T>
-        csr_io_adapter;
 
     delete edgelist_graph;
 
@@ -161,6 +154,7 @@ class HybridCutPartitioner : public PartitionerBase<GRAPH_T> {
           max_vid_per_bucket[gid], edges_buckets[gid]);
       auto csr_graph = csr_io_adapter.EdgeList2CSR(gid, edgelist_graph, cores,
                                                    this->vid_map_);
+      csr_graph->Sort(cores);
       set_graphs[gid] = csr_graph;
       delete edgelist_graph;
     }

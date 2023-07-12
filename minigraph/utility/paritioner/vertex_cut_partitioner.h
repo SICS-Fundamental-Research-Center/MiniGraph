@@ -153,6 +153,7 @@ class VertexCutPartitioner : public PartitionerBase<GRAPH_T> {
       delete edgelist_graph;
       free(edges_buckets[gid]);
       csr_graph->InitVdata2AllX(0);
+      csr_graph->Sort(cores);
       if (!delete_graph) {
         this->fragments_->push_back(csr_graph);
       } else {

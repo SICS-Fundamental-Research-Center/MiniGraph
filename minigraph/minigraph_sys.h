@@ -1,6 +1,15 @@
 #ifndef MINIGRAPH_MINIGRAPH_SYS_H
 #define MINIGRAPH_MINIGRAPH_SYS_H
 
+#include "2d_pie/auto_app_base.h"
+#include "components/computing_component.h"
+#include "components/discharge_component.h"
+#include "components/load_component.h"
+#include "message_manager/default_message_manager.h"
+#include "utility/io/data_mngr.h"
+#include "utility/paritioner/edge_cut_partitioner.h"
+#include "utility/state_machine.h"
+#include <folly/synchronization/NativeSemaphore.h>
 #include <condition_variable>
 #include <dirent.h>
 #include <filesystem>
@@ -13,17 +22,6 @@
 #include <thread>
 #include <unistd.h>
 #include <vector>
-
-#include <folly/synchronization/NativeSemaphore.h>
-
-#include "2d_pie/auto_app_base.h"
-#include "components/computing_component.h"
-#include "components/discharge_component.h"
-#include "components/load_component.h"
-#include "message_manager/default_message_manager.h"
-#include "utility/io/data_mngr.h"
-#include "utility/paritioner/edge_cut_partitioner.h"
-#include "utility/state_machine.h"
 
 namespace minigraph {
 
@@ -57,20 +55,18 @@ class MiniGraphSys {
              ", buffer size: ", buffer_size);
 
     num_threads_ = 3;
-    InitWorkList(work_space);
 
     // init Data Manager.
     data_mngr_ = std::make_unique<utility::io::DataMngr<GRAPH_T>>();
+    data_mngr_->InitWorkList(work_space);
 
     // init Message Manager
     msg_mngr_ = std::make_unique<message::DefaultMessageManager<GRAPH_T>>(
         data_mngr_.get(), work_space, false);
     msg_mngr_->Init(work_space);
 
-    // pt_by_gid_ = new folly::AtomicHashMap<GID_T, Path>(8096);
-    pt_by_gid_ = std::make_unique<std::unordered_map<GID_T, Path>>();
-    //        new folly::AtomicHashMap<GID_T, Path>(8096);
-    InitPtByGid(work_space);
+    pt_by_gid_ = std::make_unique<std::unordered_map<GID_T, Path>>(
+        data_mngr_->InitPtByGid(work_space));
 
     // init global superstep
     global_superstep_ = new std::atomic<size_t>(0);
@@ -273,76 +269,6 @@ class MiniGraphSys {
   std::unique_ptr<std::mutex> system_switch_mtx_ = nullptr;
   std::unique_ptr<std::unique_lock<std::mutex>> system_switch_lck_ = nullptr;
   std::unique_ptr<std::condition_variable> system_switch_cv_ = nullptr;
-
-  void InitWorkList(const std::string& work_space) {
-    std::string meta_root = work_space + "minigraph_meta/";
-    std::string data_root = work_space + "minigraph_data/";
-    std::string vdata_root = work_space + "minigraph_vdata/";
-    if (!data_mngr_->Exist(meta_root)) data_mngr_->MakeDirectory(meta_root);
-    if (!data_mngr_->Exist(data_root)) data_mngr_->MakeDirectory(data_root);
-    if (!data_mngr_->Exist(vdata_root)) data_mngr_->MakeDirectory(vdata_root);
-  }
-
-  bool InitPtByGid(const std::string& work_space) {
-    std::string meta_root = work_space + "minigraph_meta/";
-    std::string data_root = work_space + "minigraph_data/";
-    std::string vdata_root = work_space + "minigraph_vdata/";
-
-    std::vector<std::string> files;
-    for (const auto& entry : std::filesystem::directory_iterator(meta_root)) {
-      std::string path = entry.path();
-      size_t pos = path.find("/minigraph_meta/");
-      size_t pos2 = path.find(".bin");
-      int type_length = std::string("/minigraph_meta/").length();
-      std::string gid_str =
-          path.substr(pos + type_length, pos2 - pos - type_length);
-      GID_T gid = (GID_T)std::stoi(gid_str);
-      auto iter = pt_by_gid_->find(gid);
-      if (iter == pt_by_gid_->end()) {
-        Path _path;
-        _path.meta_pt = path;
-        pt_by_gid_->insert(std::make_pair(gid, _path));
-      } else {
-        iter->second.meta_pt = path;
-      }
-    }
-
-    for (const auto& entry : std::filesystem::directory_iterator(data_root)) {
-      std::string path = entry.path();
-      size_t pos = path.find("/minigraph_data/");
-      size_t pos2 = path.find(".bin");
-      int type_length = std::string("/minigraph_data/").length();
-      std::string gid_str =
-          path.substr(pos + type_length, pos2 - pos - type_length);
-      GID_T gid = (GID_T)std::stoi(gid_str);
-      auto iter = pt_by_gid_->find(gid);
-      if (iter == pt_by_gid_->end()) {
-        Path _path;
-        _path.data_pt = path;
-        pt_by_gid_->insert(std::make_pair(gid, _path));
-      } else {
-        iter->second.data_pt = path;
-      }
-    }
-    for (const auto& entry : std::filesystem::directory_iterator(vdata_root)) {
-      std::string path = entry.path();
-      size_t pos = path.find("/minigraph_vdata/");
-      size_t pos2 = path.find(".bin");
-      int type_length = std::string("/minigraph_vdata/").length();
-      std::string gid_str =
-          path.substr(pos + type_length, pos2 - pos - type_length);
-      GID_T gid = (GID_T)std::stoi(gid_str);
-      auto iter = pt_by_gid_->find(gid);
-      if (iter == pt_by_gid_->end()) {
-        Path _path;
-        _path.vdata_pt = path;
-        pt_by_gid_->insert(std::make_pair(gid, _path));
-      } else {
-        iter->second.vdata_pt = path;
-      }
-    }
-    return true;
-  }
 };
 
 }  // namespace minigraph

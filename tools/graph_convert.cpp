@@ -1,17 +1,16 @@
-#include <sys/stat.h>
-#include <iostream>
-#include <string>
-
-#include <gflags/gflags.h>
-
 #include "graphs/edgelist.h"
 #include "graphs/immutable_csr.h"
+#include "message_manager/default_message_manager.h"
 #include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
 #include "utility/io/data_mngr.h"
 #include "utility/io/edge_list_io_adapter.h"
 #include "utility/paritioner/edge_cut_partitioner.h"
 #include "utility/paritioner/partitioner_base.h"
+#include <gflags/gflags.h>
+#include <sys/stat.h>
+#include <iostream>
+#include <string>
 
 using CSR_T = minigraph::graphs::ImmutableCSR<gid_t, vid_t, vdata_t, edata_t>;
 using GRAPH_BASE_T = minigraph::graphs::Graph<gid_t, vid_t, vdata_t, edata_t>;
@@ -201,6 +200,44 @@ void CSRBin2CSRText(std::string src_pt, std::string dst_pt, std::size_t cores,
   out_file.close();
 }
 
+void MiniGraphCSRBin2PlanarCSR(std::string src_pt, std::string dst_pt,
+                               std::size_t cores) {
+  auto data_mngr = minigraph::utility::io::DataMngr<CSR_T>();
+  auto msg_mngr = minigraph::message::DefaultMessageManager<CSR_T>(
+      &data_mngr, src_pt, false);
+  auto pt_by_gid = data_mngr.InitPtByGid(src_pt);
+
+  auto max_vid = 0;
+  for (auto iter = pt_by_gid.begin(); iter != pt_by_gid.end(); iter++) {
+    LOG_INFO("Read GRAPH: ", iter->first);
+
+    auto path = iter->second;
+    auto csr = new CSR_T;
+    data_mngr.csr_io_adapter_->Read((GRAPH_BASE_T*)csr, csr_bin, iter->first,
+                                    path.meta_pt, path.data_pt, path.vdata_pt);
+
+    max_vid = csr->get_max_vid();
+    csr->ShowGraph(99);
+  }
+
+ // auto communication_matrix = msg_mngr.GetCommunicationMatrix();
+ // auto vid_map = msg_mngr.GetVidMap();
+ // auto border_bit_map = msg_mngr.GetGlobalBorderVidMap();
+//
+ // LOG_INFO("X");
+ // data_mngr.WriteCommunicationMatrix(
+ //     dst_pt + "minigraph_border_vertexes/communication_matrix.bin",
+ //     communication_matrix, pt_by_gid.size());
+ // LOG_INFO("X");
+ // data_mngr.WriteVidMap(max_vid, vid_map,
+ //                       dst_pt + "minigraph_message/vid_map.bin");
+ // LOG_INFO("X");
+ // data_mngr.WriteBitmap(border_bit_map,
+ //                       dst_pt + "minigraph_message/global_border_vid_map.bin");
+
+  return;
+}
+
 int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
@@ -208,8 +245,8 @@ int main(int argc, char* argv[]) {
   std::string src_pt = FLAGS_i;
   std::string dst_pt = FLAGS_o;
   std::size_t cores = FLAGS_cores;
-  std::string graph_type = FLAGS_t;
 
+  LOG_INFO("In type: ", FLAGS_in_type, " Out type: ", FLAGS_out_type);
   if (FLAGS_tobin && FLAGS_out_type == "edgelist" &&
       FLAGS_in_type == "edgelist")
     EdgeListCSV2EdgeListBin(src_pt, dst_pt, cores, *FLAGS_sep.c_str());
@@ -224,6 +261,10 @@ int main(int argc, char* argv[]) {
   if (FLAGS_frombin && FLAGS_tobin == false && FLAGS_out_type == "csr" &&
       FLAGS_in_type == "csr")
     CSRBin2CSRText(src_pt, dst_pt, cores);
+
+  if (FLAGS_frombin && FLAGS_tobin && FLAGS_out_type == "planar_csr" &&
+      FLAGS_in_type == "minigraph_csr")
+    MiniGraphCSRBin2PlanarCSR(src_pt, dst_pt, cores);
 
   gflags::ShutDownCommandLineFlags();
 }

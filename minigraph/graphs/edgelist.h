@@ -1,14 +1,6 @@
 #ifndef MINIGRAPH_GRAPHS_EDGE_LIST_H
 #define MINIGRAPH_GRAPHS_EDGE_LIST_H
 
-#include <fstream>
-#include <iostream>
-#include <map>
-#include <memory>
-#include <unordered_map>
-
-#include <jemalloc/jemalloc.h>
-
 #include "graphs/graph.h"
 #include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
@@ -24,6 +16,12 @@
 #include <folly/portability/Asm.h>
 #include <folly/portability/Atomic.h>
 #include <folly/portability/SysTime.h>
+#include <jemalloc/jemalloc.h>
+#include <fstream>
+#include <iostream>
+#include <map>
+#include <memory>
+#include <unordered_map>
 
 namespace minigraph {
 namespace graphs {
@@ -40,7 +38,8 @@ class EdgeList : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     this->gid_ = gid;
     this->num_edges_ = num_edges;
     this->max_vid_ = max_vid;
-    this->aligned_max_vid_ = ceil((float)max_vid / 64) * 64;
+    this->aligned_max_vid_ =
+        ceil(max_vid / ALIGNMENT_FACTOR) * ALIGNMENT_FACTOR;
     this->num_vertexes_ = num_vertexes;
 
     if (num_vertexes != 0) {
@@ -80,8 +79,8 @@ class EdgeList : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
   void ShowGraph(const size_t count = 2) {
     std::cout << "\n\n##### EdgeListGraph GID: " << this->get_gid()
               << ", num_verteses: " << this->get_num_vertexes()
-              << ", num_edges: " << this->get_num_edges() << " #####"
-              << std::endl;
+              << ", num_edges: " << this->get_num_edges()
+              << ", max_vid: " << this->get_max_vid() << " #####" << std::endl;
     std::cout << ">>>> edges_ " << std::endl;
     for (size_t i = 0; i < this->get_num_edges(); i++) {
       if (i > count) break;

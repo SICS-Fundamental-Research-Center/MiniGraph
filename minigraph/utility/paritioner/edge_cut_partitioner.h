@@ -371,6 +371,7 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
               (graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>*)graph;
         } else {
           set_graphs[local_gid] = nullptr;
+          graph->Sort(cores);
           std::string meta_pt =
               dst_pt + "minigraph_meta/" + std::to_string(local_gid) + ".bin";
           std::string data_pt =
@@ -417,6 +418,7 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
             dst_pt + "minigraph_data/" + std::to_string(local_gid) + ".bin";
         std::string vdata_pt =
             dst_pt + "minigraph_vdata/" + std::to_string(local_gid) + ".bin";
+        graph->Sort(cores);
         data_mngr.csr_io_adapter_->Write(*graph, csr_bin, false, meta_pt,
                                          data_pt, vdata_pt);
         StatisticInfo&& si = this->ParallelSetStatisticInfo(*graph, cores);

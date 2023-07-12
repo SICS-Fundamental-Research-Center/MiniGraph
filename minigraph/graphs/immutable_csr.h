@@ -1,13 +1,14 @@
 #ifndef MINIGRAPH_GRAPHS_IMMUTABLECSR_H
 #define MINIGRAPH_GRAPHS_IMMUTABLECSR_H
 
-#include <fstream>
-#include <iostream>
-#include <malloc.h>
-#include <map>
-#include <memory>
-#include <unordered_map>
-
+#include "graphs/edgelist.h"
+#include "graphs/graph.h"
+#include "portability/sys_data_structure.h"
+#include "portability/sys_types.h"
+#include "utility/bitmap.h"
+#include "utility/logging.h"
+#include "utility/sort.h"
+#include "utility/thread_pool.h"
 #include <folly/AtomicHashArray.h>
 #include <folly/AtomicHashMap.h>
 #include <folly/AtomicUnorderedMap.h>
@@ -20,13 +21,12 @@
 #include <folly/portability/Atomic.h>
 #include <folly/portability/SysTime.h>
 #include <jemalloc/jemalloc.h>
-
-#include "graphs/edgelist.h"
-#include "graphs/graph.h"
-#include "portability/sys_data_structure.h"
-#include "portability/sys_types.h"
-#include "utility/bitmap.h"
-#include "utility/logging.h"
+#include <fstream>
+#include <iostream>
+#include <malloc.h>
+#include <map>
+#include <memory>
+#include <unordered_map>
 
 namespace minigraph {
 namespace graphs {
@@ -364,6 +364,29 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
         }
       }
     }
+    return;
+  }
+
+  void Sort(size_t cores = 1) {
+    auto thread_pool = minigraph::utility::CPUThreadPool(cores, 1);
+    std::mutex mtx;
+    std::condition_variable finish_cv;
+    std::unique_lock<std::mutex> lck(mtx);
+    std::atomic<size_t> pending_packages(cores);
+
+    pending_packages.store(cores);
+    for (size_t i = 0; i < cores; i++) {
+      thread_pool.Commit([&, i, &cores, &pending_packages, &finish_cv]() {
+        for (size_t j = i; j < this->get_num_vertexes(); j += cores) {
+          auto u = GetVertexByIndex(j);
+          QuickSort(u.out_edges, 0, u.outdegree - 1);
+          QuickSort(u.in_edges, 0, u.indegree - 1);
+        }
+        if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
+        return;
+      });
+    }
+    finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
     return;
   }
 
