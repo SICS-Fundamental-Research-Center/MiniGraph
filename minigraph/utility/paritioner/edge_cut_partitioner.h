@@ -66,7 +66,7 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
     auto max_vid = edgelist_graph->get_max_vid();
     this->max_vid_ = edgelist_graph->get_max_vid();
     this->aligned_max_vid_ =
-        ceil((float)edgelist_graph->get_aligned_max_vid() / ALIGNMENT_FACTOR) *
+        ceil(edgelist_graph->get_aligned_max_vid() / ALIGNMENT_FACTOR) *
         ALIGNMENT_FACTOR;
     auto aligned_max_vid = this->aligned_max_vid_;
     auto num_vertexes = edgelist_graph->get_num_vertexes();
@@ -100,14 +100,15 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
         for (size_t j = tid; j < edgelist_graph->get_num_edges(); j += cores) {
           auto src_vid = edgelist_graph->buf_graph_[j * 2];
           auto dst_vid = edgelist_graph->buf_graph_[j * 2 + 1];
+	  if(src_vid == dst_vid) continue;
           if (!vertex_indicator->get_bit(src_vid)) {
             vertex_indicator->set_bit(src_vid);
           }
           if (!vertex_indicator->get_bit(dst_vid)) {
             vertex_indicator->set_bit(dst_vid);
           }
-          __sync_add_and_fetch(num_out_edges + src_vid, 1);
-          __sync_add_and_fetch(num_in_edges + dst_vid, 1);
+          write_add(num_out_edges + src_vid, (size_t)1);
+          write_add(num_in_edges + dst_vid, (size_t)1);
         }
         if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
         return;
@@ -163,19 +164,24 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
     pending_packages.store(cores);
     for (size_t tid = 0; tid < cores; tid++) {
       thread_pool.Commit([tid, &cores, &edgelist_graph, &vertexes, &num_edges,
-                          &offset_in_edges, &offset_out_edges,
+                          &offset_in_edges, &offset_out_edges, &lck,
                           &pending_packages, &finish_cv]() {
         for (size_t j = tid; j < num_edges; j += cores) {
           auto src_vid = edgelist_graph->buf_graph_[j * 2];
           auto dst_vid = edgelist_graph->buf_graph_[j * 2 + 1];
+	  if(src_vid == dst_vid) continue;
           assert(vertexes[src_vid] != nullptr);
           assert(vertexes[dst_vid] != nullptr);
-          vertexes[src_vid]
-              ->out_edges[__sync_fetch_and_add(offset_out_edges + src_vid, 1)] =
-              dst_vid;
-          vertexes[dst_vid]
-              ->in_edges[__sync_fetch_and_add(offset_in_edges + dst_vid, 1)] =
-              src_vid;
+          auto offset_out = __sync_fetch_and_add(offset_out_edges + src_vid, 1);
+          auto offset_in = __sync_fetch_and_add(offset_in_edges + dst_vid, 1);
+          vertexes[src_vid]->out_edges[offset_out] = dst_vid;
+          vertexes[dst_vid]->in_edges[offset_in] = src_vid;
+          // vertexes[src_vid]
+          //     ->out_edges[__sync_fetch_and_add(offset_out_edges + src_vid,
+          //     1)] = dst_vid;
+          // vertexes[dst_vid]
+          //     ->in_edges[__sync_fetch_and_add(offset_in_edges + dst_vid, 1)]
+          //     = src_vid;
         }
 
         if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
@@ -189,6 +195,7 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
     free(offset_in_edges);
     free(offset_out_edges);
 
+    LOG_INFO("  Init");
     size_t* offset_fragments = (size_t*)malloc(sizeof(size_t) * num_partitions);
     memset(offset_fragments, 0, sizeof(size_t) * num_partitions);
     size_t* sum_in_edges_by_fragments =
@@ -211,8 +218,8 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
 
     size_t num_vertexes_per_bucket[num_partitions] = {0};
     VID_T max_vid_per_bucket[num_partitions] = {0};
-    Bitmap* is_in_bucketX[num_partitions + num_new_buckets - 1];
-    for (size_t i = 0; i < num_partitions + num_new_buckets - 1; i++) {
+    Bitmap* is_in_bucketX[num_partitions + num_new_buckets];
+    for (size_t i = 0; i < num_partitions + num_new_buckets; i++) {
       is_in_bucketX[i] = new Bitmap(aligned_max_vid);
       is_in_bucketX[i]->clear();
     }
@@ -228,10 +235,10 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
     GID_T gid = 0;
     pending_packages.store(cores);
     for (size_t tid = 0; tid < cores; tid++) {
-      thread_pool.Commit([tid, &cores, &is_in_bucketX, aligned_max_vid,
-                          &vertexes, &fragments, &max_vid_per_bucket,
-                          &num_partitions, &local_id_for_each_bucket,
-                          &sum_in_edges_by_fragments,
+      thread_pool.Commit([tid, &cores, &is_in_bucketX, &aligned_max_vid,
+                          &num_vertexes, &vertexes, &fragments,
+                          &max_vid_per_bucket, &num_partitions,
+                          &local_id_for_each_bucket, &sum_in_edges_by_fragments,
                           &sum_out_edges_by_fragments, &vertex_indicator,
                           &num_vertexes_per_bucket, &num_vertexes,
                           &pending_packages, &finish_cv]() {
@@ -240,16 +247,19 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
           if (!vertex_indicator->get_bit(global_vid)) continue;
           auto u = vertexes[global_vid];
 
-          GID_T gid = (Hash(global_vid) % num_partitions);
-          // LOG_INFO(gid);
+          // GID_T gid = (global_vid % num_partitions);
+          GID_T gid = (unsigned)floor(
+                          ((double)global_vid / ceil((double)num_vertexes /
+                                                     (double)num_partitions))) %
+                      num_partitions;
           fragments[gid][global_vid] = u;
           if (max_vid_per_bucket[gid] < global_vid)
-            max_vid_per_bucket[gid] = global_vid;
+            write_max(max_vid_per_bucket + gid, (VID_T)global_vid);
           is_in_bucketX[gid]->set_bit(global_vid);
           u->vid = global_vid;
-          __sync_fetch_and_add(sum_in_edges_by_fragments + gid, u->indegree);
-          __sync_fetch_and_add(sum_out_edges_by_fragments + gid, u->outdegree);
-          __sync_fetch_and_add(num_vertexes_per_bucket + gid, 1);
+          write_add(sum_in_edges_by_fragments + gid, u->indegree);
+          write_add(sum_out_edges_by_fragments + gid, u->outdegree);
+          write_add(num_vertexes_per_bucket + gid, (size_t)1);
         }
         if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
         return;
@@ -259,11 +269,12 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
 
     free(vertexes);
 
-    auto vid_map =
-        (VID_T*)malloc(sizeof(VID_T) * edgelist_graph->get_aligned_max_vid());
+    auto vid_map = (VID_T*)malloc(sizeof(VID_T) * this->aligned_max_vid_);
     this->vid_map_ = vid_map;
-    memset(this->vid_map_, 0,
-           sizeof(VID_T) * edgelist_graph->get_aligned_max_vid());
+    memset(this->vid_map_, 0, sizeof(VID_T) * this->aligned_max_vid_);
+
+    // this->vid_map_ = (VID_T*)malloc(sizeof(VID_T) * this->aligned_max_vid_);
+    // memset(this->vid_map_, 0, sizeof(VID_T) * this->aligned_max_vid_);
 
     GID_T atom_gid = 0;
     auto bucket_id_to_be_splitted = GID_MAX;
@@ -271,7 +282,7 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
       LOG_INFO("Run: Split the biggest bucket.");
       auto max_degree = 0;
       for (size_t i = 0; i < num_partitions; i++) {
-        LOG_INFO("GID: ", i, " num_vertexes: ", num_vertexes_per_bucket[i],
+        LOG_INFO("  GID: ", i, " num_vertexes: ", num_vertexes_per_bucket[i],
                  " sum_inedges: ", sum_in_edges_by_fragments[i],
                  " sum_out_edges: ", sum_out_edges_by_fragments[i]);
         if (max_degree <
@@ -282,8 +293,7 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
         }
       }
 
-      LOG_INFO("Split gid: ", bucket_id_to_be_splitted);
-
+      LOG_INFO("  Split gid: ", bucket_id_to_be_splitted);
       is_in_bucketX[bucket_id_to_be_splitted] = nullptr;
       size_t* sum_in_edges_by_new_fragments =
           (size_t*)malloc(sizeof(size_t) * num_new_buckets);
@@ -309,6 +319,8 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
           new_fragments[i][j] = nullptr;
       }
 
+      LOG_INFO("Run: Prepare splitting");
+
       pending_packages.store(cores);
       for (size_t tid = 0; tid < cores; tid++) {
         thread_pool.Commit(
@@ -323,14 +335,14 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
                 if (fragments[bucket_id_to_be_splitted][global_vid] == nullptr)
                   continue;
                 auto u = fragments[bucket_id_to_be_splitted][global_vid];
-                GID_T gid = (Hash(global_vid) % num_new_buckets);
+                GID_T gid = (global_vid % num_new_buckets);
                 is_in_bucketX[gid + num_partitions]->set_bit(global_vid);
                 new_fragments[gid][u->vid] = u;
-                __sync_fetch_and_add(sum_in_edges_by_new_fragments + gid,
-                                     u->indegree);
-                __sync_fetch_and_add(sum_out_edges_by_new_fragments + gid,
-                                     u->outdegree);
-                __sync_fetch_and_add(num_vertexes_per_new_bucket + gid, 1);
+                write_add(sum_in_edges_by_new_fragments + gid,
+                          (size_t)u->indegree);
+                write_add(sum_out_edges_by_new_fragments + gid,
+                          (size_t)u->outdegree);
+                write_add(num_vertexes_per_new_bucket + gid, (size_t)1);
               }
 
               if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
@@ -348,8 +360,10 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
             sum_in_edges_by_new_fragments[gid],
             sum_out_edges_by_new_fragments[gid],
             max_vid_per_bucket[bucket_id_to_be_splitted], vid_map);
-        for (size_t i = 0; i < max_vid_per_bucket[gid]; i++) {
-          delete new_fragments[gid][i];
+
+        for (size_t i = 0; i < max_vid_per_bucket[bucket_id_to_be_splitted];
+             i++) {
+          if (new_fragments[gid][i] != nullptr) delete new_fragments[gid][i];
         }
         free(new_fragments[gid]);
         if (!delete_graph) {
@@ -357,6 +371,7 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
               (graphs::Graph<GID_T, VID_T, VDATA_T, EDATA_T>*)graph;
         } else {
           set_graphs[local_gid] = nullptr;
+          graph->Sort(cores);
           std::string meta_pt =
               dst_pt + "minigraph_meta/" + std::to_string(local_gid) + ".bin";
           std::string data_pt =
@@ -403,6 +418,7 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
             dst_pt + "minigraph_data/" + std::to_string(local_gid) + ".bin";
         std::string vdata_pt =
             dst_pt + "minigraph_vdata/" + std::to_string(local_gid) + ".bin";
+        graph->Sort(cores);
         data_mngr.csr_io_adapter_->Write(*graph, csr_bin, false, meta_pt,
                                          data_pt, vdata_pt);
         StatisticInfo&& si = this->ParallelSetStatisticInfo(*graph, cores);
@@ -447,11 +463,6 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
                                         (num_partitions + num_new_buckets - 1));
       }
     }
-    // GID_T local_gid = 0;
-    // for (auto& iter_fragments : *this->fragments_) {
-    //   auto fragment = (CSR_T*)iter_fragments;
-    //   fragment->gid_ = local_gid++;
-    // }
 
     return false;
   }

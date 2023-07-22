@@ -14,7 +14,7 @@ using edata_t = size_t;
 #define EDATA_MAX 0XFFFFFFF
 #define GID_MAX 0XFFFFFFF
 #define MINIGRAPH_GID_MAX (((unsigned)(-1)) >> 1)
-#define ALIGNMENT_FACTOR 1024.0
+#define ALIGNMENT_FACTOR (double)64
 #define NUM_NEW_BUCKETS 1
 
 
@@ -75,8 +75,8 @@ DEFINE_uint64(cc, 1, "the number of executors in ComputingComponent");
 DEFINE_uint64(dc, 1, "the number of executors in DischargeComponent");
 DEFINE_uint64(cores, 4, "the number of cores we used");
 DEFINE_uint64(buffer_size, 1, "buffer size");
-DEFINE_uint64(niters, 4, "number of iterations for graph-level while loop");
-DEFINE_uint64(walks_per_source, 100, "walks per source vertex for random walk");
+DEFINE_uint64(niters, 50, "number of iterations for graph-level while loop");
+DEFINE_uint64(walks_per_source, 5, "walks per source vertex for random walk");
 DEFINE_uint64(inner_niters, 4, "number of iterations for inner while loop");
 DEFINE_string(init_model, "val", "init model for vdata of all vertexes");
 DEFINE_string(mode, "default", "MiniGraph with entire optimization");

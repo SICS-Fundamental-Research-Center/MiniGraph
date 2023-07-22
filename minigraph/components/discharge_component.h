@@ -23,14 +23,16 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
 
  public:
   DischargeComponent(
-      const size_t num_workers, utility::EDFThreadPool* thread_pool,
+      const size_t num_workers,
+      folly::NativeSemaphore* load_sem,
+      utility::EDFThreadPool* thread_pool,
       std::unordered_map<GID_T, std::atomic<size_t>*>* superstep_by_gid,
       std::atomic<size_t>* global_superstep,
       utility::StateMachine<GID_T>* state_machine,
       std::queue<GID_T>* partial_result_queue,
       folly::ProducerConsumerQueue<GID_T>* task_queue,
       std::queue<GID_T>* read_trigger,
-      folly::AtomicHashMap<GID_T, Path>* pt_by_gid,
+      std::unordered_map<GID_T, Path>* pt_by_gid,
       utility::io::DataMngr<GRAPH_T>* data_mngr,
       message::DefaultMessageManager<GRAPH_T>* msg_mngr,
       std::unique_lock<std::mutex>* partial_result_lck,
@@ -44,6 +46,7 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       : ComponentBase<GID_T>(thread_pool, superstep_by_gid, global_superstep,
                              state_machine) {
     task_queue_ = task_queue;
+    load_sem_ = load_sem;
     num_workers_ = num_workers;
     partial_result_queue_ = partial_result_queue;
     pt_by_gid_ = pt_by_gid;
@@ -84,6 +87,8 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
         if (mode_ != "NoShort") CheckRTRule(gid);
 
         ReleaseGraphX(gid);
+        LOG_INFO("post: ", gid);
+        load_sem_->post();
         if (this->TrySync()) {
           LOG_INFO("Sync");
           this->state_machine_->ShowAllState();
@@ -108,25 +113,6 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   void Stop() override { this->switch_.store(false); }
 
  private:
-  std::atomic<size_t> num_workers_;
-  std::atomic<bool> switch_ = true;
-  std::queue<GID_T>* partial_result_queue_ = nullptr;
-  std::queue<GID_T>* read_trigger_ = nullptr;
-  utility::io::DataMngr<GRAPH_T>* data_mngr_ = nullptr;
-  message::DefaultMessageManager<GRAPH_T>* msg_mngr_ = nullptr;
-  folly::AtomicHashMap<GID_T, Path>* pt_by_gid_ = nullptr;
-  std::unique_lock<std::mutex>* partial_result_lck_ = nullptr;
-  folly::ProducerConsumerQueue<GID_T>* task_queue_ = nullptr;
-  std::condition_variable* read_trigger_cv_ = nullptr;
-  std::condition_variable* task_queue_cv_ = nullptr;
-  std::condition_variable* partial_result_cv_ = nullptr;
-  std::unique_lock<std::mutex>* system_switch_lck_ = nullptr;
-  std::condition_variable* system_switch_cv_ = nullptr;
-  std::atomic<bool>* system_switch_;
-  std::string mode_ = "default";
-  bool* communication_matrix_;
-  size_t num_iter_ = 0;
-
   void ReleaseGraphX(const GID_T gid, bool terminate = false) {
     if (IsSameType<GRAPH_T, CSR_T>()) {
       if (this->state_machine_->GraphIs(gid, RTS)) {
@@ -156,23 +142,16 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
     for (auto& iter : out_rc_) {
       this->state_machine_->EvokeX(iter, RC);
       GID_T gid = iter;
-      // Path& path = pt_by_gid_->find(gid)->second;
-      // data_mngr_->WriteGraph(gid, path, edgelist_bin);
-      // data_mngr_->WriteGraph(gid, path, csr_bin, true);
-      // LOG_INFO("erase", gid);
-      // data_mngr_->EraseGraph(gid);
       read_trigger_->push(gid);
     }
     for (auto& iter : out_rt_) {
       GID_T gid = iter;
       this->state_machine_->EvokeX(iter, RT);
-      // data_mngr_->EraseGraph(gid);
       read_trigger_->push(gid);
     }
     for (auto& iter : out_rts_) {
       GID_T gid = iter;
       this->state_machine_->EvokeX(iter, RTS);
-      // data_mngr_->EraseGraph(gid);
       read_trigger_->push(gid);
     }
     read_trigger_cv_->notify_all();
@@ -194,6 +173,34 @@ class DischargeComponent : public ComponentBase<typename GRAPH_T::gid_t> {
     }
     return false;
   }
+
+  std::atomic<size_t> num_workers_;
+  folly::NativeSemaphore* load_sem_ = nullptr;
+
+  std::atomic<bool> switch_ = true;
+  std::queue<GID_T>* partial_result_queue_ = nullptr;
+  std::queue<GID_T>* read_trigger_ = nullptr;
+
+  utility::io::DataMngr<GRAPH_T>* data_mngr_ = nullptr;
+  message::DefaultMessageManager<GRAPH_T>* msg_mngr_ = nullptr;
+
+  std::unordered_map<GID_T, Path>* pt_by_gid_ = nullptr;
+
+  std::unique_lock<std::mutex>* partial_result_lck_ = nullptr;
+  folly::ProducerConsumerQueue<GID_T>* task_queue_ = nullptr;
+  std::condition_variable* read_trigger_cv_ = nullptr;
+  std::condition_variable* task_queue_cv_ = nullptr;
+  std::condition_variable* partial_result_cv_ = nullptr;
+  std::unique_lock<std::mutex>* system_switch_lck_ = nullptr;
+  std::condition_variable* system_switch_cv_ = nullptr;
+
+  std::atomic<bool>* system_switch_;
+
+  std::string mode_ = "default";
+
+  bool* communication_matrix_;
+
+  size_t num_iter_ = 0;
 };
 
 }  // namespace components

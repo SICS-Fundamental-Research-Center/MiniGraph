@@ -1,14 +1,13 @@
 #ifndef MINIGRAPH_DEFAULT_MESSAGE_MANAGER_H
 #define MINIGRAPH_DEFAULT_MESSAGE_MANAGER_H
 
-#include <fstream>
-#include <unordered_map>
-#include <vector>
-
 #include "graphs/graph.h"
 #include "message_manager/message_manager_base.h"
 #include "portability/sys_data_structure.h"
 #include "utility/io/data_mngr.h"
+#include <fstream>
+#include <unordered_map>
+#include <vector>
 
 namespace minigraph {
 namespace message {
@@ -86,7 +85,6 @@ class DefaultMessageManager : public MessageManagerBase {
 
   void ClearnUp() { active_vertexes_bit_map_->clear(); }
 
-
   bool* GetCommunicationMatrix() { return communication_matrix_; }
 
   Bitmap* GetGlobalBorderVidMap() { return global_border_vid_map_; }
@@ -100,7 +98,6 @@ class DefaultMessageManager : public MessageManagerBase {
   VID_T* GetVidMap() { return vid_map_; }
 
   VID_T globalid2localid(const VID_T globalid) { return vid_map_[globalid]; };
-
 
   void SetStateMatrix(const size_t gid, char state) {
     if (gid >= num_graphs_) {
@@ -116,6 +113,8 @@ class DefaultMessageManager : public MessageManagerBase {
   StatisticInfo GetStatisticInfo(const GID_T gid) { return si_[gid]; }
 
   StatisticInfo* GetStatisticInfo() { return si_; }
+
+  size_t get_max_vid() { return max_vid_; }
 
   bool WriteStatisticInfo(const std::string pt) {
     this->MakeDirectory(pt);

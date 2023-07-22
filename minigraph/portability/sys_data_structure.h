@@ -78,7 +78,7 @@ template <typename T>
 size_t Hash(T k) {
   //k *= BIG_CONSTANT(0xff51afd7ed558ccd);
   k *= BIG_CONSTANT(0xc4ceb9fe1a85ec53);
-  //k = k >> 1;
+  k = k >> 1;
   return k;
 }
 

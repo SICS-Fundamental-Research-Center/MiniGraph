@@ -49,13 +49,13 @@ class WCCAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
       if (!in_visited->get_bit(i)) continue;
       auto u = graph->GetVertexByIndex(i);
 
-      for (size_t j = 0; j < u.indegree; ++j) {
-        if (write_min(&global_border_vdata[graph->localid2globalid(i)],
-                      global_border_vdata[u.in_edges[j]])) {
-          out_visited->set_bit(i);
-          write_add(num_active_vertices, (size_t)1);
-        }
-      }
+      // for (size_t j = 0; j < u.indegree; ++j) {
+      //   if (write_min(&global_border_vdata[graph->localid2globalid(i)],
+      //                 global_border_vdata[u.in_edges[j]])) {
+      //     out_visited->set_bit(i);
+      //     write_add(num_active_vertices, (size_t)1);
+      //   }
+      // }
 
       for (size_t j = 0; j < u.outdegree; ++j) {
         if (write_min(&global_border_vdata[u.out_edges[j]],
@@ -97,6 +97,8 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
              minigraph::executors::TaskRunner* task_runner) override {
     LOG_INFO("PEval() - Processing gid: ", graph.gid_,
              " num_vertexes: ", graph.get_num_vertexes());
+    if (!graph.IsInGraph(0)) return true;
+    auto start_time = std::chrono::system_clock::now();
     Bitmap* in_visited = new Bitmap(graph.get_num_vertexes());
     Bitmap* out_visited = new Bitmap(graph.get_num_vertexes());
     in_visited->fill();
@@ -106,15 +108,25 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
 
     size_t num_active_vertices = 0;
 
+    size_t count = 0;
     while (!in_visited->empty()) {
       this->auto_map_->ActiveMap(
           graph, task_runner, &visited,
           WCCAutoMap<GRAPH_T, CONTEXT_T>::kernel_update, in_visited,
           out_visited, this->msg_mngr_->GetVidMap(),
           this->msg_mngr_->GetGlobalVdata(), &num_active_vertices);
+      LOG_INFO("#", count++);
       std::swap(in_visited, out_visited);
       out_visited->clear();
     }
+
+    auto end_time = std::chrono::system_clock::now();
+
+    LOG_INFO("End PEval: elapsed ",
+             std::chrono::duration_cast<std::chrono::microseconds>(end_time -
+                                                                   start_time)
+                     .count() /
+                 (double)CLOCKS_PER_SEC);
 
     delete in_visited;
     delete out_visited;

@@ -302,7 +302,7 @@ void CompressEdgelistCSV2EdgelistBin(const std::string input_pt,
   free(vid_map);
   free(src_v);
   free(dst_v);
-  graph->ShowGraph(10);
+  graph->ShowGraph(100);
   edge_list_io_adapter.Write(*graph, edgelist_bin, meta_pt, data_pt, vdata_pt);
   std::cout << "Save at " << dst_pt << std::endl;
   return;
@@ -332,7 +332,6 @@ void CompressEdgelistBin2EdgelistBin(const std::string input_pt,
 
   edgelist_io_adapter.ReadEdgeListFromBin(
       (GRAPH_BASE_T*)graph, 0, input_meta_pt, input_data_pt, input_vdata_pt);
-  graph->ShowGraph();
   std::mutex mtx;
   std::condition_variable finish_cv;
   std::unique_lock<std::mutex> lck(mtx);
@@ -432,7 +431,7 @@ void CompressEdgelistBin2EdgelistBin(const std::string input_pt,
 
   edgelist_io_adapter.Write(*graph, edgelist_bin, dst_meta_pt, dst_data_pt,
                             dst_vdata_pt);
-  graph->ShowGraph(10);
+  graph->ShowGraph(1000);
   std::cout << "Save at " << dst_pt << std::endl;
   return;
 }
@@ -570,7 +569,6 @@ void CompressEdgeListBin2EdgelistCSV(const std::string input_pt,
   doc_out.SetColumn<VID_T>(0, *out_src);
   doc_out.SetColumn<VID_T>(1, *out_dst);
   doc_out.Save(dst_pt);
-  graph->ShowGraph(10);
   std::cout << "Save at " << dst_pt << std::endl;
   return;
 }

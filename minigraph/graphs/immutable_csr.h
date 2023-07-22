@@ -7,6 +7,8 @@
 #include "portability/sys_types.h"
 #include "utility/bitmap.h"
 #include "utility/logging.h"
+#include "utility/sort.h"
+#include "utility/thread_pool.h"
 #include <folly/AtomicHashArray.h>
 #include <folly/AtomicHashMap.h>
 #include <folly/AtomicUnorderedMap.h>
@@ -53,8 +55,11 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     sum_in_edges_ = sum_in_edges;
     sum_out_edges_ = sum_out_edges;
     this->max_vid_ = max_vid;
+    LOG_INFO("max_vid: ", this->get_max_vid());
     this->aligned_max_vid_ =
         ceil((float)this->get_max_vid() / ALIGNMENT_FACTOR) * ALIGNMENT_FACTOR;
+    assert(this->get_max_vid() > 0);
+    assert(this->get_aligned_max_vid() > 0);
     this->bitmap_ = new Bitmap(this->get_aligned_max_vid());
     this->bitmap_->clear();
 
@@ -92,6 +97,7 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
          global_id++) {
       if (set_vertexes[global_id] == nullptr) continue;
       if (vid_map != nullptr) vid_map[global_id] = local_id;
+
       this->bitmap_->set_bit(global_id);
       ((VID_T*)((char*)this->buf_graph_ +
                 start_localid_by_globalid))[global_id] = local_id;
@@ -143,7 +149,6 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
                  sizeof(VID_T) * set_vertexes[global_id]->outdegree);
         }
       }
-
       local_id++;
     }
 
@@ -161,14 +166,13 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     this->gid_ = gid;
     this->vdata_ = (VDATA_T*)malloc(sizeof(VDATA_T) * this->get_num_vertexes());
     memset(this->vdata_, 0, sizeof(VDATA_T) * this->get_num_vertexes());
-    vertexes_state_ = (char*)malloc(sizeof(char) * this->get_num_vertexes());
-    memset(vertexes_state_, VERTEXDISMATCH,
-           sizeof(char) * this->get_num_vertexes());
     this->edata_ =
         (EDATA_T*)malloc(sizeof(EDATA_T) * this->get_num_out_edges());
     memset(this->edata_, 0, sizeof(EDATA_T) * this->get_num_out_edges());
 
     is_serialized_ = true;
+    LOG_INFO("Construct ", gid);
+    return;
   };
 
   ~ImmutableCSR() {
@@ -185,6 +189,10 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     if (this->vdata_ != nullptr) {
       free(this->vdata_);
       this->vdata_ = nullptr;
+    }
+    if (this->edata_ != nullptr) {
+      free(this->edata_);
+      this->edata_ = nullptr;
     }
     in_edges_ = nullptr;
     out_edges_ = nullptr;
@@ -203,33 +211,10 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       this->bitmap_ = nullptr;
     }
     malloc_trim(0);
+    return;
   };
 
-  // size_t get_num_vertexes() const override { return num_vertexes_; }
-
-  // size_t get_num_edges() const override {
-  //   return sum_in_edges_ + sum_out_edges_;
-  // }
-
   void CleanUp() override {
-    // if (map_localid2globalid_ != nullptr) {
-    //   LOG_INFO("Free map_localid2globalid: ", gid_);
-    //   std::unordered_map<VID_T, VID_T> tmp;
-    //   map_localid2globalid_->swap(tmp);
-    //   tmp.clear();
-    //   map_localid2globalid_->clear();
-    //   delete map_localid2globalid_;
-    //   map_localid2globalid_ = nullptr;
-    // }
-    // if (map_globalid2localid_ != nullptr) {
-    //   LOG_INFO("Free map_globalid2localid: ", gid_);
-    //   std::unordered_map<VID_T, VID_T> tmp;
-    //   map_globalid2localid_->swap(tmp);
-    //   tmp.clear();
-    //   map_globalid2localid_->clear();
-    //   delete map_globalid2localid_;
-    //   map_globalid2localid_ = nullptr;
-    // }
     if (this->buf_graph_ != nullptr) {
       LOG_INFO("Free:  buf_graph", this->gid_);
       free(this->buf_graph_);
@@ -246,8 +231,6 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
       free(this->vdata_);
       this->vdata_ = nullptr;
     }
-    // vid_by_index_ = nullptr;
-    //  index_by_vid_ = nullptr;
     localid_by_globalid_ = nullptr;
     in_edges_ = nullptr;
     out_edges_ = nullptr;
@@ -381,6 +364,29 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
         }
       }
     }
+    return;
+  }
+
+  void Sort(size_t cores = 1) {
+    auto thread_pool = minigraph::utility::CPUThreadPool(cores, 1);
+    std::mutex mtx;
+    std::condition_variable finish_cv;
+    std::unique_lock<std::mutex> lck(mtx);
+    std::atomic<size_t> pending_packages(cores);
+
+    pending_packages.store(cores);
+    for (size_t i = 0; i < cores; i++) {
+      thread_pool.Commit([&, i, &cores, &pending_packages, &finish_cv]() {
+        for (size_t j = i; j < this->get_num_vertexes(); j += cores) {
+          auto u = GetVertexByIndex(j);
+          QuickSort(u.out_edges, 0, u.outdegree - 1);
+          QuickSort(u.in_edges, 0, u.indegree - 1);
+        }
+        if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
+        return;
+      });
+    }
+    finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
     return;
   }
 

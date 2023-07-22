@@ -1,10 +1,9 @@
-#include <cstring>
 #include <iostream>
 #include <math.h>
-#include <rapidcsv.h>
 #include <string>
 
 #include <gflags/gflags.h>
+#include "rapidcsv.h"
 
 #include "graphs/edgelist.h"
 #include "portability/sys_types.h"
@@ -67,8 +66,7 @@ void GetGraphStatisticFromCSV(const std::string input_pt,
   }
   finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
 
-  auto aligned_max_vid =
-      ceil((float)max_vid / ALIGNMENT_FACTOR) * ALIGNMENT_FACTOR;
+  auto aligned_max_vid = ceil(max_vid / ALIGNMENT_FACTOR) * ALIGNMENT_FACTOR;
 
   Bitmap visited(aligned_max_vid);
   visited.clear();
@@ -213,8 +211,7 @@ void GetGraphStatisticFromBin(const std::string input_pt,
   }
   finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
 
-  VID_T aligned_max_vid =
-      ceil((float)max_vid / ALIGNMENT_FACTOR) * ALIGNMENT_FACTOR;
+  VID_T aligned_max_vid = ceil(max_vid / ALIGNMENT_FACTOR) * ALIGNMENT_FACTOR;
   size_t* outdegree = (size_t*)malloc(sizeof(size_t) * aligned_max_vid);
   size_t* indegree = (size_t*)malloc(sizeof(size_t) * aligned_max_vid);
   memset(outdegree, 0, sizeof(size_t) * aligned_max_vid);
@@ -266,10 +263,10 @@ void GetGraphStatisticFromBin(const std::string input_pt,
                         &sum_outdegree, &sum_indegree, &max_outdegree,
                         &max_degree]() {
       for (size_t j = tid; j < aligned_max_vid; j += cores) {
-        if(max_indegree < indegree[j]){
+        if (max_indegree < indegree[j]) {
           write_max(&max_indegree, indegree[j]);
         }
-        if(max_outdegree < outdegree[j]){
+        if (max_outdegree < outdegree[j]) {
           write_max(&max_outdegree, outdegree[j]);
         }
         write_add(&sum_indegree, indegree[j]);

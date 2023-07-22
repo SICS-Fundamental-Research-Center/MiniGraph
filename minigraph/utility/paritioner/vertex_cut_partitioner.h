@@ -53,8 +53,7 @@ class VertexCutPartitioner : public PartitionerBase<GRAPH_T> {
 
     minigraph::utility::io::DataMngr<CSR_T> data_mngr;
     VID_T aligned_max_vid =
-        ceil((float)edgelist_graph->max_vid_ / ALIGNMENT_FACTOR) *
-        ALIGNMENT_FACTOR;
+        ceil(edgelist_graph->max_vid_ / ALIGNMENT_FACTOR) * ALIGNMENT_FACTOR;
     this->vid_map_ = (VID_T*)malloc(sizeof(VID_T) * aligned_max_vid);
     memset(this->vid_map_, 0, sizeof(VID_T) * aligned_max_vid);
     size_t* num_in_edges = (size_t*)malloc(sizeof(size_t) * aligned_max_vid);
@@ -154,6 +153,7 @@ class VertexCutPartitioner : public PartitionerBase<GRAPH_T> {
       delete edgelist_graph;
       free(edges_buckets[gid]);
       csr_graph->InitVdata2AllX(0);
+      csr_graph->Sort(cores);
       if (!delete_graph) {
         this->fragments_->push_back(csr_graph);
       } else {

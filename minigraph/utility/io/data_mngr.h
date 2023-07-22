@@ -319,6 +319,7 @@ class DataMngr {
   }
 
   void EraseGraph(const GID_T& gid) {
+    LOG_INFO("Erase", gid);
     pgraph_mtx_->lock();
     if (pgraph_by_gid_->count(gid)) {
       auto iter = pgraph_by_gid_->find(gid);
@@ -347,11 +348,8 @@ class DataMngr {
     for (int i = 1; i < len; i++) {
       if (dir[i] == '/') {
         temp = dir.substr(0, i);
-        if (access(temp.c_str(), 0) != 0) {
-          if (mkdir(temp.c_str(), 0777) != 0) {
-            VLOG(1) << "failed operaiton.";
-          }
-        }
+        if (access(temp.c_str(), 0) != 0)
+          if (mkdir(temp.c_str(), 0777) != 0) VLOG(1) << "failed operaiton.";
       }
     }
   }
@@ -359,6 +357,80 @@ class DataMngr {
   bool Exist(const std::string& pt) const {
     struct stat buffer;
     return (stat(pt.c_str(), &buffer) == 0);
+  }
+
+  void InitWorkList(const std::string& work_space) {
+    std::string meta_root = work_space + "minigraph_meta/";
+    std::string data_root = work_space + "minigraph_data/";
+    std::string vdata_root = work_space + "minigraph_vdata/";
+    if (!Exist(meta_root)) MakeDirectory(meta_root);
+    if (!Exist(data_root)) MakeDirectory(data_root);
+    if (!Exist(vdata_root)) MakeDirectory(vdata_root);
+  }
+
+  std::unordered_map<GID_T, Path> InitPtByGid(const std::string& work_space) {
+    std::string meta_root = work_space + "minigraph_meta/";
+    std::string data_root = work_space + "minigraph_data/";
+    std::string vdata_root = work_space + "minigraph_vdata/";
+    std::unordered_map<GID_T, Path> pt_by_gid;
+
+    std::vector<std::string> files;
+    for (const auto& entry : std::filesystem::directory_iterator(meta_root)) {
+      std::string path = entry.path();
+      size_t pos = path.find("/minigraph_meta/");
+      size_t pos2 = path.find(".bin");
+      int type_length = std::string("/minigraph_meta/").length();
+      std::string gid_str =
+          path.substr(pos + type_length, pos2 - pos - type_length);
+      GID_T gid = (GID_T)std::stoi(gid_str);
+      auto iter = pt_by_gid.find(gid);
+      if (iter == pt_by_gid.end()) {
+        Path _path;
+        _path.meta_pt = path;
+        pt_by_gid.insert(std::make_pair(gid, _path));
+      } else {
+        iter->second.meta_pt = path;
+      }
+    }
+
+    for (const auto& entry : std::filesystem::directory_iterator(data_root)) {
+      std::string path = entry.path();
+      size_t pos = path.find("/minigraph_data/");
+      size_t pos2 = path.find(".bin");
+      int type_length = std::string("/minigraph_data/").length();
+      std::string gid_str =
+          path.substr(pos + type_length, pos2 - pos - type_length);
+      GID_T gid = (GID_T)std::stoi(gid_str);
+      auto iter = pt_by_gid.find(gid);
+      if (iter == pt_by_gid.end()) {
+        Path _path;
+        _path.data_pt = path;
+        pt_by_gid.insert(std::make_pair(gid, _path));
+      } else {
+        iter->second.data_pt = path;
+      }
+    }
+    for (const auto& entry : std::filesystem::directory_iterator(vdata_root)) {
+      std::string path = entry.path();
+      size_t pos = path.find("/minigraph_vdata/");
+      size_t pos2 = path.find(".bin");
+      int type_length = std::string("/minigraph_vdata/").length();
+      std::string gid_str =
+          path.substr(pos + type_length, pos2 - pos - type_length);
+      GID_T gid = (GID_T)std::stoi(gid_str);
+      auto iter = pt_by_gid.find(gid);
+      if (iter == pt_by_gid.end()) {
+        Path _path;
+        _path.vdata_pt = path;
+        pt_by_gid.insert(std::make_pair(gid, _path));
+      } else {
+        iter->second.vdata_pt = path;
+      }
+    }
+    for (auto iter = pt_by_gid.begin(); iter != pt_by_gid.end(); iter++) {
+      LOG_INFO(iter->first, " ");
+    }
+    return pt_by_gid;
   }
 
  private:

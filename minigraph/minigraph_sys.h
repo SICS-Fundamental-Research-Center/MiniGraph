@@ -1,6 +1,15 @@
 #ifndef MINIGRAPH_MINIGRAPH_SYS_H
 #define MINIGRAPH_MINIGRAPH_SYS_H
 
+#include "2d_pie/auto_app_base.h"
+#include "components/computing_component.h"
+#include "components/discharge_component.h"
+#include "components/load_component.h"
+#include "message_manager/default_message_manager.h"
+#include "utility/io/data_mngr.h"
+#include "utility/paritioner/edge_cut_partitioner.h"
+#include "utility/state_machine.h"
+#include <folly/synchronization/NativeSemaphore.h>
 #include <condition_variable>
 #include <dirent.h>
 #include <filesystem>
@@ -11,19 +20,8 @@
 #include <sstream>
 #include <string>
 #include <thread>
+#include <unistd.h>
 #include <vector>
-
-#include <folly/AtomicHashMap.h>
-#include <folly/synchronization/NativeSemaphore.h>
-
-#include "2d_pie/auto_app_base.h"
-#include "components/computing_component.h"
-#include "components/discharge_component.h"
-#include "components/load_component.h"
-#include "message_manager/default_message_manager.h"
-#include "utility/io/data_mngr.h"
-#include "utility/paritioner/edge_cut_partitioner.h"
-#include "utility/state_machine.h"
 
 namespace minigraph {
 
@@ -48,25 +46,27 @@ class MiniGraphSys {
                const size_t num_iter = 30, std::string scheduler = "FIFO") {
     assert(num_workers_dc > 0 && num_workers_cc > 0 && num_workers_dc > 0 &&
            num_cores / num_workers_cc >= 1);
+    assert(buffer_size >= 1);
 
     // configure sys.
     LOG_INFO("WorkSpace: ", work_space, " num_workers_lc: ", num_workers_lc,
              ", num_workers_cc: ", num_workers_cc,
-             ", num_worker_dc: ", num_workers_dc, ", num_threads: ", num_cores);
+             ", num_worker_dc: ", num_workers_dc, ", num_threads: ", num_cores,
+             ", buffer size: ", buffer_size);
 
     num_threads_ = 3;
-    InitWorkList(work_space);
 
     // init Data Manager.
     data_mngr_ = std::make_unique<utility::io::DataMngr<GRAPH_T>>();
+    data_mngr_->InitWorkList(work_space);
 
     // init Message Manager
     msg_mngr_ = std::make_unique<message::DefaultMessageManager<GRAPH_T>>(
         data_mngr_.get(), work_space, false);
     msg_mngr_->Init(work_space);
 
-    pt_by_gid_ = new folly::AtomicHashMap<GID_T, Path>(8096);
-    InitPtByGid(work_space);
+    pt_by_gid_ = std::make_unique<std::unordered_map<GID_T, Path>>(
+        data_mngr_->InitPtByGid(work_space));
 
     // init global superstep
     global_superstep_ = new std::atomic<size_t>(0);
@@ -86,9 +86,12 @@ class MiniGraphSys {
       read_trigger_->push(iter);
     }
 
+    // init load sem
+    load_sem_ = std::make_unique<folly::NativeSemaphore>(buffer_size);
+
     // init task queue
     task_queue_ = std::make_unique<folly::ProducerConsumerQueue<GID_T>>(
-        num_workers_cc + 2);
+        buffer_size >= 2 ? buffer_size : 2);
 
     // init partial result queue
     partial_result_queue_ = std::make_unique<std::queue<GID_T>>();
@@ -131,9 +134,9 @@ class MiniGraphSys {
 
     // init components
     load_component_ = std::make_unique<components::LoadComponent<GRAPH_T>>(
-        num_workers_lc, lc_thread_pool_.get(), superstep_by_gid_,
+        buffer_size, load_sem_.get(), lc_thread_pool_.get(), superstep_by_gid_,
         global_superstep_, state_machine_, read_trigger_.get(),
-        task_queue_.get(), partial_result_queue_.get(), pt_by_gid_,
+        task_queue_.get(), partial_result_queue_.get(), pt_by_gid_.get(),
         data_mngr_.get(), msg_mngr_.get(), read_trigger_lck_.get(),
         read_trigger_cv_.get(), task_queue_cv_.get(), partial_result_cv_.get(),
         mode, scheduler);
@@ -146,12 +149,12 @@ class MiniGraphSys {
             partial_result_cv_.get());
     discharge_component_ =
         std::make_unique<components::DischargeComponent<GRAPH_T>>(
-            num_workers_dc, dc_thread_pool_.get(), superstep_by_gid_,
-            global_superstep_, state_machine_, partial_result_queue_.get(),
-            task_queue_.get(), read_trigger_.get(), pt_by_gid_,
-            data_mngr_.get(), msg_mngr_.get(), partial_result_lck_.get(),
-            partial_result_cv_.get(), task_queue_cv_.get(),
-            read_trigger_cv_.get(), system_switch_.get(),
+            num_workers_dc, load_sem_.get(), dc_thread_pool_.get(),
+            superstep_by_gid_, global_superstep_, state_machine_,
+            partial_result_queue_.get(), task_queue_.get(), read_trigger_.get(),
+            pt_by_gid_.get(), data_mngr_.get(), msg_mngr_.get(),
+            partial_result_lck_.get(), partial_result_cv_.get(),
+            task_queue_cv_.get(), read_trigger_cv_.get(), system_switch_.get(),
             system_switch_lck_.get(), system_switch_cv_.get(), num_iter, mode);
     LOG_INFO("Init MiniGraphSys: Finish.");
   };
@@ -182,10 +185,9 @@ class MiniGraphSys {
     auto task_dc = std::bind(&components::DischargeComponent<GRAPH_T>::Run,
                              discharge_component_.get());
 
-    this->thread_pool_->Commit(task_lc);
-    this->thread_pool_->Commit(task_cc);
     this->thread_pool_->Commit(task_dc);
-
+    this->thread_pool_->Commit(task_cc);
+    this->thread_pool_->Commit(task_lc);
     auto start_time = std::chrono::system_clock::now();
     read_trigger_cv_->notify_all();
     task_queue_cv_->notify_all();
@@ -193,7 +195,6 @@ class MiniGraphSys {
     system_switch_cv_->wait(*system_switch_lck_,
                             [&] { return !system_switch_->load(); });
     auto end_time = std::chrono::system_clock::now();
-    // data_mngr_->CleanUp();
 
     std::cout << "         #### RUNSYS(): Finish"
               << ", Elapse time: "
@@ -207,34 +208,10 @@ class MiniGraphSys {
     return true;
   }
 
-  void ShowResult(const size_t num_vertexes_to_show = 20,
-                  char separator_params = ',') {
-    LOG_INFO("**************Show Result****************");
-    for (auto& iter : *pt_by_gid_) {
-      GID_T gid = iter.first;
-      Path path = iter.second;
-      auto graph = new GRAPH_T;
-      if (IsSameType<GRAPH_T, CSR_T>()) {
-        data_mngr_->csr_io_adapter_->Read((GRAPH_BASE_T*)graph, csr_bin, gid,
-                                          path.meta_pt, path.data_pt,
-                                          path.vdata_pt);
-        ((CSR_T*)graph)->ShowGraph(num_vertexes_to_show);
-      } else if (IsSameType<GRAPH_T, EDGE_LIST_T>()) {
-        data_mngr_->edge_list_io_adapter_->Read(
-            (GRAPH_BASE_T*)graph, edgelist_bin, separator_params, gid,
-            path.meta_pt, path.data_pt, path.vdata_pt);
-        ((EDGE_LIST_T*)graph)->ShowGraph(num_vertexes_to_show);
-      }
-    }
-    if (msg_mngr_->GetPartialMatch() != nullptr)
-      msg_mngr_->GetPartialMatch()->ShowMatchingSolutions();
-  }
-
-  utility::io::DataMngr<GRAPH_T>* GetDataMngr() { return data_mngr_.get(); }
-
  private:
   // file path by gid.
-  folly::AtomicHashMap<GID_T, Path>* pt_by_gid_ = nullptr;
+  // folly::AtomicHashMap<GID_T, Path>* pt_by_gid_ = nullptr;
+  std::unique_ptr<std::unordered_map<GID_T, Path>> pt_by_gid_ = nullptr;
 
   // thread pool.
   size_t num_threads_ = 0;
@@ -249,6 +226,9 @@ class MiniGraphSys {
 
   // state machine.
   utility::StateMachine<GID_T>* state_machine_ = nullptr;
+
+  // load semaphore
+  std::unique_ptr<folly::NativeSemaphore> load_sem_;
 
   // task queue.
   std::unique_ptr<folly::ProducerConsumerQueue<GID_T>> task_queue_ = nullptr;
@@ -289,76 +269,6 @@ class MiniGraphSys {
   std::unique_ptr<std::mutex> system_switch_mtx_ = nullptr;
   std::unique_ptr<std::unique_lock<std::mutex>> system_switch_lck_ = nullptr;
   std::unique_ptr<std::condition_variable> system_switch_cv_ = nullptr;
-
-  void InitWorkList(const std::string& work_space) {
-    std::string meta_root = work_space + "minigraph_meta/";
-    std::string data_root = work_space + "minigraph_data/";
-    std::string vdata_root = work_space + "minigraph_vdata/";
-    if (!data_mngr_->Exist(meta_root)) data_mngr_->MakeDirectory(meta_root);
-    if (!data_mngr_->Exist(data_root)) data_mngr_->MakeDirectory(data_root);
-    if (!data_mngr_->Exist(vdata_root)) data_mngr_->MakeDirectory(vdata_root);
-  }
-
-  bool InitPtByGid(const std::string& work_space) {
-    std::string meta_root = work_space + "minigraph_meta/";
-    std::string data_root = work_space + "minigraph_data/";
-    std::string vdata_root = work_space + "minigraph_vdata/";
-
-    std::vector<std::string> files;
-    for (const auto& entry : std::filesystem::directory_iterator(meta_root)) {
-      std::string path = entry.path();
-      size_t pos = path.find("/minigraph_meta/");
-      size_t pos2 = path.find(".bin");
-      int type_length = std::string("/minigraph_meta/").length();
-      std::string gid_str =
-          path.substr(pos + type_length, pos2 - pos - type_length);
-      GID_T gid = (GID_T)std::stoi(gid_str);
-      auto iter = pt_by_gid_->find(gid);
-      if (iter == pt_by_gid_->end()) {
-        Path _path;
-        _path.meta_pt = path;
-        pt_by_gid_->insert(gid, _path);
-      } else {
-        iter->second.meta_pt = path;
-      }
-    }
-
-    for (const auto& entry : std::filesystem::directory_iterator(data_root)) {
-      std::string path = entry.path();
-      size_t pos = path.find("/minigraph_data/");
-      size_t pos2 = path.find(".bin");
-      int type_length = std::string("/minigraph_data/").length();
-      std::string gid_str =
-          path.substr(pos + type_length, pos2 - pos - type_length);
-      GID_T gid = (GID_T)std::stoi(gid_str);
-      auto iter = pt_by_gid_->find(gid);
-      if (iter == pt_by_gid_->end()) {
-        Path _path;
-        _path.data_pt = path;
-        pt_by_gid_->insert(gid, _path);
-      } else {
-        iter->second.data_pt = path;
-      }
-    }
-    for (const auto& entry : std::filesystem::directory_iterator(vdata_root)) {
-      std::string path = entry.path();
-      size_t pos = path.find("/minigraph_vdata/");
-      size_t pos2 = path.find(".bin");
-      int type_length = std::string("/minigraph_vdata/").length();
-      std::string gid_str =
-          path.substr(pos + type_length, pos2 - pos - type_length);
-      GID_T gid = (GID_T)std::stoi(gid_str);
-      auto iter = pt_by_gid_->find(gid);
-      if (iter == pt_by_gid_->end()) {
-        Path _path;
-        _path.vdata_pt = path;
-        pt_by_gid_->insert(gid, _path);
-      } else {
-        iter->second.vdata_pt = path;
-      }
-    }
-    return true;
-  }
 };
 
 }  // namespace minigraph

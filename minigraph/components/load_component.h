@@ -39,14 +39,15 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
 
  public:
   LoadComponent(
-      const size_t num_workers, utility::EDFThreadPool* thread_pool,
+      const size_t buffer_size, folly::NativeSemaphore* load_sem,
+      utility::EDFThreadPool* thread_pool,
       std::unordered_map<GID_T, std::atomic<size_t>*>* superstep_by_gid,
       std::atomic<size_t>* global_superstep,
       utility::StateMachine<GID_T>* state_machine,
       std::queue<GID_T>* read_trigger,
       folly::ProducerConsumerQueue<GID_T>* task_queue,
       std::queue<GID_T>* partial_result_queue,
-      folly::AtomicHashMap<GID_T, Path>* pt_by_gid,
+      std::unordered_map<GID_T, Path>* pt_by_gid,
       utility::io::DataMngr<GRAPH_T>* data_mngr,
       message::DefaultMessageManager<GRAPH_T>* msg_mngr,
       std::unique_lock<std::mutex>* read_trigger_lck,
@@ -56,7 +57,8 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       std::string scheduler = "FIFO")
       : ComponentBase<GID_T>(thread_pool, superstep_by_gid, global_superstep,
                              state_machine) {
-    num_workers_ = num_workers;
+    load_sem_ = load_sem;
+    buffer_size_ = buffer_size;
     pt_by_gid_ = pt_by_gid;
     data_mngr_ = data_mngr;
     msg_mngr_ = msg_mngr;
@@ -90,11 +92,12 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
 
   void Run() override {
     LOG_INFO("Run LC");
-    folly::NativeSemaphore sem(num_workers_);
+    folly::NativeSemaphore sem(buffer_size_);
     while (switch_) {
       GID_T gid = MINIGRAPH_GID_MAX;
-      read_trigger_cv_->wait(*read_trigger_lck_,
-                             [&] { return !read_trigger_->empty(); });
+      read_trigger_cv_->wait(*read_trigger_lck_, [&] {
+        return !read_trigger_->empty() || !switch_;
+      });
       if (!switch_) return;
 
       std::queue<GID_T> que_gid;
@@ -107,10 +110,9 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       }
       while (!vec_gid.empty()) {
         gid = scheduler_->ChooseOne(vec_gid);
-        sem.try_wait();
-        auto task = std::bind(&components::LoadComponent<GRAPH_T>::ProcessGraph,
-                              this, gid, sem, mode_);
-        this->thread_pool_->Commit(task);
+        load_sem_->wait();
+        // sem.try_wait();
+        ProcessGraph(gid, sem, mode_);
       }
     }
   }
@@ -118,25 +120,9 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
   void Stop() override { switch_ = false; }
 
  private:
-  size_t num_workers_;
-  std::queue<GID_T>* read_trigger_ = nullptr;
-  folly::ProducerConsumerQueue<GID_T>* task_queue_ = nullptr;
-  std::queue<GID_T>* partial_result_queue_ = nullptr;
-  folly::AtomicHashMap<GID_T, Path>* pt_by_gid_ = nullptr;
-  utility::io::DataMngr<GRAPH_T>* data_mngr_ = nullptr;
-  message::DefaultMessageManager<GRAPH_T>* msg_mngr_ = nullptr;
-  bool switch_ = true;
-  std::unique_lock<std::mutex>* read_trigger_lck_ = nullptr;
-  std::condition_variable* read_trigger_cv_ = nullptr;
-  std::condition_variable* task_queue_cv_ = nullptr;
-  std::condition_variable* partial_result_cv_ = nullptr;
-
-  std::string mode_ = "default";
-
-  minigraph::scheduler::SubGraphsSchedulerBase<GID_T>* scheduler_ = nullptr;
-
   void ProcessGraph(GID_T gid, folly::NativeSemaphore& sem,
                     std::string mode = "default") {
+    LOG_INFO("ProcessGraph", gid);
     auto read = false;
     if (this->get_global_superstep() == 0) {
       read = true;
@@ -172,6 +158,7 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
         LOG_ERROR("Read graph fault: ", gid);
       }
       sem.post();
+      // LOG_INFO("post", gid);
     } else {
       LOG_INFO("LC ShortCut", gid);
       this->add_superstep_via_gid(gid);
@@ -179,7 +166,30 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       this->state_machine_->ProcessEvent(gid, SHORTCUTREAD);
       partial_result_cv_->notify_all();
     }
+    LOG_INFO("finished");
+    return;
   }
+
+  size_t buffer_size_ = 1;
+
+  std::queue<GID_T>* read_trigger_ = nullptr;
+  folly::NativeSemaphore* load_sem_ = nullptr;
+  folly::ProducerConsumerQueue<GID_T>* task_queue_ = nullptr;
+  std::queue<GID_T>* partial_result_queue_ = nullptr;
+  std::unordered_map<GID_T, Path>* pt_by_gid_ = nullptr;
+
+  utility::io::DataMngr<GRAPH_T>* data_mngr_ = nullptr;
+  message::DefaultMessageManager<GRAPH_T>* msg_mngr_ = nullptr;
+
+  bool switch_ = true;
+  std::unique_lock<std::mutex>* read_trigger_lck_ = nullptr;
+  std::condition_variable* read_trigger_cv_ = nullptr;
+  std::condition_variable* task_queue_cv_ = nullptr;
+  std::condition_variable* partial_result_cv_ = nullptr;
+
+  std::string mode_ = "default";
+
+  minigraph::scheduler::SubGraphsSchedulerBase<GID_T>* scheduler_ = nullptr;
 };
 
 }  // namespace components

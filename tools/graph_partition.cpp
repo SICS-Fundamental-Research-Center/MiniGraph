@@ -1,9 +1,9 @@
-#include <gflags/gflags.h>
 #include <sys/stat.h>
 #include <iostream>
 #include <string>
 
 #include "yaml-cpp/yaml.h"
+#include <gflags/gflags.h>
 
 #include "graphs/edgelist.h"
 #include "graphs/immutable_csr.h"
@@ -11,6 +11,7 @@
 #include "portability/sys_types.h"
 #include "utility/io/data_mngr.h"
 #include "utility/io/edge_list_io_adapter.h"
+#include "utility/paritioner/2DVC_partitioner.h"
 #include "utility/paritioner/edge_cut_partitioner.h"
 #include "utility/paritioner/hybrid_cut_partitioner.h"
 #include "utility/paritioner/partitioner_base.h"
@@ -29,7 +30,7 @@ void GraphPartitionEdgeList2CSR(std::string src_pt, std::string dst_pt,
                                 const bool frombin = false,
                                 const std::string t_partitioner = "edgecut") {
   assert(t_partitioner == "edgecut" || t_partitioner == "vertexcut" ||
-         t_partitioner == "hybridcut");
+         t_partitioner == "hybridcut" || t_partitioner == "2dvc");
 
   minigraph::utility::io::DataMngr<CSR_T> data_mngr;
   // Clean dst path.
@@ -90,6 +91,9 @@ void GraphPartitionEdgeList2CSR(std::string src_pt, std::string dst_pt,
   else if (t_partitioner == "hybridcut")
     partitioner =
         new minigraph::utility::partitioner::HybridCutPartitioner<CSR_T>();
+  else if (t_partitioner == "2dvc")
+    partitioner =
+        new minigraph::utility::partitioner::TwoDVCPartitioner < CSR_T > ();
 
   // Read Graph
   auto edgelist_graph = new EDGE_LIST_T;
@@ -133,25 +137,23 @@ void GraphPartitionEdgeList2CSR(std::string src_pt, std::string dst_pt,
   delete partitioner;
   LOG_INFO("Write StatisticInfo.");
 
+  size_t count = 0;
   // Might used in generating training data.
-  // for (auto& iter_fragments : *fragments) {
-  //   auto fragment = (CSR_T*)iter_fragments;
-  //   std::string meta_pt =
-  //       dst_pt + "minigraph_meta/" + std::to_string(count) + ".bin";
-  //   std::string data_pt =
-  //       dst_pt + "minigraph_data/" + std::to_string(count) + ".bin";
-  //   std::string vdata_pt =
-  //       dst_pt + "minigraph_vdata/" + std::to_string(count) + ".bin";
-  //   data_mngr.csr_io_adapter_->Write(*fragment, csr_bin, false, meta_pt,
-  //                                    data_pt, vdata_pt);
-  //   StatisticInfo&& si = ParallelSetStatisticInfo(*fragment, cores);
-  //   std::string si_pt =
-  //       dst_pt + "minigraph_si/" + std::to_string(count) + ".yaml";
-  //   data_mngr.WriteStatisticInfo(si, si_pt);
-  //   count++;
-  // }
+  for (auto& iter_fragments : *fragments) {
+    auto fragment = (CSR_T*)iter_fragments;
+    std::string meta_pt =
+        dst_pt + "minigraph_meta/" + std::to_string(count) + ".bin";
+    std::string data_pt =
+        dst_pt + "minigraph_data/" + std::to_string(count) + ".bin";
+    std::string vdata_pt =
+        dst_pt + "minigraph_vdata/" + std::to_string(count) + ".bin";
+    data_mngr.csr_io_adapter_->Write(*fragment, csr_bin, false, meta_pt,
+                                     data_pt, vdata_pt);
+    count++;
+  }
 
   LOG_INFO("End graph partition#");
+  return;
 }
 
 int main(int argc, char* argv[]) {
@@ -173,6 +175,7 @@ int main(int argc, char* argv[]) {
     GraphPartitionEdgeList2CSR(src_pt, dst_pt, cores, num_partitions,
                                *FLAGS_sep.c_str(), FLAGS_frombin,
                                FLAGS_partitioner);
+    LOG_INFO("Finished: save at ", dst_pt);
   }
 
   gflags::ShutDownCommandLineFlags();

@@ -1,6 +1,16 @@
 #ifndef MINIGRAPH_2D_PIE_AUTO_MAP_REDUCE_H
 #define MINIGRAPH_2D_PIE_AUTO_MAP_REDUCE_H
 
+#include <condition_variable>
+#include <functional>
+#include <future>
+#include <vector>
+
+#include <folly/MPMCQueue.h>
+#include <folly/ProducerConsumerQueue.h>
+#include <folly/concurrency/DynamicBoundedQueue.h>
+#include <folly/executors/ThreadPoolExecutor.h>
+
 #include "executors/task_runner.h"
 #include "graphs/graph.h"
 #include "graphs/immutable_csr.h"
@@ -9,14 +19,6 @@
 #include "utility/atomic.h"
 #include "utility/bitmap.h"
 #include "utility/thread_pool.h"
-#include <folly/MPMCQueue.h>
-#include <folly/ProducerConsumerQueue.h>
-#include <folly/concurrency/DynamicBoundedQueue.h>
-#include <folly/executors/ThreadPoolExecutor.h>
-#include <condition_variable>
-#include <functional>
-#include <future>
-#include <vector>
 
 namespace minigraph {
 
@@ -59,9 +61,7 @@ class AutoMapBase {
                             vid_map, visited, si);
       tasks.push_back(task);
     }
-    // LOG_INFO("ActiveEMap");
     task_runner->Run(tasks, false);
-    // LOG_INFO(global_visited);
     return global_visited;
   };
 
@@ -116,7 +116,6 @@ class AutoMapBase {
     }
     // LOG_INFO("AutoMap ActiveMap Run");
     task_runner->Run(tasks, false);
-    // LOG_INFO("# ");
     return;
   };
 
@@ -151,7 +150,7 @@ class AutoMapBase {
           local_id = vid_map[u.out_edges[i]];
         else
           local_id = graph->globalid2localid(u.out_edges[i]);
-        assert(local_id != VID_MAX);
+        // assert(local_id != VID_MAX);
         VertexInfo&& v = graph->GetVertexByVid(local_id);
         if (F(u, v)) {
           out_visited->set_bit(local_id);

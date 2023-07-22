@@ -59,8 +59,7 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
         std::make_unique<executors::ScheduledExecutor>(kTotalParallelism);
     p_ = (size_t*)malloc(sizeof(size_t) * superstep_by_gid->size());
     for (size_t i = 0; i < superstep_by_gid->size(); i++)
-      p_[i] = (size_t) num_cores / num_workers;
-
+      p_[i] = (size_t)num_cores / num_workers;
 
     XLOG(INFO,
          "Init ComputingComponent: Finish. TotalParallelism: ", num_cores_);
@@ -72,20 +71,22 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
     LOG_INFO("Run CC");
     folly::NativeSemaphore sem(num_workers_);
     std::queue<GID_T> que_gid;
-    while (this->switch_.load()) {
+    while (this->switch_) {
       std::vector<GID_T> vec_gid;
       GID_T gid = MINIGRAPH_GID_MAX;
-      task_queue_cv_->wait(*task_queue_lck_,
-                           [&] { return !task_queue_->isEmpty(); });
-      if (!this->switch_.load()) return;
+      task_queue_cv_->wait(*task_queue_lck_, [&] {
+        return !task_queue_->isEmpty() || !this->switch_;
+      });
+      if (!this->switch_) return;
       while (!task_queue_->read(gid))
         ;
       vec_gid.push_back(gid);
       que_gid.push(gid);
       while (!que_gid.empty()) {
         gid = que_gid.front();
+        LOG_INFO(gid);
         que_gid.pop();
-        sem.try_wait();
+        // sem.try_wait();
         auto task = std::bind(
             &components::ComputingComponent<GRAPH_T, AUTOAPP_T>::ProcessGraph,
             this, gid, sem);
@@ -94,37 +95,14 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
     }
   }
 
-  void Stop() override { this->switch_.store(false); }
+  void Stop() override { this->switch_ = false; }
 
  private:
-  size_t num_workers_ = 0;
-  size_t num_cores_ = 0;
-  size_t* p_ = nullptr;
-  std::atomic<bool> switch_ = true;
-
-  // task_queue.
-  folly::ProducerConsumerQueue<GID_T>* task_queue_ = nullptr;
-  std::queue<GID_T>* partial_result_queue_ = nullptr;
-
-  // data manager.
-  utility::io::DataMngr<GRAPH_T>* data_mngr_ = nullptr;
-
-  // 2D-PIE app wrapper.
-  APP_WARP* app_wrapper_ = nullptr;
-
-  // cv && lck.
-  std::unique_ptr<executors::ScheduledExecutor> scheduled_executor_ = nullptr;
-  std::unique_lock<std::mutex>* task_queue_lck_;
-  std::condition_variable* partial_result_cv_ = nullptr;
-  std::condition_variable* task_queue_cv_ = nullptr;
-
-  std::unique_ptr<std::mutex> executor_mtx_;
-
   void ProcessGraph(const GID_T& gid, folly::NativeSemaphore& sem) {
-    // executor_cv_->wait(*executor_lck_, [&] { return true; });
+    LOG_INFO("ProcessGraph", gid);
     GRAPH_T* graph = (GRAPH_T*)data_mngr_->GetGraph(gid);
-    executors::TaskRunner* task_runner = scheduled_executor_->RequestTaskRunner(
-        {1, (unsigned)p_[gid]});
+    executors::TaskRunner* task_runner =
+        scheduled_executor_->RequestTaskRunner({1, (unsigned)p_[gid]});
     if (this->get_superstep_via_gid(gid) == 0) {
       app_wrapper_->auto_app_->Init(*graph, task_runner);
       app_wrapper_->auto_app_->PEval(*graph, task_runner);
@@ -138,9 +116,31 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
     this->add_superstep_via_gid(gid);
     partial_result_queue_->push(gid);
     partial_result_cv_->notify_all();
-    sem.post();
+    // sem.post();
     return;
   }
+
+  size_t num_workers_ = 0;
+  size_t num_cores_ = 0;
+  size_t* p_ = nullptr;
+  bool switch_ = true;
+
+  // task_queue.
+  folly::ProducerConsumerQueue<GID_T>* task_queue_ = nullptr;
+  std::queue<GID_T>* partial_result_queue_ = nullptr;
+
+  // data manager.
+  utility::io::DataMngr<GRAPH_T>* data_mngr_ = nullptr;
+
+  // 2D-PIE app wrapper.
+  APP_WARP* app_wrapper_ = nullptr;
+  // cv && lck.
+  std::unique_ptr<executors::ScheduledExecutor> scheduled_executor_ = nullptr;
+  std::unique_lock<std::mutex>* task_queue_lck_;
+  std::condition_variable* partial_result_cv_ = nullptr;
+  std::condition_variable* task_queue_cv_ = nullptr;
+
+  std::unique_ptr<std::mutex> executor_mtx_;
 };
 
 }  // namespace components
