@@ -9,12 +9,12 @@ using vid_t = unsigned;
 using vdata_t = unsigned;
 using edata_t = size_t;
 
-#define VID_MAX 16843009
-#define VDATA_MAX 0XFFFFFFF
-#define EDATA_MAX 0XFFFFFFF
-#define GID_MAX 0XFFFFFFF
+#define VID_MAX 0XFFFFFFFFFFFFFFFF
+#define VDATA_MAX 0XFFFFFFFFFFFFFFF
+#define EDATA_MAX 0XFFFFFFFFFFFFFFF
+#define GID_MAX 0XFFFFFFFFFFFFFFF
 #define MINIGRAPH_GID_MAX (((unsigned)(-1)) >> 1)
-#define ALIGNMENT_FACTOR (double)64
+#define ALIGNMENT_FACTOR (double)64.0
 #define NUM_NEW_BUCKETS 1
 
 

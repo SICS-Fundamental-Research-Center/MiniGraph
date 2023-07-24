@@ -1,14 +1,16 @@
 #ifndef MINIGRAPH_GRAPHS_GRAPH_H
 #define MINIGRAPH_GRAPHS_GRAPH_H
 
-#include "portability/sys_types.h"
-#include "utility/bitmap.h"
-#include <folly/AtomicHashMap.h>
-#include <folly/FBString.h>
-#include <folly/Range.h>
 #include <iostream>
 #include <string>
 #include <unordered_map>
+
+#include "portability/sys_types.h"
+#include "utility/bitmap.h"
+
+#include <folly/AtomicHashMap.h>
+#include <folly/FBString.h>
+#include <folly/Range.h>
 
 namespace minigraph {
 namespace graphs {
@@ -85,7 +87,7 @@ class VertexInfo {
       return out_edges[rand() % outdegree];
   }
 
-  VDATA_T && get_vdata(size_t i){
+  VDATA_T&& get_vdata(size_t i) {
     LOG_INFO("get_vdata:", i);
     return edata[i];
   }
@@ -166,4 +168,5 @@ class Graph {
 
 }  // namespace graphs
 }  // namespace minigraph
+
 #endif  // MINIGRAPH_GRAPHS_GRAPH_H

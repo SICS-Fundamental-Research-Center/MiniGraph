@@ -7,17 +7,19 @@
 #include <string>
 #include <unordered_map>
 
-#include <folly/AtomicHashArray.h>
-#include <folly/AtomicHashMap.h>
-#include <folly/FileUtil.h>
-
 #include "graphs/immutable_csr.h"
 #include "io_adapter_base.h"
 #include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
+
 #include "rapidcsv.h"
+#include "utility/atomic.h"
 #include "utility/bitmap.h"
 #include "utility/logging.h"
+#include <folly/AtomicHashArray.h>
+#include <folly/AtomicHashMap.h>
+#include <folly/FileUtil.h>
+
 
 namespace minigraph {
 namespace utility {
@@ -99,8 +101,6 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
         ALIGNMENT_FACTOR;
 
     std::atomic<size_t> pending_packages(cores);
-    LOG_INFO("Aligned max vid: ", aligned_max_vid, "  ",
-             edgelist_graph->get_max_vid());
 
     size_t* num_in_edges = (size_t*)malloc(sizeof(size_t) * aligned_max_vid);
     size_t* num_out_edges = (size_t*)malloc(sizeof(size_t) * aligned_max_vid);
@@ -119,20 +119,16 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
         num_edges);
     pending_packages.store(cores);
     for (size_t tid = 0; tid < cores; tid++) {
-      thread_pool.Commit([tid, &cores, &num_in_edges, &num_out_edges,
+      thread_pool.Commit([tid, &cores, &num_in_edges, &num_out_edges, &mtx,
                           &num_edges, &edgelist_graph, &vertex_indicator,
                           &pending_packages, &finish_cv, &num_vertexes]() {
         for (size_t j = tid; j < num_edges; j += cores) {
           auto src_vid = edgelist_graph->buf_graph_[j * 2];
           auto dst_vid = edgelist_graph->buf_graph_[j * 2 + 1];
-          if (!vertex_indicator->get_bit(src_vid)) {
-            vertex_indicator->set_bit(src_vid);
-          }
-          if (!vertex_indicator->get_bit(dst_vid)) {
-            vertex_indicator->set_bit(dst_vid);
-          }
-          __sync_add_and_fetch(num_out_edges + src_vid, 1);
-          __sync_add_and_fetch(num_in_edges + dst_vid, 1);
+          write_add(num_out_edges + src_vid, (size_t)1);
+          write_add(num_in_edges + dst_vid, (size_t)1);
+          vertex_indicator->set_bit(src_vid);
+          vertex_indicator->set_bit(dst_vid);
         }
         if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
         return;
@@ -141,6 +137,7 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
 
     graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>** vertexes = nullptr;
+
     vertexes = (graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>**)malloc(
         sizeof(graphs::VertexInfo<VID_T, VDATA_T, EDATA_T>*) * aligned_max_vid);
 
@@ -195,12 +192,12 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
           auto dst_vid = edgelist_graph->buf_graph_[global_eid * 2 + 1];
           assert(vertexes[src_vid] != nullptr);
           assert(vertexes[dst_vid] != nullptr);
-          vertexes[src_vid]
-              ->out_edges[__sync_fetch_and_add(offset_out_edges + src_vid, 1)] =
-              dst_vid;
-          vertexes[dst_vid]
-              ->in_edges[__sync_fetch_and_add(offset_in_edges + dst_vid, 1)] =
-              src_vid;
+          auto local_out_edges_offset =
+              __sync_fetch_and_add(offset_out_edges + src_vid, 1);
+          auto local_in_edges_offset =
+              __sync_fetch_and_add(offset_in_edges + dst_vid, 1);
+          vertexes[src_vid]->out_edges[local_out_edges_offset] = dst_vid;
+          vertexes[dst_vid]->in_edges[local_in_edges_offset] = src_vid;
         }
         if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
         return;
