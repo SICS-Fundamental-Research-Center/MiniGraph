@@ -387,7 +387,7 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     memset(((EDGE_LIST_T*)graph)->vdata_, 0,
            sizeof(VDATA_T) * graph->get_num_vertexes());
 
-    ((EDGE_LIST_T*)graph)->ShowGraph(100);
+    ((EDGE_LIST_T*)graph)->ShowGraph(3);
     return true;
   }
 

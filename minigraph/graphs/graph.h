@@ -63,34 +63,6 @@ class VertexInfo {
     }
     std::cout << "----------------------------" << std::endl;
   }
-
-  bool IsChildrens(const VID_T vid) const {
-    if (outdegree == 0) return false;
-    for (size_t i = 0; i < outdegree; i++) {
-      if (out_edges[i] == vid) return true;
-    }
-    return false;
-  }
-
-  bool IsParrents(const VID_T vid) const {
-    if (indegree == 0) return false;
-    for (size_t i = 0; i < indegree; i++) {
-      if (in_edges[i] == vid) return true;
-    }
-    return false;
-  }
-
-  VID_T get_random_out_edge() {
-    if (outdegree == 0)
-      return VID_MAX;
-    else
-      return out_edges[rand() % outdegree];
-  }
-
-  VDATA_T&& get_vdata(size_t i) {
-    LOG_INFO("get_vdata:", i);
-    return edata[i];
-  }
 };
 
 template <typename GID_T, typename VID_T, typename VDATA_T, typename EDATA_T>

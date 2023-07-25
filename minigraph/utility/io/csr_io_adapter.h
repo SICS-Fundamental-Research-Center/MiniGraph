@@ -117,7 +117,6 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
         "Run: Go through every edges to count the size of each vertex. "
         "NumEdges: ",
         num_edges);
-    pending_packages.store(cores);
     for (size_t tid = 0; tid < cores; tid++) {
       thread_pool.Commit([tid, &cores, &num_in_edges, &num_out_edges, &mtx,
                           &num_edges, &edgelist_graph, &vertex_indicator,
@@ -217,6 +216,8 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     auto csr_graph = new graphs::ImmutableCSR<GID_T, VID_T, VDATA_T, EDATA_T>(
         gid, vertexes, edgelist_graph->num_vertexes_, sum_in_edges,
         sum_out_edges, edgelist_graph->max_vid_);
+    csr_graph->ShowGraph();
+    LOG_INFO("1");
     delete offset_out_edges;
     delete offset_in_edges;
     delete num_in_edges;
@@ -421,6 +422,8 @@ class CSRIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
 
     graph->is_serialized_ = true;
     graph->gid_ = gid;
+    graph->ShowGraph();
+    while(1);
     return true;
   }
 
