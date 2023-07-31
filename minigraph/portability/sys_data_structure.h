@@ -12,6 +12,7 @@
 #include "graphs/immutable_csr.h"
 #include "portability/sys_data_structure.h"
 #include "utility/thread_pool.h"
+#include "utility/logging.h"
 
 #define BIG_CONSTANT(x) (x##LLU)
 

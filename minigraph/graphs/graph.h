@@ -1,14 +1,16 @@
 #ifndef MINIGRAPH_GRAPHS_GRAPH_H
 #define MINIGRAPH_GRAPHS_GRAPH_H
 
-#include "portability/sys_types.h"
-#include "utility/bitmap.h"
-#include <folly/AtomicHashMap.h>
-#include <folly/FBString.h>
-#include <folly/Range.h>
 #include <iostream>
 #include <string>
 #include <unordered_map>
+
+#include "portability/sys_types.h"
+#include "utility/bitmap.h"
+
+#include <folly/AtomicHashMap.h>
+#include <folly/FBString.h>
+#include <folly/Range.h>
 
 namespace minigraph {
 namespace graphs {
@@ -60,34 +62,6 @@ class VertexInfo {
       std::cout << std::endl;
     }
     std::cout << "----------------------------" << std::endl;
-  }
-
-  bool IsChildrens(const VID_T vid) const {
-    if (outdegree == 0) return false;
-    for (size_t i = 0; i < outdegree; i++) {
-      if (out_edges[i] == vid) return true;
-    }
-    return false;
-  }
-
-  bool IsParrents(const VID_T vid) const {
-    if (indegree == 0) return false;
-    for (size_t i = 0; i < indegree; i++) {
-      if (in_edges[i] == vid) return true;
-    }
-    return false;
-  }
-
-  VID_T get_random_out_edge() {
-    if (outdegree == 0)
-      return VID_MAX;
-    else
-      return out_edges[rand() % outdegree];
-  }
-
-  VDATA_T && get_vdata(size_t i){
-    LOG_INFO("get_vdata:", i);
-    return edata[i];
   }
 };
 
@@ -166,4 +140,5 @@ class Graph {
 
 }  // namespace graphs
 }  // namespace minigraph
+
 #endif  // MINIGRAPH_GRAPHS_GRAPH_H

@@ -2,6 +2,7 @@
 #define ATOMIC_H
 
 #include <assert.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -17,6 +18,10 @@ inline bool cas(ET* ptr, ET oldv, ET newv) {
     return __sync_bool_compare_and_swap((unsigned short*)ptr,
                                         *((unsigned short*)&oldv),
                                         *((unsigned short*)&newv));
+  } else if (sizeof(ET) == 1) {
+    printf("XXX");
+    return __sync_bool_compare_and_swap((uint8_t*)ptr, *((uint8_t*)&oldv),
+                                        *((uint8_t*)&newv));
   } else {
     assert(false);
   }

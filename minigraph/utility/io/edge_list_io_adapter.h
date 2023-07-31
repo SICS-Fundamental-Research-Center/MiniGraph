@@ -1,22 +1,21 @@
 #ifndef MINIGRAPH_UTILITY_IO_EDGE_LIST_IO_ADAPTER_H
 #define MINIGRAPH_UTILITY_IO_EDGE_LIST_IO_ADAPTER_H
 
-#include <sys/stat.h>
-
-#include <filesystem>
-#include <fstream>
-#include <iostream>
-#include <string>
-#include <unordered_map>
-
-#include "rapidcsv.h"
-
 #include "graphs/edgelist.h"
 #include "io_adapter_base.h"
 #include "portability/sys_data_structure.h"
 #include "portability/sys_types.h"
 #include "utility/atomic.h"
 #include "utility/thread_pool.h"
+
+#include "rapidcsv.h"
+
+#include <sys/stat.h>
+#include <filesystem>
+#include <fstream>
+#include <iostream>
+#include <string>
+#include <unordered_map>
 
 namespace minigraph {
 namespace utility {
@@ -263,8 +262,7 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     meta_file.read((char*)meta_buff, sizeof(size_t) * 2);
     meta_file.read((char*)&edge_list_graph->max_vid_, sizeof(VID_T));
     edge_list_graph->aligned_max_vid_ =
-        ceil(edge_list_graph->max_vid_ / ALIGNMENT_FACTOR) *
-        ALIGNMENT_FACTOR;
+        ceil(edge_list_graph->max_vid_ / ALIGNMENT_FACTOR) * ALIGNMENT_FACTOR;
 
     edge_list_graph->buf_graph_ =
         (VID_T*)malloc(sizeof(VID_T) * 2 * meta_buff[1]);
@@ -344,7 +342,6 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
       thread_pool.Commit([tid, &cores, &src, &dst, &graph, &pending_packages,
                           &finish_cv, &max_vid]() {
         for (size_t j = tid; j < src.size(); j += cores) {
-	  if(src.at(j) == dst.at(j)) continue;
           *(graph->buf_graph_ + j * 2) = src.at(j);
           *(graph->buf_graph_ + j * 2 + 1) = dst.at(j);
           write_max(&max_vid, src.at(j));
@@ -360,11 +357,7 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     ((EDGE_LIST_T*)graph)->max_vid_ = max_vid;
     ((EDGE_LIST_T*)graph)->aligned_max_vid_ =
         ceil(max_vid / ALIGNMENT_FACTOR) * ALIGNMENT_FACTOR;
-    LOG_INFO(
-
-        ((EDGE_LIST_T*)graph)->get_aligned_max_vid()
-
-    );
+    LOG_INFO(((EDGE_LIST_T*)graph)->get_aligned_max_vid());
     ((EDGE_LIST_T*)graph)->gid_ = gid;
 
     Bitmap* vertex_indicator = new Bitmap(graph->get_aligned_max_vid());
@@ -379,14 +372,8 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
         for (size_t j = tid; j < graph->get_num_edges(); j += cores) {
           auto src_vid = ((EDGE_LIST_T*)graph)->buf_graph_[j * 2];
           auto dst_vid = ((EDGE_LIST_T*)graph)->buf_graph_[j * 2 + 1];
-          if (!vertex_indicator->get_bit(src_vid)) {
-            vertex_indicator->set_bit(src_vid);
-            __sync_add_and_fetch(&((EDGE_LIST_T*)graph)->num_vertexes_, 1);
-          }
-          if (!vertex_indicator->get_bit(dst_vid)) {
-            vertex_indicator->set_bit(dst_vid);
-            __sync_add_and_fetch(&((EDGE_LIST_T*)graph)->num_vertexes_, 1);
-          }
+          vertex_indicator->set_bit(src_vid);
+          vertex_indicator->set_bit(dst_vid);
         }
         if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
         return;
@@ -394,11 +381,13 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
     }
     finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
 
+    graph->set_num_vertexes(vertex_indicator->get_num_bit());
     ((EDGE_LIST_T*)graph)->vdata_ =
         (VDATA_T*)malloc(sizeof(VDATA_T) * graph->get_num_vertexes());
     memset(((EDGE_LIST_T*)graph)->vdata_, 0,
            sizeof(VDATA_T) * graph->get_num_vertexes());
 
+    ((EDGE_LIST_T*)graph)->ShowGraph(3);
     return true;
   }
 
@@ -498,7 +487,7 @@ class EdgeListIOAdapter : public IOAdapterBase<GID_T, VID_T, VDATA_T, EDATA_T> {
         thread_pool.Commit([tid, &cores, &src, &dst, &graph, &pending_packages,
                             &finish_cv, &max_vid, &buff]() {
           for (size_t j = tid; j < src.size(); j += cores) {
-	    if(src.at(j) == dst.at(j)) continue;
+            if (src.at(j) == dst.at(j)) continue;
             *(buff + j * 2) = src.at(j);
             *(buff + j * 2 + 1) = dst.at(j);
             write_max(&max_vid, src.at(j));

@@ -8,9 +8,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include <folly/AtomicHashMap.h>
-#include <folly/FBVector.h>
-
 #include "graphs/graph.h"
 #include "portability/sys_types.h"
 #include "utility/bitmap.h"
@@ -19,6 +16,9 @@
 #include "utility/io/io_adapter_base.h"
 #include "utility/paritioner/partitioner_base.h"
 #include "utility/thread_pool.h"
+
+#include <folly/AtomicHashMap.h>
+#include <folly/FBVector.h>
 
 namespace minigraph {
 namespace utility {
@@ -123,14 +123,8 @@ class VertexCutPartitioner : public PartitionerBase<GRAPH_T> {
           edges_buckets[bucket_id][offset * 2] = src_vid;
           edges_buckets[bucket_id][offset * 2 + 1] = dst_vid;
 
-          if (is_in_bucketX[bucket_id]->get_bit(src_vid) == 0) {
-            is_in_bucketX[bucket_id]->set_bit(src_vid);
-            __sync_add_and_fetch(num_vertexes_per_bucket + bucket_id, 1);
-          }
-          if (is_in_bucketX[bucket_id]->get_bit(dst_vid) == 0) {
-            is_in_bucketX[bucket_id]->set_bit(dst_vid);
-            __sync_add_and_fetch(num_vertexes_per_bucket + bucket_id, 1);
-          }
+          is_in_bucketX[bucket_id]->set_bit(src_vid);
+          is_in_bucketX[bucket_id]->set_bit(dst_vid);
         }
         if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
         return;
@@ -139,6 +133,11 @@ class VertexCutPartitioner : public PartitionerBase<GRAPH_T> {
     finish_cv.wait(lck, [&] { return pending_packages.load() == 0; });
 
     delete edgelist_graph;
+
+    for (size_t i = 0; i < num_partitions; i++) {
+      *(num_vertexes_per_bucket + i) = is_in_bucketX[i]->get_num_bit();
+    }
+
     minigraph::utility::io::CSRIOAdapter<GID_T, VID_T, VDATA_T, EDATA_T>
         csr_io_adapter;
 
@@ -190,9 +189,6 @@ class VertexCutPartitioner : public PartitionerBase<GRAPH_T> {
 
     for (size_t i = 0; i < num_partitions; i++) {
       delete is_in_bucketX[i];
-    }
-    for (GID_T gid = 0; gid < num_partitions; gid++) {
-      free(edges_buckets[gid]);
     }
     free(num_vertexes_per_bucket);
     free(max_vid_per_bucket);
