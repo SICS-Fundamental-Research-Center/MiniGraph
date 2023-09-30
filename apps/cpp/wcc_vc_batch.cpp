@@ -142,15 +142,16 @@ class WCCPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
                                         task_runner, vid_map, &visited,
                                         &global_si);
       auto iter_end_time = std::chrono::system_clock::now();
-      LOG_INFO("#", count++, " ", out_visited->get_num_bit());
+      //LOG_INFO("#", count++, " ", out_visited->get_num_bit());
+      LOG_INFO("#", count++);
       std::swap(in_visited, out_visited);
     }
 
-    this->auto_map_->ActiveMap(
-        graph, task_runner, &visited,
-        WCCAutoMap<GRAPH_T, CONTEXT_T>::kernel_push_border_vertexes,
-        this->msg_mngr_->GetGlobalBorderVidMap(),
-        this->msg_mngr_->GetGlobalVdata(), &global_si);
+    //this->auto_map_->ActiveMap(
+    //    graph, task_runner, &visited,
+    //    WCCAutoMap<GRAPH_T, CONTEXT_T>::kernel_push_border_vertexes,
+    //    this->msg_mngr_->GetGlobalBorderVidMap(),
+    //    this->msg_mngr_->GetGlobalVdata(), &global_si);
 
     auto end_time = std::chrono::system_clock::now();
     global_si.elapsed_time =

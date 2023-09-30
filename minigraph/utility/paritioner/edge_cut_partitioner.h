@@ -142,6 +142,7 @@ class EdgeCutPartitioner : public PartitionerBase<GRAPH_T> {
           u->out_edges = (VID_T*)malloc(sizeof(VID_T) * (u->outdegree));
           memset(u->out_edges, 0, sizeof(VID_T) * (u->outdegree));
           vertexes[global_id] = u;
+          LOG_INFO(global_id);
         }
         if (pending_packages.fetch_sub(1) == 1) finish_cv.notify_all();
         return;
