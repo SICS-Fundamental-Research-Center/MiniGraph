@@ -40,6 +40,7 @@ class ColoringAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
     for (size_t i = tid; i < graph->get_num_vertexes(); i += step) {
       if (graph->localid2globalid(i) > upper_bound) continue;
       auto u = graph->GetVertexByIndex(i);
+      auto active = false;
       for (size_t j = 0; j < u.outdegree; ++j) {
         if (graph->localid2globalid(i) < u.out_edges[j]) {
           if (global_border_vdata[graph->localid2globalid(i)] ==
@@ -47,11 +48,19 @@ class ColoringAutoMap : public minigraph::AutoMapBase<GRAPH_T, CONTEXT_T> {
             //++global_border_vdata[graph->localid2globalid(i)];
             write_add(&global_border_vdata[graph->localid2globalid(i)],
                       (VDATA_T)1);
+            //LOG_INFO(u.vid, " colosr ->",
+            //         global_border_vdata[graph->localid2globalid(i)]);
             write_max(&local_upper_bound, graph->localid2globalid(i));
             out_visited->set_bit(i);
+            active = true;
           }
         }
       }
+      //if (active) {
+      //  for (size_t j = 0; j < u.indegree; ++j) {
+      //    out_visited->set_bit(graph->globalid2localid(u.in_edges[j]));
+      //  }
+      //}
     }
     return;
   }
@@ -90,7 +99,6 @@ class ColoringPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     LOG_INFO("PEval() - Processing gid: ", graph.gid_,
              " num_vertexes: ", graph.get_num_vertexes());
 
-    graph.ShowGraphAbs();
     auto start_time = std::chrono::system_clock::now();
     Bitmap* in_visited = new Bitmap(graph.get_num_vertexes());
     Bitmap* out_visited = new Bitmap(graph.get_num_vertexes());
@@ -102,14 +110,21 @@ class ColoringPIE : public minigraph::AutoAppBase<GRAPH_T, CONTEXT_T> {
     typename GRAPH_T::vid_t local_upper_bound = 0;
     size_t count = 0;
     while (!in_visited->empty()) {
+      in_visited->fill();
       this->auto_map_->ActiveMap(
           graph, task_runner, &visited,
           ColoringAutoMap<GRAPH_T, CONTEXT_T>::kernel_update,
           this->msg_mngr_->GetGlobalVdata(), out_visited, local_upper_bound,
           this->context_.upper_bound);
-      LOG_INFO("#", count++, " active: ", out_visited->get_num_bit());
+      // LOG_INFO("#", count++, " active: ", out_visited->get_num_bit());
+      LOG_INFO("#", count++);
       std::swap(in_visited, out_visited);
       out_visited->clear();
+      auto vdata = this->msg_mngr_->GetGlobalVdata();
+     // for (size_t i = 0; i < graph.get_num_vertexes(); i++) {
+     //   std::cout << vdata[i] << ", ";
+     // }
+     // std::cout << std::endl;
     }
     write_add(&this->context_.num_graphs, 1);
     auto end_time = std::chrono::system_clock::now();

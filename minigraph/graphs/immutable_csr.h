@@ -99,7 +99,6 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
          global_id++) {
       if (set_vertexes[global_id] == nullptr) continue;
       if (vid_map != nullptr) vid_map[global_id] = local_id;
-
       this->bitmap_->set_bit(global_id);
       ((VID_T*)((char*)this->buf_graph_ +
                 start_localid_by_globalid))[global_id] = local_id;
@@ -173,7 +172,6 @@ class ImmutableCSR : public Graph<GID_T, VID_T, VDATA_T, EDATA_T> {
     memset(this->edata_, 0, sizeof(EDATA_T) * this->get_num_out_edges());
 
     is_serialized_ = true;
-    LOG_INFO("Construct ", gid);
     return;
   };
 
