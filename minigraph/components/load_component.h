@@ -14,7 +14,6 @@
 #include "scheduler/fifo_scheduler.h"
 #include "scheduler/hash_scheduler.h"
 #include "scheduler/large_first_scheduler.h"
-#include "scheduler/learned_scheduler.h"
 #include "scheduler/small_first_scheduler.h"
 #include "scheduler/subgraph_scheduler_base.h"
 #include "utility/io/csr_io_adapter.h"
@@ -73,9 +72,6 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
 
     if (scheduler == "FIFO") {
       scheduler_ = new scheduler::FIFOScheduler<GID_T>();
-    } else if (scheduler == "learned_model") {
-      scheduler_ =
-          new scheduler::LearnedScheduler<GID_T>(msg_mngr_->GetStatisticInfo());
     } else if (scheduler == "hash") {
       scheduler_ = new scheduler::HashScheduler<GID_T>();
     } else if (scheduler == "large_first") {

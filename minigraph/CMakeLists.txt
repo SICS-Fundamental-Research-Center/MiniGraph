@@ -33,10 +33,6 @@ if (USE_JEMALLOC)
     endif ()
 endif ()
 
-# yaml-cpp
-include("${CMAKE_CURRENT_SOURCE_DIR}/../cmake/Findyaml-cpp.cmake" OPTIONAL)
-include_directories(${THIRD_PARTY_ROOT}/yaml-cpp/include)
-message(${THIRD_PARTY_ROOT}/yaml-cpp/include/)
 if (NOT YAML_CPP_FOUND)
     message(STATUS "yaml-cpp not found, build without yaml-cpp")
 endif ()
@@ -96,6 +92,7 @@ endif ()
 add_library(minigraph ${MINIGRAPH_SOURCES})
 
 target_link_libraries(minigraph
+	yaml-cpp
         ${FOLLY_LIBRARIES}
         ${YAML_CPP_LIBRARIES}
         ${JEMALLOC_LIBRARIES}

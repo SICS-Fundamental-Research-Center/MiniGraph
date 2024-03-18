@@ -66,6 +66,7 @@ include_directories(${THIRD_PARTY_ROOT}/rapidcsv/src)
 include_directories(${THIRD_PARTY_ROOT}/eigen/)
 
 # yaml-cpp
+add_subdirectory(${THIRD_PARTY_ROOT}/yaml-cpp)
 include_directories(${THIRD_PARTY_ROOT}/yaml-cpp/include/)
 
 # common
@@ -87,7 +88,7 @@ foreach (appfile ${tools})
     message(STATUS "Found apps: ${appfile}")
     get_filename_component(app ${appfile} NAME_WE)
     add_executable("${app}_exec" ${appfile})
-    target_link_libraries("${app}_exec" minigraph)
+    target_link_libraries("${app}_exec" minigraph yaml-cpp)
 endforeach ()
 
 file(GLOB appfiles "${CMAKE_CURRENT_SOURCE_DIR}/apps/cpp/*.cpp")
@@ -95,6 +96,6 @@ foreach (appfile ${appfiles})
     message(STATUS "Found apps: ${appfile}")
     get_filename_component(app ${appfile} NAME_WE)
     add_executable("${app}_exec" ${appfile})
-    target_link_libraries("${app}_exec" minigraph)
+    target_link_libraries("${app}_exec" minigraph yaml-cpp)
 endforeach ()
 
