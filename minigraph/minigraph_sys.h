@@ -82,9 +82,7 @@ class MiniGraphSys {
 
     // init read_trigger
     read_trigger_ = std::make_unique<std::queue<GID_T>>();
-    for (auto& iter : vec_gid) {
-      read_trigger_->push(iter);
-    }
+    for (auto& iter : vec_gid) read_trigger_->push(iter);
 
     // init load sem
     load_sem_ = std::make_unique<folly::NativeSemaphore>(buffer_size);
