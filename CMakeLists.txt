@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.2)
 
 project(minigraph)
 set(MINIGRAPH_COPYRIGHT_YEAR "2022")
@@ -54,7 +54,8 @@ set(CMAKE_THREAD_PREFER_PTHREAD ON)
 find_package(Threads REQUIRED)
 
 # find gflag
-find_package(gflags REQUIRED)
+add_subdirectory(${THIRD_PARTY_ROOT}/gflags)
+#find_package(gflags REQUIRED)
 
 # Boost-ext sml
 include_directories(${THIRD_PARTY_ROOT}/sml/include)
@@ -77,9 +78,7 @@ include_directories(${PROJECT_ROOT_DIR}/common)
 # Artifacts
 #######################
 add_subdirectory(minigraph)
-include_directories(
-        ${CMAKE_CURRENT_SOURCE_DIR}/minigraph
-)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/minigraph)
 
 
 file(GLOB tools "${CMAKE_CURRENT_SOURCE_DIR}/tools/*.cpp")
