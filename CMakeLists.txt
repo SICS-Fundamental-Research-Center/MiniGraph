@@ -54,8 +54,7 @@ set(CMAKE_THREAD_PREFER_PTHREAD ON)
 find_package(Threads REQUIRED)
 
 # find gflag
-add_subdirectory(${THIRD_PARTY_ROOT}/gflags)
-#find_package(gflags REQUIRED)
+find_package(gflags REQUIRED)
 
 # Boost-ext sml
 include_directories(${THIRD_PARTY_ROOT}/sml/include)
