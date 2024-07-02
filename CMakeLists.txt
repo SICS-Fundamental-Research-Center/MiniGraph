@@ -48,7 +48,6 @@ if (USE_JEMALLOC)
 endif ()
 
 
-
 # find Threads
 set(CMAKE_THREAD_PREFER_PTHREAD ON)
 find_package(Threads REQUIRED)
@@ -62,15 +61,12 @@ include_directories(${THIRD_PARTY_ROOT}/sml/include)
 # rapidcsv
 include_directories(${THIRD_PARTY_ROOT}/rapidcsv/src)
 
-# Eigen
-include_directories(${THIRD_PARTY_ROOT}/eigen/)
-
 # yaml-cpp
+add_subdirectory("${THIRD_PARTY_ROOT}/yaml-cpp")
 include_directories(${THIRD_PARTY_ROOT}/yaml-cpp/include/)
 
 # common
 include_directories(${PROJECT_ROOT_DIR}/common)
-
 
 #######################
 # Artifacts
@@ -81,20 +77,20 @@ include_directories(
 )
 
 
-file(GLOB tools "${CMAKE_CURRENT_SOURCE_DIR}/tools/*.cpp")
-foreach (appfile ${tools})
-    file(GLOB appfiles "${CMAKE_CURRENT_SOURCE_DIR}/tools/*.cpp")
-    message(STATUS "Found apps: ${appfile}")
-    get_filename_component(app ${appfile} NAME_WE)
-    add_executable("${app}_exec" ${appfile})
-    target_link_libraries("${app}_exec" minigraph)
-endforeach ()
+#file(GLOB tools "${CMAKE_CURRENT_SOURCE_DIR}/tools/*.cpp")
+#foreach (appfile ${tools})
+#    file(GLOB appfiles "${CMAKE_CURRENT_SOURCE_DIR}/tools/*.cpp")
+#    message(STATUS "Found apps: ${appfile}")
+#    get_filename_component(app ${appfile} NAME_WE)
+#    add_executable("${app}_exec" ${appfile})
+#    target_link_libraries("${app}_exec" minigraph_core yaml-cpp::yaml-cpp)
+#endforeach ()
 
 file(GLOB appfiles "${CMAKE_CURRENT_SOURCE_DIR}/apps/cpp/*.cpp")
 foreach (appfile ${appfiles})
     message(STATUS "Found apps: ${appfile}")
     get_filename_component(app ${appfile} NAME_WE)
     add_executable("${app}_exec" ${appfile})
-    target_link_libraries("${app}_exec" minigraph)
+    target_link_libraries("${app}_exec" minigraph_core yaml-cpp::yaml-cpp)
 endforeach ()
 

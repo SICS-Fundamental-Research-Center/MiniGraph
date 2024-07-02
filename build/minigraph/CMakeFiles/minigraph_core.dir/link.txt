@@ -1,0 +1,2 @@
+/usr/bin/ar qc /home/zhuxiaoke/project/graph_computing/MiniGraph/bin/libminigraph_core.a CMakeFiles/minigraph_core.dir/executors/cpu_scheduler.cpp.o CMakeFiles/minigraph_core.dir/executors/scheduled_executor.cpp.o CMakeFiles/minigraph_core.dir/executors/throttle.cpp.o CMakeFiles/minigraph_core.dir/utility/logging.cpp.o
+/usr/bin/ranlib /home/zhuxiaoke/project/graph_computing/MiniGraph/bin/libminigraph_core.a
