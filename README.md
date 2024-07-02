@@ -56,10 +56,6 @@ At the minimum, MiniGraph depends on the following software:
 * jemalloc (>=5.30)
 
 
-
-
-
-
 ### Build
 
 First, clone the project and install dependencies on your environment.
@@ -107,24 +103,15 @@ by specifying parameters "-cc" and "-cores" as follows:
 
 ```shell
 $cd $SRC_DIR
-$./bin/wcc_vc_exec  -i [workspace] -cc [The number of ComputingComponent] -buffer_size [The size of task queue] -cores [Degree of parallelism]
+$./bin/wcc_vc_stream_exec  -i [workspace] -cc [The number of ComputingComponent] -buffer_size [The size of task queue] -cores [Degree of parallelism]
 ```
 "buffer_size" is used to control the number of fragment that can residented in memory.
-
-Other applications, such as Simulation require the input pattern. 
-User should provide pattern by -pattern [pattern in CSV format] command.
-For example,
-
-```shell
-$cd $SRC_DIR
-$./bin/sim_vc_exec  -i [workspace] -cc [The number of ComputingComponent] -buffer_size [The size of task queue] -cores [Degree of parallelism] -pattern [pattern in csv format]
-```
 
 #### Demo: WCC on road-Net
 ```shell
 $cd $SRC_DIR
-$./bin/graph_partition_exec -t csr_bin -p -n 1 -i inputs/roadNet-CA.csv -sep "," -o inputs/workspace/ -cores 10 -tobin -partitioner vertexcut
-$./bin/wcc_vc_exec -i inputs/workspace/ -cc 1 -buffer_size 1 -cores 4
+$./bin/graph_partition_exec -t csr_bin -p -n 1 -i inputs/roadNet-CA.csv -sep "," -o inputs/workspace/ -cores 20 -tobin -partitioner vertexcut
+$./bin/wcc_vc_stream_exec -i inputs/workspace/ -cc 1 -buffer_size 1 -cores 20
 ```
 
 ## Writing Your Own Graph Algorithms: WCC
@@ -421,6 +408,3 @@ When all the fragments are finished with computation, the algorithm is terminate
 For bugs, please raise an issue on GiHub. 
 Questions and comments are also welcome at my email: 
 zhuxk@buaa.edu.cn
-
-
-
