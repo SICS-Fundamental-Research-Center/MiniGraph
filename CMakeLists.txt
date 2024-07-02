@@ -76,15 +76,14 @@ include_directories(
         ${CMAKE_CURRENT_SOURCE_DIR}/minigraph
 )
 
-
-#file(GLOB tools "${CMAKE_CURRENT_SOURCE_DIR}/tools/*.cpp")
-#foreach (appfile ${tools})
-#    file(GLOB appfiles "${CMAKE_CURRENT_SOURCE_DIR}/tools/*.cpp")
-#    message(STATUS "Found apps: ${appfile}")
-#    get_filename_component(app ${appfile} NAME_WE)
-#    add_executable("${app}_exec" ${appfile})
-#    target_link_libraries("${app}_exec" minigraph_core yaml-cpp::yaml-cpp)
-#endforeach ()
+file(GLOB tools "${CMAKE_CURRENT_SOURCE_DIR}/tools/*.cpp")
+foreach (appfile ${tools})
+    file(GLOB appfiles "${CMAKE_CURRENT_SOURCE_DIR}/tools/*.cpp")
+    message(STATUS "Found apps: ${appfile}")
+    get_filename_component(app ${appfile} NAME_WE)
+    add_executable("${app}_exec" ${appfile})
+    target_link_libraries("${app}_exec" minigraph_core yaml-cpp::yaml-cpp)
+endforeach ()
 
 file(GLOB appfiles "${CMAKE_CURRENT_SOURCE_DIR}/apps/cpp/*.cpp")
 foreach (appfile ${appfiles})

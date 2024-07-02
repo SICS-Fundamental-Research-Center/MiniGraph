@@ -1,26 +1,23 @@
 #ifndef MINIGRAPH_LOAD_COMPONENT_H
 #define MINIGRAPH_LOAD_COMPONENT_H
 
-#include <condition_variable>
-#include <memory>
-#include <queue>
-#include <string>
-
-#include <folly/ProducerConsumerQueue.h>
-#include <folly/synchronization/NativeSemaphore.h>
-
 #include "components/component_base.h"
 #include "portability/sys_data_structure.h"
 #include "scheduler/fifo_scheduler.h"
 #include "scheduler/hash_scheduler.h"
 #include "scheduler/large_first_scheduler.h"
-#include "scheduler/learned_scheduler.h"
 #include "scheduler/small_first_scheduler.h"
 #include "scheduler/subgraph_scheduler_base.h"
 #include "utility/io/csr_io_adapter.h"
 #include "utility/io/data_mngr.h"
 #include "utility/state_machine.h"
 #include "utility/thread_pool.h"
+#include <folly/ProducerConsumerQueue.h>
+#include <folly/synchronization/NativeSemaphore.h>
+#include <condition_variable>
+#include <memory>
+#include <queue>
+#include <string>
 
 namespace minigraph {
 namespace components {
@@ -73,9 +70,6 @@ class LoadComponent : public ComponentBase<typename GRAPH_T::gid_t> {
 
     if (scheduler == "FIFO") {
       scheduler_ = new scheduler::FIFOScheduler<GID_T>();
-    } else if (scheduler == "learned_model") {
-      scheduler_ =
-          new scheduler::LearnedScheduler<GID_T>(msg_mngr_->GetStatisticInfo());
     } else if (scheduler == "hash") {
       scheduler_ = new scheduler::HashScheduler<GID_T>();
     } else if (scheduler == "large_first") {

@@ -80,12 +80,10 @@ class ComputingComponent : public ComponentBase<typename GRAPH_T::gid_t> {
       if (!this->switch_) return;
       while (!task_queue_->read(gid))
         ;
-      LOG_INFO(gid);
       vec_gid.push_back(gid);
       que_gid.push(gid);
       while (!que_gid.empty()) {
         gid = que_gid.front();
-        LOG_INFO(gid);
         que_gid.pop();
         // sem.try_wait();
         auto task = std::bind(

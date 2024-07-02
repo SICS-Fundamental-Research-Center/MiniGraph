@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(minigraph)
+project(minigraph_core)
 
 # Directories
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_ROOT_DIR}/bin)
@@ -41,25 +41,13 @@ if (NOT YAML_CPP_FOUND)
     message(STATUS "yaml-cpp not found, build without yaml-cpp")
 endif ()
 
-# CUDA
-find_package(CUDA)
-if (NOT CUDA_FOUND)
-    message(STATUS "CUDA Not Found. Project will not be build.")
-endif ()
 
 # find Threads
 set(CMAKE_THREAD_PREFER_PTHREAD ON)
 find_package(Threads REQUIRED)
 
-# find gflag
-find_package(gflags REQUIRED)
-
 # Boost-ext sml
 include_directories(${THIRD_PARTY_ROOT}/sml/include)
-
-# rapidcsv
-include_directories(${THIRD_PARTY_ROOT}/rapidcsv/src)
-
 
 #######################
 # Children CMakeLists
@@ -93,10 +81,10 @@ endif ()
 #######################
 # Generate libminigraph
 #######################
-add_library(minigraph ${MINIGRAPH_SOURCES})
+add_library(minigraph_core ${MINIGRAPH_SOURCES})
 
-target_link_libraries(minigraph
+target_link_libraries(minigraph_core
         ${FOLLY_LIBRARIES}
-        ${YAML_CPP_LIBRARIES}
+        yaml-cpp::yaml-cpp
         ${JEMALLOC_LIBRARIES}
         )
